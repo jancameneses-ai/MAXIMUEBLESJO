@@ -710,16 +710,49 @@ function validarTelRef(input,errId){
 }
 function gestCuot(vi){
   var v=ven[vi];
-  if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null};});
-  var cvDef=v.ci?Math.round(v.ci.cval):Math.round(v.total/v.cuotas);
+  if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null,pendiente:0};});
+  var cuotaBase=v.ci?Math.round(v.ci.cval):Math.round(v.total/v.cuotas);
   var cl=[v.comprador&&v.comprador.nombre,v.comprador&&v.comprador.apellido].filter(Boolean).join(' ')||'Sin nombre';
-  var h='<div style="margin-bottom:10px;font-size:12px;padding:10px;background:#f8f8f8;border-radius:8px">'+
-    '<strong>'+v.art+'</strong><br>'+
-    '<span style="color:#666">Cliente: '+cl+'</span><br>'+
-    '<span style="font-weight:700;color:#1a3a1a">Cuota referencia: '+fmt(cvDef)+'/mes</span></div>'+
-    '<div style="display:flex;flex-direction:column;gap:8px">';
+
+  // Calcular cuanto debe cada cuota (base + pendiente acumulado de anterior)
+  var cuotasVal=[];
+  var acum=0;
   for(var i=0;i<v.cuotas;i++){
     var cp=v.cp[i];
+    var debeEsta=cuotaBase+acum;
+    if(cp.pagado){
+      var faltante=debeEsta-(cp.monto||0);
+      acum=faltante>0?faltante:0;
+    }else{
+      acum=0;
+    }
+    cuotasVal.push(debeEsta);
+  }
+  // Total pagado hasta ahora
+  var totalPagado=(v.cp||[]).reduce(function(s,c){return s+(c.pagado?c.monto||0:0);},0);
+  var saldoPendiente=v.total-totalPagado;
+
+  // Resumen financiero arriba
+  var h='<div style="background:#1a3a1a;border-radius:10px;padding:12px 14px;margin-bottom:12px;color:#fff">';
+  h+='<div style="font-size:11px;color:#c9a227;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">'+v.art+'</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">CUOTA REFERENCIA</div><div style="font-size:15px;font-weight:700;color:#c9a227">'+fmt(cuotaBase)+'/mes</div></div>';
+  if(v.ci&&v.ci.inicial>0){
+    h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">INICIAL PAGADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(v.ci.inicial)+'</div></div>';
+  }
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">TOTAL ABONADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(totalPagado)+'</div></div>';
+  h+='<div style="grid-column:span 2;border-top:1px solid rgba(255,255,255,.15);padding-top:6px;margin-top:2px">';
+  h+='<div style="font-size:9px;color:rgba(255,255,255,.6)">SALDO PENDIENTE</div>';
+  h+='<div style="font-size:17px;font-weight:700;color:'+(saldoPendiente<=0?'#2ecc71':'#e74c3c')+'">'+fmt(Math.max(0,saldoPendiente))+'</div></div>';
+  h+='</div></div>';
+
+  h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Detalle de cuotas</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:8px">';
+
+  for(var i=0;i<v.cuotas;i++){
+    var cp=v.cp[i];
+    var debeEsta=cuotasVal[i];
     var dias=diasPP(v,i);
     var border='1px solid #eee';
     if(!cp.pagado&&dias!==null){
@@ -740,22 +773,43 @@ function gestCuot(vi){
     }else if(cp.pagado){
       alertTxt='<span style="font-size:10px;color:#1e8449;font-weight:700">PAGADA</span>';
     }
-    h+='<div style="padding:10px 12px;background:'+bgc+';border-radius:8px;border:'+border+'">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'+
-      '<span style="font-weight:700;font-size:12px">Cuota '+(i+1)+(fechaV?' &mdash; '+fechaV:'')+'</span>'+alertTxt+'</div>'+
-      '<div class="g2" style="gap:8px;margin-bottom:8px">'+
-      '<div><label style="font-size:10px">Monto recibido $</label>'+
-      '<input type="number" id="cm'+vi+'_'+i+'" value="'+(cp.monto||cvDef)+'" style="font-size:12px;padding:5px 7px;text-transform:none"'+(cp.pagado?' readonly':'')+'></div>'+
-      '<div><label style="font-size:10px">Fecha de pago</label>'+
-      '<input type="date" id="cf'+vi+'_'+i+'" value="'+(cp.fecha||'')+'" style="font-size:12px;padding:5px 7px"'+(cp.pagado?' readonly':'')+'></div>'+
-      '</div>';
+
+    // Mostrar si hay saldo acumulado de cuota anterior
+    var acumLabel='';
+    if(!cp.pagado&&debeEsta>cuotaBase){
+      var extra=debeEsta-cuotaBase;
+      acumLabel='<div style="font-size:10px;color:#e67e22;font-weight:700;margin-top:3px">+ $'+Math.round(extra).toLocaleString('es-CO')+' pendiente de cuota anterior</div>';
+    }
+
+    h+='<div style="padding:10px 12px;background:'+bgc+';border-radius:8px;border:'+border+'">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+    h+='<div><span style="font-weight:700;font-size:12px">Cuota '+(i+1)+(fechaV?' &mdash; '+fechaV:'')+'</span>';
+    h+=acumLabel+'</div>';
+    h+=alertTxt+'</div>';
+
+    // Valor que debe pagar en esta cuota
+    h+='<div style="background:rgba(0,0,0,.04);border-radius:6px;padding:6px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">';
+    h+='<span style="font-size:11px;color:#555">Valor a pagar esta cuota</span>';
+    h+='<span style="font-size:14px;font-weight:700;color:#1a3a1a">'+fmt(debeEsta)+'</span>';
+    h+='</div>';
+
+    h+='<div class="g2" style="gap:8px;margin-bottom:8px">';
+    h+='<div><label style="font-size:10px">Monto recibido $</label>';
+    h+='<input type="number" id="cm'+vi+'_'+i+'" value="'+(cp.pagado?cp.monto||0:debeEsta)+'" style="font-size:12px;padding:5px 7px;text-transform:none"'+(cp.pagado?' readonly':'')+'></div>';
+    h+='<div><label style="font-size:10px">Fecha de pago</label>';
+    h+='<input type="date" id="cf'+vi+'_'+i+'" value="'+(cp.fecha||'')+'" style="font-size:12px;padding:5px 7px"'+(cp.pagado?' readonly':'')+'></div>';
+    h+='</div>';
+
     if(!cp.pagado){
       h+='<button class="btn bgreen" onclick="togCuota('+vi+','+i+')" style="width:100%;padding:8px;font-size:11px">Marcar como pagada</button>';
     }else{
-      h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
-        '<span style="color:#1e8449;font-weight:700;font-size:11px">Pagado: '+fmt(cp.monto)+'</span>'+
-        '<button class="btn bpdf" onclick="dlReciboCuota('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Recibo PDF</button>'+
-        '<button class="btn bgray" onclick="desPagar('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Deshacer</button></div>';
+      h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+      h+='<span style="color:#1e8449;font-weight:700;font-size:11px">Pagado: '+fmt(cp.monto)+'</span>';
+      if(cp.monto<debeEsta){
+        h+='<span style="color:#e67e22;font-size:10px;font-weight:700">Faltan: '+fmt(debeEsta-cp.monto)+' (sumados a siguiente cuota)</span>';
+      }
+      h+='<button class="btn bpdf" onclick="dlReciboCuota('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Recibo PDF</button>';
+      h+='<button class="btn bgray" onclick="desPagar('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Deshacer</button></div>';
     }
     h+='</div>';
   }
