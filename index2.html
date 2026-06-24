@@ -168,7 +168,11 @@ tr:hover td{background:#fdfaf0}
       <div class="card">
         <h2>Producto</h2>
         <div style="display:flex;flex-direction:column;gap:9px">
-          <div><label>Artículo</label><select id="sa" onchange="loadP()"></select></div>
+          <div>
+  <label>Buscar artículo</label>
+  <input type="text" id="buscar-art" placeholder="ESCRIBE PARA BUSCAR..." oninput="filtrarArts()" style="margin-bottom:6px" class="noup">
+  <select id="sa" onchange="loadP()" size="1" style="cursor:pointer"></select>
+</div>
           <div class="g2">
             <div><label>Cantidad</label><input type="number" id="iq" min="1" value="1" oninput="calc()" class="noup"></div>
             <div><label>Precio venta $</label><input type="number" id="ipr" oninput="calc()" class="noup"></div>
@@ -218,7 +222,10 @@ tr:hover td{background:#fdfaf0}
           </div>
           <div class="g3">
             <div><label>Cedula <span id="rc1"></span></label><input type="text" id="icc" placeholder="CC" class="noup"></div>
-            <div><label>Telefono <span id="rt1"></span></label><input type="tel" id="itel" placeholder="TEL" class="noup"></div>
+            <div><label>Telefono <span id="rt1"></span></label>
+  <input type="tel" id="itel" placeholder="3XXXXXXXXX" class="noup" maxlength="10" oninput="validarTel(this)">
+  <div id="tel-error" style="display:none;color:#e74c3c;font-size:10px;font-weight:700;margin-top:2px">El celular debe tener 10 digitos y empezar por 3</div>
+</div>
             <div><label>Barrio <span id="rb1"></span></label><input type="text" id="ibar" placeholder="BARRIO"></div>
           </div>
         </div>
@@ -482,13 +489,30 @@ function onPago(){
   var pago=g('sp').value;
   var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
+  var ef=pago==='EFECTIVO';
   g('ccbox').style.display=cc?'block':'none';
   g('cred-wrap').style.display=(cr&&!cc)?'block':'none';
   g('crefs').style.display=cc?'block':'none';
   var req='<span style="color:#e74c3c">*</span>';
-  g('lopc').textContent=cr?'(obligatorio)':'(opcional)';
-  g('lopc').style.color=cr?'#e74c3c':'#aaa';
-  ['rn1','ra1','rc1','rt1','rb1'].forEach(function(id){g(id).innerHTML=cr?req:'';});
+  // Efectivo: nombre, tel, barrio obligatorios. Cedula y apellido opcionales
+  // Credito: todo obligatorio
+  if(ef){
+    g('lopc').textContent='(nombre, tel y barrio obligatorios)';
+    g('lopc').style.color='#e74c3c';
+    g('rn1').innerHTML=req;   // nombre obligatorio
+    g('ra1').innerHTML='';    // apellido opcional
+    g('rc1').innerHTML='';    // cedula opcional
+    g('rt1').innerHTML=req;   // tel obligatorio
+    g('rb1').innerHTML=req;   // barrio obligatorio
+  }else if(cr){
+    g('lopc').textContent='(obligatorio)';
+    g('lopc').style.color='#e74c3c';
+    ['rn1','ra1','rc1','rt1','rb1'].forEach(function(id){g(id).innerHTML=req;});
+  }else{
+    g('lopc').textContent='(opcional)';
+    g('lopc').style.color='#aaa';
+    ['rn1','ra1','rc1','rt1','rb1'].forEach(function(id){g(id).innerHTML='';});
+  }
   if(cc)calcCC();calc();
 }
 function calcCC(){
@@ -517,7 +541,11 @@ function regVenta(){
   var cuotas=cc?(+g('cc-cuotas').value||3):(cr?(+g('ic').value||3):0);
   var nom=uv('inm'),ap=uv('iap'),ced=g('icc').value.trim(),tel=g('itel').value.trim(),bar=uv('ibar');
   var vend=g('sv').value||'Admin';
+  var ef=pago==='EFECTIVO';
+  if(ef&&(!nom||!tel||!bar)){toast('Nombre, telefono y barrio son obligatorios',1);return;}
   if(cr&&(!nom||!ap||!tel||!bar)){toast('Completa todos los datos del comprador',1);return;}
+  // Validar telefono
+  if(tel&&(tel.length!==10||tel.charAt(0)!=='3')){toast('El telefono debe tener 10 digitos y empezar por 3',1);return;}
   if(cc){
     if(!uv('r1n')||!g('r1t').value.trim()||!uv('r1b')){toast('Completa la referencia 1',1);return;}
     if(!uv('r2n')||!g('r2t').value.trim()||!uv('r2b')){toast('Completa la referencia 2',1);return;}
@@ -678,8 +706,41 @@ function renderInv(){
 }
 function renderSel(){
   var s=g('sa'),v=s.value;
-  s.innerHTML=inv.map(function(a,i){return '<option value="'+i+'">'+a.art+' - Stock: '+a.stk+'</option>';}).join('');
+  s.innerHTML=inv.map(function(a,i){return '<option value="'+i+'">'+a.art+' — Stock: '+a.stk+'</option>';}).join('');
   if(v)s.value=v;loadP();
+}
+
+function filtrarArts(){
+  var q=(g('buscar-art').value||'').toUpperCase().trim();
+  var s=g('sa');
+  var prev=s.value;
+  s.innerHTML=inv.map(function(a,i){
+    if(!q||a.art.indexOf(q)>=0){
+      return '<option value="'+i+'">'+a.art+' — Stock: '+a.stk+'</option>';
+    }
+    return '';
+  }).filter(Boolean).join('');
+  if(!s.innerHTML) s.innerHTML='<option value="">Sin resultados</option>';
+  // Try to keep previous selection
+  var found=false;
+  for(var i=0;i<s.options.length;i++){if(s.options[i].value===prev){s.value=prev;found=true;break;}}
+  if(!found&&s.options.length>0&&s.options[0].value!=='') s.value=s.options[0].value;
+  loadP();
+}
+
+function validarTel(input){
+  var val=input.value.replace(/[^0-9]/g,'');
+  input.value=val;
+  var err=g('tel-error');
+  if(!err)return;
+  if(val.length===0){err.style.display='none';return;}
+  if(val.length<10||val.charAt(0)!=='3'){
+    err.style.display='block';
+    input.style.borderColor='#e74c3c';
+  }else{
+    err.style.display='none';
+    input.style.borderColor='#1a3a1a';
+  }
 }
 function renderHist(){
   var tb=g('htb');
