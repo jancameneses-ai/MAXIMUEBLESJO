@@ -151,6 +151,12 @@ tr:hover td{background:#fdfaf0}
     <div class="sitem" onclick="goTab('cartera',this)">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
       <span class="slbl">Cartera</span></div>
+    <div class="sitem" onclick="goTab('creditos',this)">
+      <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+      <span class="slbl">Creditos</span></div>
+    <div class="sitem" onclick="goTab('resumen',this)">
+      <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <span class="slbl">Resumen</span></div>
 
 
   </div>
@@ -254,7 +260,7 @@ tr:hover td{background:#fdfaf0}
       <div id="fac"><div class="empty">Registra una venta para ver la factura</div></div>
       <div id="btnpdf" style="display:none;margin-top:10px">
         <button class="btn bpdf" onclick="dlPDF()" style="width:100%;padding:10px;font-size:12px;margin-bottom:6px">Descargar factura PDF</button>
-        <button class="btn bwa" onclick="enviarWA()" style="width:100%;padding:10px;font-size:12px;background:#25D366;color:#fff">Enviar por WhatsApp</button>
+
       </div>
     </div>
   </div>
@@ -335,6 +341,22 @@ tr:hover td{background:#fdfaf0}
   <button class="btn bred" onclick="doReset()" style="padding:8px 18px;margin-top:4px">Reiniciar todo</button>
 </div>
 
+<!-- TAB CREDITOS -->
+<div id="tab-creditos" class="sec">
+  <div class="card">
+    <h2>Creditos Credicontado — Datos completos</h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>#</th><th>Fecha</th><th>Cliente</th><th>Cedula</th><th>Tel</th><th>Barrio</th>
+        <th>Articulo</th><th style="text-align:right">Total</th><th>Cuotas</th>
+        <th>Inicial</th><th style="text-align:right">C/Cuota</th><th>1er Pago</th>
+        <th>Ref 1</th><th>Ref 2</th><th>Ref 3</th><th></th>
+      </tr></thead>
+      <tbody id="cred-body"></tbody>
+    </table></div>
+  </div>
+</div>
+
 <!-- MODALES -->
 <div class="mb" id="med"><div class="md"><h3>Editar articulo</h3><input type="hidden" id="ei">
   <div style="display:flex;flex-direction:column;gap:11px">
@@ -401,7 +423,7 @@ function fbListen(){
   fbGet(function(err,data){
     if(!err&&data){procesarDatos(data);}
   });
-  setTimeout(fbListen,8000);
+  // Polling desactivado para mejor rendimiento
 }
 function procesarDatos(data){
   if(!data)return;
@@ -625,42 +647,6 @@ function dlPDF(){
   doc.save(fname);
   toast('PDF descargado');
 }
-function enviarWA(){
-  if(!lv){toast('No hay factura para enviar',1);return;}
-  var v=lv;
-  var c=v.comprador||{};
-  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
-  var tel=c.tel?c.tel.replace(/[^0-9]/g,''):'';
-  // Construir mensaje de texto
-  var msg='*MAXIMUEBLES JO*%0AMocoa, Putumayo%0A%0A';
-  msg+='*FACTURA DE VENTA*%0A';
-  msg+='------------------------%0A';
-  msg+='*Articulo:* '+v.art+'%0A';
-  msg+='*Cantidad:* '+v.qty+' x $'+Math.round(v.precio).toLocaleString('es-CO')+'%0A';
-  if(v.desc>0)msg+='*Descuento:* -'+v.desc+'%%0A';
-  msg+='*Total:* $'+Math.round(v.total).toLocaleString('es-CO')+'%0A';
-  msg+='*Pago:* '+v.pago+'%0A';
-  if(v.cuotas>0){
-    var cv=v.ci?Math.round(v.ci.cval):Math.round(v.total/v.cuotas);
-    msg+='*Cuotas:* '+v.cuotas+' de $'+cv.toLocaleString('es-CO')+'/mes%0A';
-    if(v.ci&&v.ci.inicial>0)msg+='*Inicial:* $'+Math.round(v.ci.inicial).toLocaleString('es-CO')+'%0A';
-    if(v.ci&&v.ci.fecha)msg+='*Primer pago:* '+v.ci.fecha+'%0A';
-  }
-  msg+='------------------------%0A';
-  msg+='*Cliente:* '+cl+'%0A';
-  if(c.cedula)msg+='*Cedula:* '+c.cedula+'%0A';
-  msg+='*Fecha:* '+v.fecha+'%0A';
-  msg+='*Vendedor:* '+v.vend+'%0A';
-  msg+='%0A_Gracias por su compra_';
-  // Primero descargar PDF
-  dlPDF();
-  // Luego abrir WhatsApp
-  setTimeout(function(){
-    var url=tel?'https://wa.me/57'+tel+'?text='+msg:'https://wa.me/?text='+msg;
-    window.open(url,'_blank');
-    toast('PDF descargado. Adjuntalo en WhatsApp');
-  },1200);
-}
 function renderInv(){
   var th=g('ith'),tb=g('itb');
   if(isA()){
@@ -712,7 +698,6 @@ function renderHist(){
       '<td style="white-space:nowrap">'+
       '<button class="btn bgold" onclick="showDet('+i+')" style="margin-right:3px">Ver</button>'+
       '<button class="btn bpdf" onclick="dlPDFi('+i+')" style="margin-right:3px">PDF</button>'+
-      '<button class="btn bwa" onclick="waIdx('+i+')" style="margin-right:3px">WA</button>'+
       (isA()?'<button class="btn bred" onclick="delVenta('+i+','+v.idx+','+v.qty+')">X</button>':'')+
       '</td></tr>';
   }).join('');
@@ -729,7 +714,7 @@ function proxNP(v){
   return null;
 }
 function renderCart(){
-  var creds=ven.filter(function(v){return v.pago!=='EFECTIVO'&&v.cuotas>0;});
+  var creds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
   var tot=0,cob=0;
   creds.forEach(function(v){
     tot+=v.total;
@@ -820,8 +805,9 @@ function gestCuot(vi){
     if(!cp.pagado){
       h+='<button class="btn bgreen" onclick="togCuota('+vi+','+i+')" style="width:100%;padding:8px;font-size:11px">Marcar como pagada</button>';
     }else{
-      h+='<div style="display:flex;align-items:center;gap:8px">'+
+      h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
         '<span style="color:#1e8449;font-weight:700;font-size:11px">Pagado: '+fmt(cp.monto)+'</span>'+
+        '<button class="btn bpdf" onclick="dlReciboCuota('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Recibo PDF</button>'+
         '<button class="btn bgray" onclick="desPagar('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Deshacer</button></div>';
     }
     h+='</div>';
@@ -872,9 +858,115 @@ function renderUsers(){
       '</div></div>';
   }).join('');
 }
-function renderAll(){renderInv();renderSel();renderHist();renderCart();renderRes();renderSV();}
+function renderAll(){renderInv();renderSel();renderHist();renderCart();renderRes();renderSV();renderCreditos();}
+
+function renderCreditos(){
+  var tb=document.getElementById('cred-body');
+  if(!tb)return;
+  var creds=ven.filter(function(v){return v.pago==='CREDICONTADO';});
+  if(!creds.length){
+    tb.innerHTML='<tr><td colspan="16" style="text-align:center;padding:20px;color:#aaa">Sin creditos registrados</td></tr>';
+    return;
+  }
+  tb.innerHTML=creds.map(function(v,idx){
+    var vi=ven.indexOf(v);
+    var c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
+    var ci=v.ci||{};
+    var refs=v.refs||[];
+    var r1=refs[0]||{};var r2=refs[1]||{};var r3=refs[2]||{};
+    var pg=(v.cp||[]).filter(function(x){return x.pagado;}).length;
+    return '<tr>'+
+      '<td style="color:#aaa;font-size:10px">'+(idx+1)+'</td>'+
+      '<td style="font-size:10px">'+v.fecha+'</td>'+
+      '<td style="font-weight:700">'+cl+'</td>'+
+      '<td>'+(c.cedula||'-')+'</td>'+
+      '<td>'+(c.tel||'-')+'</td>'+
+      '<td>'+(c.barrio||'-')+'</td>'+
+      '<td>'+v.art+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+      '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
+      '<td style="text-align:right">'+(ci.inicial?fmt(ci.inicial):'-')+'</td>'+
+      '<td style="text-align:right">'+(ci.cval?fmt(ci.cval):'-')+'</td>'+
+      '<td>'+(ci.fecha||'-')+'</td>'+
+      '<td style="font-size:10px">'+(r1.nom?r1.nom+' '+r1.tel:'—')+'</td>'+
+      '<td style="font-size:10px">'+(r2.nom?r2.nom+' '+r2.tel:'—')+'</td>'+
+      '<td style="font-size:10px">'+(r3.nom?r3.nom+' '+r3.tel:'—')+'</td>'+
+      '<td><button class="btn bgold" onclick="gestCuot('+vi+')" style="font-size:10px">Cuotas</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function dlReciboCuota(vi,ci){
+  var v=ven[vi];
+  var c=v.comprador||{};
+  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
+  var cp=v.cp[ci];
+  var cuotaVal=v.ci?Math.round(v.ci.cval):Math.round(v.total/v.cuotas);
+  var pagadas=(v.cp||[]).filter(function(x){return x.pagado;}).length;
+  var saldoPagado=0;
+  (v.cp||[]).forEach(function(c){if(c.pagado)saldoPagado+=c.monto||0;});
+  var saldoPendiente=v.total-saldoPagado;
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'mm',format:'a6'});
+  var W=doc.internal.pageSize.getWidth();
+  // Header
+  doc.setFillColor(26,58,26);doc.rect(0,0,W,22,'F');
+  doc.setTextColor(201,162,39);doc.setFontSize(12);doc.setFont('helvetica','bold');
+  doc.text('MAXIMUEBLES JO',W/2,10,{align:'center'});
+  doc.setTextColor(200,200,200);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Mocoa, Putumayo - Recibo de pago',W/2,16,{align:'center'});
+  var y=28;
+  function row(label,val,bold){
+    doc.setTextColor(100,100,100);doc.setFontSize(7);doc.setFont('helvetica','normal');
+    doc.text(label,8,y);
+    doc.setTextColor(20,20,20);if(bold)doc.setFont('helvetica','bold');
+    doc.text(String(val),W-8,y,{align:'right'});
+    doc.setFont('helvetica','normal');y+=5;
+  }
+  function section(t){
+    doc.setFillColor(240,234,214);doc.rect(6,y-3,W-12,6,'F');
+    doc.setTextColor(26,58,26);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text(t,8,y+1);y+=7;
+  }
+  section('DATOS DEL PAGO');
+  row('Cliente',cl,true);
+  row('Articulo',v.art);
+  row('Cuota N.',ci+1+' de '+v.cuotas);
+  row('Valor pagado',fmt(cp.monto||cuotaVal),true);
+  row('Fecha de pago',cp.fecha||new Date().toLocaleDateString('es-CO'));
+  y+=2;
+  section('ESTADO DEL CREDITO');
+  row('Total credito',fmt(v.total));
+  row('Cuotas pagadas',pagadas+' de '+v.cuotas);
+  row('Total pagado',fmt(saldoPagado),true);
+  row('Saldo pendiente',fmt(saldoPendiente),true);
+  // Proxima cuota
+  var proxIdx=null;
+  for(var i=0;i<v.cp.length;i++){if(!v.cp[i].pagado){proxIdx=i;break;}}
+  if(proxIdx!==null&&v.ci&&v.ci.fecha){
+    var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+proxIdx);
+    row('Proxima cuota',fp.toLocaleDateString('es-CO'));
+    row('Valor proxima cuota',fmt(cuotaVal));
+  }else if(pagadas>=v.cuotas){
+    y+=3;
+    doc.setFillColor(213,245,227);doc.rect(6,y-4,W-12,8,'F');
+    doc.setTextColor(30,110,57);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text('CREDITO TOTALMENTE PAGADO',W/2,y,{align:'center'});
+    y+=8;
+  }
+  y+=3;
+  doc.setDrawColor(201,162,39);doc.setLineWidth(0.3);doc.line(6,y,W-6,y);y+=4;
+  doc.setTextColor(150,150,150);doc.setFontSize(6);
+  doc.text('Gracias por su pago - Conserve este recibo',W/2,y,{align:'center'});
+  doc.save('Recibo_Cuota_'+( ci+1)+'_'+cl.replace(/ /g,'_')+'.pdf');
+  toast('Recibo descargado');
+}
 function showDet(i){
-  lv=ven[i];g('btnpdf').style.display='block';
+  lv=ven[i];
+  // Show factura in main area and enable PDF
+  showFac(ven[i]);
+  g('btnpdf').style.display='block';
   var v=ven[i];var c=v.comprador||{};
   var h='<div style="font-size:12px;display:flex;flex-direction:column;gap:5px">'+
     '<div><strong>Articulo:</strong> '+v.art+'</div>'+
@@ -982,6 +1074,7 @@ function goTab(id,el){
   if(el) el.classList.add('active');
   if(id==='resumen')renderRes();
   if(id==='cartera')renderCart();
+  if(id==='creditos')renderCreditos();
 }
 function toast(msg,err){
   var t=g('toast');t.textContent=msg;
