@@ -166,21 +166,37 @@ tr:hover td{background:#fdfaf0}
   <div class="g2" style="align-items:start;gap:14px">
     <div style="display:flex;flex-direction:column;gap:12px">
       <div class="card">
-        <h2>Producto</h2>
+        <h2>Productos</h2>
         <div style="display:flex;flex-direction:column;gap:9px">
+          <!-- Buscador y selector -->
           <div>
-  <label>Buscar artículo</label>
-  <input type="text" id="buscar-art" placeholder="ESCRIBE PARA BUSCAR..." oninput="filtrarArts()" style="margin-bottom:6px" class="noup">
-  <select id="sa" onchange="loadP()" size="1" style="cursor:pointer"></select>
-</div>
+            <label>Buscar artículo</label>
+            <input type="text" id="buscar-art" placeholder="ESCRIBE PARA BUSCAR..." oninput="filtrarArts()" class="noup" autocomplete="off">
+            <div id="buscar-results" style="display:none;flex-direction:column;gap:4px;margin-top:5px;max-height:180px;overflow-y:auto"></div>
+            <input type="hidden" id="sa">
+          </div>
           <div class="g2">
             <div><label>Cantidad</label><input type="number" id="iq" min="1" value="1" oninput="calc()" class="noup"></div>
             <div><label>Precio venta $</label><input type="number" id="ipr" oninput="calc()" class="noup"></div>
           </div>
           <div class="g2">
             <div><label>Descuento %</label><input type="number" id="id" min="0" max="100" value="0" oninput="calc()" class="noup"></div>
-            <div><label>Total $</label><input type="text" id="it" readonly></div>
+            <div><label>Subtotal $</label><input type="text" id="it" readonly></div>
           </div>
+          <div class="abox" id="ast">Stock insuficiente para esta cantidad</div>
+          <button class="btn bgold" onclick="agregarAlCarrito()" style="width:100%;padding:10px;font-size:13px">
+            + Agregar al carrito
+          </button>
+          <!-- Carrito -->
+          <div id="carrito-wrap" style="display:none">
+            <div style="font-size:11px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f0ead6">Carrito de compra</div>
+            <div id="carrito-items" style="display:flex;flex-direction:column;gap:5px"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;border-top:1px solid #e0e0e0;margin-top:6px">
+              <span style="font-size:12px;font-weight:700;color:#555">TOTAL COMPRA</span>
+              <span style="font-size:16px;font-weight:700;color:#1a3a1a" id="carrito-total">$0</span>
+            </div>
+          </div>
+          <!-- Pago -->
           <div><label>Medio de pago</label>
             <select id="sp" onchange="onPago()">
               <option value="EFECTIVO">Efectivo</option>
@@ -210,7 +226,6 @@ tr:hover td{background:#fdfaf0}
             <label>Numero de cuotas</label>
             <input type="number" id="ic" min="2" max="48" value="3" class="noup">
           </div>
-          <div class="abox" id="ast">Stock insuficiente para esta cantidad</div>
         </div>
       </div>
       <div class="card">
@@ -236,21 +251,30 @@ tr:hover td{background:#fdfaf0}
           <div class="rfbox"><h4>Referencia 1 - Obligatoria</h4>
             <div class="g3">
               <div><label>Nombre *</label><input type="text" id="r1n"></div>
-              <div><label>Telefono *</label><input type="tel" id="r1t" class="noup"></div>
+              <div><label>Telefono *</label>
+                <input type="tel" id="r1t" class="noup" maxlength="10" oninput="validarTelRef(this,'r1t-err')">
+                <div id="r1t-err" style="display:none;color:#e74c3c;font-size:10px;font-weight:700;margin-top:2px">10 digitos, empieza por 3</div>
+              </div>
               <div><label>Barrio *</label><input type="text" id="r1b"></div>
             </div>
           </div>
           <div class="rfbox"><h4>Referencia 2 - Obligatoria</h4>
             <div class="g3">
               <div><label>Nombre *</label><input type="text" id="r2n"></div>
-              <div><label>Telefono *</label><input type="tel" id="r2t" class="noup"></div>
+              <div><label>Telefono *</label>
+                <input type="tel" id="r2t" class="noup" maxlength="10" oninput="validarTelRef(this,'r2t-err')">
+                <div id="r2t-err" style="display:none;color:#e74c3c;font-size:10px;font-weight:700;margin-top:2px">10 digitos, empieza por 3</div>
+              </div>
               <div><label>Barrio *</label><input type="text" id="r2b"></div>
             </div>
           </div>
           <div class="rfbox" style="background:#f0f9ff;border-color:#aed6f1"><h4 style="color:#1a5276">Referencia 3 - Opcional</h4>
             <div class="g3">
               <div><label>Nombre</label><input type="text" id="r3n"></div>
-              <div><label>Telefono</label><input type="tel" id="r3t" class="noup"></div>
+              <div><label>Telefono</label>
+                <input type="tel" id="r3t" class="noup" maxlength="10" oninput="validarTelRef(this,'r3t-err')">
+                <div id="r3t-err" style="display:none;color:#e74c3c;font-size:10px;font-weight:700;margin-top:2px">10 digitos, empieza por 3</div>
+              </div>
               <div><label>Barrio</label><input type="text" id="r3b"></div>
             </div>
           </div>
@@ -515,64 +539,136 @@ function onPago(){
   }
   if(cc)calcCC();calc();
 }
+// ── CARRITO ──
+var carrito=[];
+
 function calcCC(){
-  var total=(+g('ipr').value||0)*(+g('iq').value||1)*(1-(+g('id').value||0)/100);
+  var totalCarrito=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+  var base=totalCarrito>0?totalCarrito:((+g('ipr').value||0)*(+g('iq').value||1)*(1-(+g('id').value||0)/100));
   var ini=+g('cc-ini').value||0;
   var cuotas=+g('cc-cuotas').value||3;
-  var saldo=Math.max(0,total-ini);
+  var saldo=Math.max(0,base-ini);
   g('cc-saldo').value=fmt(saldo);
   g('cc-cval').value=fmt(cuotas>0?saldo/cuotas:0);
 }
-function loadP(){var i=+g('sa').value;if(inv[i]){g('ipr').value=inv[i].venta;calc();}}
+function loadP(){
+  var i=+g('sa').value;
+  if(i>=0&&inv[i]){g('ipr').value=inv[i].venta;calc();}
+}
 function calc(){
   var q=+g('iq').value||0,p=+g('ipr').value||0,d=+g('id').value||0;
   g('it').value=fmt(q*p*(1-d/100));
   var i=+g('sa').value;
-  g('ast').style.display=(q>inv[i].stk)?'block':'none';
+  if(inv[i])g('ast').style.display=(q>inv[i].stk)?'block':'none';
   if(g('sp').value==='CREDICONTADO')calcCC();
 }
+function agregarAlCarrito(){
+  var idx=parseInt(g('sa').value);
+  if(isNaN(idx)||!inv[idx]){toast('Selecciona un articulo primero',1);return;}
+  var a=inv[idx];
+  var qty=+g('iq').value||1;
+  var precio=+g('ipr').value||a.venta;
+  var desc=+g('id').value||0;
+  var subtotal=qty*precio*(1-desc/100);
+  if(qty>a.stk){toast('Stock insuficiente',1);return;}
+  if(qty<1){toast('Cantidad invalida',1);return;}
+  // Ver si ya esta en el carrito
+  var existing=carrito.find(function(it){return it.idx===idx;});
+  if(existing){
+    existing.qty+=qty;
+    existing.subtotal+=subtotal;
+  }else{
+    carrito.push({idx:idx,art:a.art,qty:qty,precio:precio,desc:desc,subtotal:subtotal});
+  }
+  renderCarrito();
+  // Limpiar cantidad para siguiente item
+  g('iq').value=1;g('id').value=0;
+  calcCC();
+  toast('Articulo agregado al carrito');
+}
+function renderCarrito(){
+  var wrap=g('carrito-wrap');
+  var items=g('carrito-items');
+  if(!carrito.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  var totalCarrito=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+  g('carrito-total').textContent=fmt(totalCarrito);
+  items.innerHTML=carrito.map(function(it,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;background:#f8f5ee;border-radius:7px;font-size:12px">'+
+      '<div style="flex:1">'+
+        '<div style="font-weight:700;color:#1a3a1a">'+it.art+'</div>'+
+        '<div style="color:#888;font-size:11px">'+it.qty+' x '+fmt(it.precio)+(it.desc>0?' (-'+it.desc+'%)':'')+'</div>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:7px">'+
+        '<span style="font-weight:700;color:#1a3a1a">'+fmt(it.subtotal)+'</span>'+
+        '<button onclick="quitarDelCarrito('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer">X</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+function quitarDelCarrito(i){
+  carrito.splice(i,1);
+  renderCarrito();
+  calcCC();
+}
 function regVenta(){
-  var idx=+g('sa').value,a=inv[idx];
-  var qty=+g('iq').value||1,precio=+g('ipr').value||a.venta,desc=+g('id').value||0;
-  var total=qty*precio*(1-desc/100);
   var pago=g('sp').value;
   var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
+  var ef=pago==='EFECTIVO';
+  // Verificar carrito
+  if(!carrito.length){toast('Agrega al menos un articulo al carrito',1);return;}
+  var total=carrito.reduce(function(s,it){return s+it.subtotal;},0);
   var cuotas=cc?(+g('cc-cuotas').value||3):(cr?(+g('ic').value||3):0);
   var nom=uv('inm'),ap=uv('iap'),ced=g('icc').value.trim(),tel=g('itel').value.trim(),bar=uv('ibar');
   var vend=g('sv').value||'Admin';
-  var ef=pago==='EFECTIVO';
   if(ef&&(!nom||!tel||!bar)){toast('Nombre, telefono y barrio son obligatorios',1);return;}
   if(cr&&(!nom||!ap||!tel||!bar)){toast('Completa todos los datos del comprador',1);return;}
-  // Validar telefono
   if(tel&&(tel.length!==10||tel.charAt(0)!=='3')){toast('El telefono debe tener 10 digitos y empezar por 3',1);return;}
   if(cc){
     if(!uv('r1n')||!g('r1t').value.trim()||!uv('r1b')){toast('Completa la referencia 1',1);return;}
     if(!uv('r2n')||!g('r2t').value.trim()||!uv('r2b')){toast('Completa la referencia 2',1);return;}
+    var t1=g('r1t').value.trim(),t2=g('r2t').value.trim(),t3=g('r3t').value.trim();
+    if(t1&&(t1.length!==10||t1.charAt(0)!=='3')){toast('Telefono Ref 1 invalido',1);return;}
+    if(t2&&(t2.length!==10||t2.charAt(0)!=='3')){toast('Telefono Ref 2 invalido',1);return;}
+    if(t3&&t3.length>0&&(t3.length!==10||t3.charAt(0)!=='3')){toast('Telefono Ref 3 invalido',1);return;}
   }
-  if(qty>a.stk){toast('Stock insuficiente',1);return;}
+  // Descontar stock de cada item del carrito
+  for(var ci=0;ci<carrito.length;ci++){
+    var cit=carrito[ci];
+    if(cit.qty>inv[cit.idx].stk){toast('Stock insuficiente para '+cit.art,1);return;}
+  }
+  carrito.forEach(function(cit){inv[cit.idx].stk-=cit.qty;});
   var refs=cc?[
     {nom:uv('r1n'),tel:g('r1t').value.trim(),bar:uv('r1b')},
     {nom:uv('r2n'),tel:g('r2t').value.trim(),bar:uv('r2b')},
     {nom:uv('r3n'),tel:g('r3t').value.trim(),bar:uv('r3b')},
   ]:[];
-  var ci=cc?{cuotas:cuotas,inicial:+g('cc-ini').value||0,
-    saldo:parseFloat((g('cc-saldo').value||'0').replace(/[^0-9.]/g,'')),
-    cval:parseFloat((g('cc-cval').value||'0').replace(/[^0-9.]/g,'')),
-    fecha:g('cc-fecha').value}:null;
-  a.stk-=qty;
+  var ccIni=+g('cc-ini').value||0;
+  var ccCuotas=+g('cc-cuotas').value||3;
+  var ccSaldo=Math.max(0,total-ccIni);
+  var ccCval=ccCuotas>0?ccSaldo/ccCuotas:0;
+  var ci=cc?{cuotas:ccCuotas,inicial:ccIni,saldo:ccSaldo,cval:ccCval,fecha:g('cc-fecha').value}:null;
   var fecha=new Date().toLocaleDateString('es-CO');
   var cp=cr?Array.from({length:cuotas},function(){return{pagado:false,monto:0,fecha:null};}):[];
-  var v={idx:idx,art:a.art,qty:qty,precio:precio,desc:desc,total:total,
+  // Nombre del articulo: si hay varios, listarlos
+  var artNombre=carrito.length===1?carrito[0].art:carrito.map(function(it){return it.art+' x'+it.qty;}).join(', ');
+  var primerIdx=carrito[0].idx;
+  var v={idx:primerIdx,art:artNombre,items:JSON.parse(JSON.stringify(carrito)),
+    qty:carrito.reduce(function(s,it){return s+it.qty;},0),
+    precio:total,desc:0,total:total,
     comprador:{nombre:nom,apellido:ap,cedula:ced,tel:tel,barrio:bar},
     vend:vend,pago:pago,cuotas:cuotas,cp:cp,refs:refs,fecha:fecha,ci:ci};
-  ven.unshift(v);lv=v;save();renderAll();showFac(v);
+  ven.unshift(v);lv=v;
+  // Limpiar carrito
+  carrito=[];renderCarrito();
+  save();renderAll();showFac(v);
   g('btnpdf').style.display='block';
   toast('Venta registrada y guardada');
   g('iq').value=1;g('id').value=0;
   if(g('cc-ini'))g('cc-ini').value=0;
   ['inm','iap','icc','itel','ibar','r1n','r1t','r1b','r2n','r2t','r2b','r3n','r3t','r3b'].forEach(function(id){var el=g(id);if(el)el.value='';});
-  calc();
+  calc();calcCC();
 }
 
 function showFac(v){
@@ -585,35 +681,52 @@ function showFac(v){
   h+='<img class="fac-logo-sm" src="'+LOGO+'" alt="Logo">';
   h+='<h3>MAXIMUEBLES JO</h3>';
   h+='<p>Mocoa, Putumayo &mdash; No responsable de IVA</p>';
+  h+='<p style="font-size:9px;color:rgba(255,255,255,.5);margin-top:2px">Documento soporte de venta</p>';
   h+='</div>';
   h+='<div class="fac-body">';
-  h+='<div class="fac-st">Detalle de venta</div>';
+  h+='<div class="fac-st">Venta</div>';
   h+='<div class="fac-row"><span>Fecha</span><span>'+v.fecha+'</span></div>';
-  h+='<div class="fac-row"><span>Articulo</span><span>'+v.art+'</span></div>';
-  h+='<div class="fac-row"><span>Cantidad</span><span>'+v.qty+' x '+fmt(v.precio)+'</span></div>';
-  if(v.desc>0)h+='<div class="fac-row"><span>Descuento</span><span style="color:#e74c3c">-'+v.desc+'%</span></div>';
-  h+='<div class="fac-row"><span>Forma de pago</span><span style="color:#7d6010;font-weight:700">'+v.pago+'</span></div>';
-  h+='<div class="fac-tot"><span>Total a pagar</span><span>'+fmt(v.total)+'</span></div>';
-  if(cc&&v.ci){
-    h+='<div class="fac-cred">Credicontado &mdash; '+v.ci.cuotas+' cuota(s)<br>';
-    h+='Inicial: '+fmt(v.ci.inicial)+' | Saldo: '+fmt(v.ci.saldo)+'<br>';
-    h+='Cuota mensual: '+fmt(v.ci.cval);
-    if(v.ci.fecha)h+='<br>Primer pago: '+v.ci.fecha;
-    h+='</div>';
-  }else if(v.cuotas>0){
-    h+='<div class="fac-cred">'+v.pago+' &mdash; '+v.cuotas+' cuotas &mdash; Cuota: '+fmt(cv)+'/mes</div>';
+  if(v.items&&v.items.length>1){
+    h+='<div class="fac-st">Articulos</div>';
+    v.items.forEach(function(it){
+      h+='<div class="fac-row"><span>'+it.art+(it.desc>0?' (-'+it.desc+'%)':'')+'</span><span style="font-weight:700">'+it.qty+' x '+fmt(it.precio)+' = '+fmt(it.subtotal)+'</span></div>';
+    });
+  }else{
+    h+='<div class="fac-row"><span>Articulo</span><span style="font-weight:700;max-width:55%;text-align:right">'+v.art+'</span></div>';
+    h+='<div class="fac-row"><span>Cantidad</span><span>'+(v.items?v.items[0].qty:v.qty)+' unidad(es)</span></div>';
+    h+='<div class="fac-row"><span>Precio unitario</span><span>'+fmt(v.items?v.items[0].precio:v.precio)+'</span></div>';
+    if(v.desc>0)h+='<div class="fac-row"><span>Descuento</span><span style="color:#e74c3c">-'+v.desc+'%</span></div>';
   }
-  h+='<div class="fac-st">Comprador</div>';
-  h+='<div class="fac-row"><span>Nombre</span><span>'+cl+'</span></div>';
+  h+='<div class="fac-row"><span>Forma de pago</span><span style="color:#7d6010;font-weight:700">'+v.pago+'</span></div>';
+  h+='<div class="fac-tot"><span>TOTAL</span><span>'+fmt(v.total)+'</span></div>';
+  if(cc&&v.ci){
+    h+='<div style="background:#f0ead6;border-radius:8px;padding:11px 13px;margin-top:10px;border-left:3px solid #c9a227">';
+    h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Plan Credicontado</div>';
+    h+='<div style="display:flex;flex-direction:column;gap:4px">';
+    h+='<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#666">Cuotas</span><span style="font-size:11px;font-weight:700">'+v.ci.cuotas+' cuota(s)</span></div>';
+    h+='<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#666">Inicial pagado</span><span style="font-size:12px;font-weight:700;color:#1e8449">'+fmt(v.ci.inicial)+'</span></div>';
+    h+='<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#666">Saldo a financiar</span><span style="font-size:12px;font-weight:700">'+fmt(v.ci.saldo)+'</span></div>';
+    h+='<div style="display:flex;justify-content:space-between;background:#1a3a1a;border-radius:6px;padding:7px 10px;margin-top:4px"><span style="font-size:11px;color:rgba(255,255,255,.7)">Cuota mensual</span><span style="font-size:14px;font-weight:700;color:#c9a227">'+fmt(cv)+'</span></div>';
+    if(v.ci.fecha)h+='<div style="display:flex;justify-content:space-between;margin-top:2px"><span style="font-size:11px;color:#666">Primer pago</span><span style="font-size:11px;font-weight:700">'+v.ci.fecha+'</span></div>';
+    h+='</div></div>';
+  }else if(v.cuotas>0){
+    h+='<div style="background:#f0ead6;border-radius:8px;padding:9px 12px;margin-top:8px;border-left:3px solid #c9a227">';
+    h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;margin-bottom:4px">'+v.pago+'</div>';
+    h+='<div style="font-size:11px;color:#666">'+v.cuotas+' cuotas de <span style="font-weight:700;color:#1a3a1a;font-size:13px">'+fmt(cv)+'</span> / mes</div>';
+    h+='</div>';
+  }
+  h+='<div class="fac-st" style="margin-top:10px">Comprador</div>';
+  h+='<div class="fac-row"><span>Nombre</span><span style="font-weight:700">'+cl+'</span></div>';
   if(c.cedula)h+='<div class="fac-row"><span>Cedula</span><span>'+c.cedula+'</span></div>';
   if(c.tel)h+='<div class="fac-row"><span>Telefono</span><span>'+c.tel+'</span></div>';
   if(c.barrio)h+='<div class="fac-row"><span>Barrio</span><span>'+c.barrio+'</span></div>';
   h+='<div class="fac-st">Vendedor</div>';
-  h+='<div class="fac-row"><span>Responsable</span><span>'+v.vend+'</span></div>';
-  h+='<div class="fac-foot">Gracias por su compra &mdash; Documento soporte de venta</div>';
+  h+='<div class="fac-row"><span>Responsable</span><span style="font-weight:700">'+v.vend+'</span></div>';
+  h+='<div class="fac-foot">&#10003; Gracias por su compra &mdash; Conserve este documento</div>';
   h+='</div></div>';
   g('fac').innerHTML=h;
 }
+
 function dlPDF(){
   if(!lv){toast('No hay factura para descargar',1);return;}
   var v=lv;
@@ -705,27 +818,45 @@ function renderInv(){
   }
 }
 function renderSel(){
-  var s=g('sa'),v=s.value;
-  s.innerHTML=inv.map(function(a,i){return '<option value="'+i+'">'+a.art+' — Stock: '+a.stk+'</option>';}).join('');
-  if(v)s.value=v;loadP();
+  // Refresh search results if open
+  if(g('buscar-art')&&g('buscar-art').value) filtrarArts();
 }
 
 function filtrarArts(){
   var q=(g('buscar-art').value||'').toUpperCase().trim();
-  var s=g('sa');
-  var prev=s.value;
-  s.innerHTML=inv.map(function(a,i){
-    if(!q||a.art.indexOf(q)>=0){
-      return '<option value="'+i+'">'+a.art+' — Stock: '+a.stk+'</option>';
-    }
-    return '';
-  }).filter(Boolean).join('');
-  if(!s.innerHTML) s.innerHTML='<option value="">Sin resultados</option>';
-  // Try to keep previous selection
-  var found=false;
-  for(var i=0;i<s.options.length;i++){if(s.options[i].value===prev){s.value=prev;found=true;break;}}
-  if(!found&&s.options.length>0&&s.options[0].value!=='') s.value=s.options[0].value;
-  loadP();
+  var res=g('buscar-results');
+  if(!q){res.style.display='none';return;}
+  var matches=inv.map(function(a,i){return{a:a,i:i};}).filter(function(x){return x.a.art.indexOf(q)>=0;});
+  if(!matches.length){
+    res.style.display='flex';
+    res.innerHTML='<div style="font-size:12px;color:#aaa;padding:8px;text-align:center">Sin resultados</div>';
+    return;
+  }
+  res.style.display='flex';
+  res.innerHTML=matches.map(function(x){
+    var stk=x.a.stk;
+    var stkColor=stk<=0?'#e74c3c':stk<=2?'#e67e22':'#1e8449';
+    var disabled=stk<=0?'opacity:.5;pointer-events:none':'cursor:pointer';
+    return '<div onclick="seleccionarArt('+x.i+')" style="padding:8px 10px;background:#f8f5ee;border-radius:7px;display:flex;justify-content:space-between;align-items:center;'+disabled+'">'+
+      '<div>'+
+        '<div style="font-size:12px;font-weight:700;color:#1a3a1a">'+x.a.art+'</div>'+
+        '<div style="font-size:11px;color:#888">'+x.a.cod+' &mdash; Precio: '+fmt(x.a.venta)+'</div>'+
+      '</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-size:13px;font-weight:700;color:'+stkColor+'">'+stk+'</div>'+
+        '<div style="font-size:10px;color:'+stkColor+'">en stock</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function seleccionarArt(i){
+  g('sa').value=i;
+  g('buscar-art').value=inv[i].art;
+  g('buscar-results').style.display='none';
+  g('ipr').value=inv[i].venta;
+  g('iq').value=1;
+  calc();
 }
 
 function validarTel(input){
@@ -733,13 +864,23 @@ function validarTel(input){
   input.value=val;
   var err=g('tel-error');
   if(!err)return;
-  if(val.length===0){err.style.display='none';return;}
+  if(val.length===0){err.style.display='none';input.style.borderColor='';return;}
   if(val.length<10||val.charAt(0)!=='3'){
-    err.style.display='block';
-    input.style.borderColor='#e74c3c';
+    err.style.display='block';input.style.borderColor='#e74c3c';
   }else{
-    err.style.display='none';
-    input.style.borderColor='#1a3a1a';
+    err.style.display='none';input.style.borderColor='#1a3a1a';
+  }
+}
+function validarTelRef(input,errId){
+  var val=input.value.replace(/[^0-9]/g,'');
+  input.value=val;
+  var err=g(errId);
+  if(!err)return;
+  if(val.length===0){err.style.display='none';input.style.borderColor='';return;}
+  if(val.length<10||val.charAt(0)!=='3'){
+    err.style.display='block';input.style.borderColor='#e74c3c';
+  }else{
+    err.style.display='none';input.style.borderColor='#1a3a1a';
   }
 }
 function renderHist(){
@@ -1148,6 +1289,13 @@ function toast(msg,err){
 // Iniciar app cuando el DOM este listo
 
 
+document.addEventListener('click',function(e){
+  var res=g('buscar-results');
+  var inp=g('buscar-art');
+  if(res&&inp&&!res.contains(e.target)&&e.target!==inp){
+    res.style.display='none';
+  }
+});
 window.addEventListener('load',function(){
   inv=JSON.parse(JSON.stringify(DI));
   ven=[];
