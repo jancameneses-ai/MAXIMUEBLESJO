@@ -977,8 +977,8 @@ function dlPDF(){
   doc.setFontSize(9);doc.setFont('helvetica','normal');
   doc.setTextColor(200,220,200);
   doc.text('Muebles, Camas y Colchones',42,20);
-  doc.text('Mocoa, Putumayo — No responsable de IVA',42,26);
-  doc.text('Tel: 3XX XXX XXXX',42,32);
+  doc.text('Orito, Putumayo — No responsable de IVA',42,26);
+  doc.text('Tel: 313 311 4598',42,32);
 
   // FACTURA DE VENTA titulo
   doc.setTextColor(255,255,255);
@@ -1180,7 +1180,7 @@ function dlPDF(){
     var r1=v.refs[0]||{};
     if(r1.nom)infoRow('Ref 1:',r1.nom+' '+( r1.tel||''));
   }
-  infoRow('Ciudad:','Mocoa, Putumayo');
+  infoRow('Ciudad:','Orito, Putumayo');
 
   y+=pagoBoxH+14;
 
@@ -1202,11 +1202,63 @@ function dlPDF(){
   doc.rect(0,y,W,10,'F');
   doc.setTextColor(DORADO[0],DORADO[1],DORADO[2]);
   doc.setFontSize(9);doc.setFont('helvetica','bolditalic');
-  doc.text('¡Gracias por su compra! — Maximuebles Jo, Mocoa Putumayo',W/2,y+6.5,{align:'center'});
+  doc.text('¡Gracias por su compra! — Maximuebles Jo, Orito Putumayo',W/2,y+6.5,{align:'center'});
 
+  // ── MARCA DE AGUA ──
+  var totalPagado=0;
+  (v.cp||[]).forEach(function(p){if(p.pagado)totalPagado+=p.monto||0;});
+  var cancelado=totalPagado>=v.total;
+  var esCred=cc||cr;
+  if(esCred){
+    doc.saveGraphicsState();
+    // Rotar texto en el centro de la pagina
+    var cx=W/2,cy=H/2;
+    doc.setGState(doc.GState({opacity:0.12}));
+    doc.setFontSize(52);doc.setFont('helvetica','bold');
+    if(cancelado){
+      doc.setTextColor(30,120,30);
+      // Texto rotado 45 grados
+      doc.text('CANCELADO',cx,cy-8,{align:'center',angle:45});
+      doc.setFontSize(22);
+      doc.text('EN SU TOTALIDAD',cx,cy+14,{align:'center',angle:45});
+    }else{
+      doc.setTextColor(180,30,30);
+      doc.text('PENDIENTE',cx,cy-8,{align:'center',angle:45});
+      doc.setFontSize(22);
+      doc.text('PAGO',cx,cy+14,{align:'center',angle:45});
+    }
+    doc.restoreGraphicsState();
+  }
   var fname='Factura_Maximuebles_'+v.fecha.replace(/\//g,'-')+'.pdf';
   doc.save(fname);
   toast('Factura PDF descargada');
+}
+
+function showDet(i){
+  lv=ven[i];
+  showFac(ven[i]);
+  var bp=g('btnpdf');if(bp)bp.style.display='block';
+  var v=ven[i];var c=v.comprador||{};
+  var h='<div style="font-size:12px;display:flex;flex-direction:column;gap:5px">';
+  h+='<div><strong>Articulo:</strong> '+v.art+'</div>';
+  h+='<div><strong>Total:</strong> '+fmt(v.total)+'</div>';
+  h+='<div><strong>Pago:</strong> '+v.pago+(v.cuotas>0?' - '+v.cuotas+' cuotas':'')+'</div>';
+  h+='<div><strong>Fecha:</strong> '+v.fecha+'</div>';
+  h+='<div><strong>Vendedor:</strong> '+v.vend+'</div>';
+  h+='<hr style="border:none;border-top:1px solid #eee;margin:6px 0">';
+  h+='<div><strong>Comprador:</strong> '+([c.nombre,c.apellido].filter(Boolean).join(' ')||'-')+'</div>';
+  if(c.cedula)h+='<div><strong>Cedula:</strong> '+c.cedula+'</div>';
+  if(c.tel)h+='<div><strong>Telefono:</strong> '+c.tel+'</div>';
+  if(c.barrio)h+='<div><strong>Barrio:</strong> '+c.barrio+'</div>';
+  if(v.refs&&v.refs.filter(function(r){return r.nom;}).length){
+    h+='<hr style="border:none;border-top:1px solid #eee;margin:6px 0"><strong>Referencias:</strong>';
+    v.refs.filter(function(r){return r.nom;}).forEach(function(r,j){
+      h+='<div style="margin-top:4px;padding:5px 8px;background:#f8f9fa;border-radius:6px;font-size:11px"><b>Ref '+(j+1)+':</b> '+r.nom+(r.tel?' | '+r.tel:'')+(r.bar?' | '+r.bar:'')+'</div>';
+    });
+  }
+  h+='</div>';
+  var dc=g('detc');if(dc)dc.innerHTML=h;
+  var md=g('mdet');if(md)md.classList.add('open');
 }
 
 function dlPDFi(i){lv=ven[i];showFac(ven[i]);dlPDF();}
