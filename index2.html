@@ -415,6 +415,89 @@ tr:hover td{background:#fdfaf0}
 
 <div class="toast" id="toast"></div>
 
+<!-- MODAL EDITAR VENTA -->
+<div class="mb" id="medit-venta">
+  <div class="md" style="max-width:560px">
+    <h3>Editar venta</h3>
+    <input type="hidden" id="ev-idx">
+    <div style="display:flex;flex-direction:column;gap:14px;max-height:70vh;overflow-y:auto;padding-right:4px">
+
+      <!-- Articulos -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f0ead6">Articulos</div>
+        <div id="ev-items" style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:6px;align-items:flex-end">
+          <div style="flex:1">
+            <label style="font-size:10px">Agregar articulo</label>
+            <input type="text" id="ev-buscar" placeholder="BUSCAR..." oninput="filtrarArtsEdit()" class="noup" style="font-size:11px">
+            <div id="ev-results" style="display:none;flex-direction:column;gap:3px;margin-top:3px;max-height:120px;overflow-y:auto"></div>
+          </div>
+          <div style="width:70px">
+            <label style="font-size:10px">Cant.</label>
+            <input type="number" id="ev-qty" min="1" value="1" class="noup" style="font-size:11px">
+          </div>
+          <button class="btn bgold" onclick="evAgregarItem()" style="padding:7px 10px;font-size:11px;margin-bottom:1px">+</button>
+        </div>
+      </div>
+
+      <!-- Comprador -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f0ead6">Datos del comprador</div>
+        <div class="g2" style="gap:8px;margin-bottom:8px">
+          <div><label style="font-size:10px">Nombre</label><input type="text" id="ev-nombre"></div>
+          <div><label style="font-size:10px">Apellido</label><input type="text" id="ev-apellido"></div>
+        </div>
+        <div class="g3" style="gap:8px">
+          <div><label style="font-size:10px">Cedula</label><input type="text" id="ev-cedula" class="noup"></div>
+          <div><label style="font-size:10px">Telefono</label><input type="tel" id="ev-tel" class="noup" maxlength="10"></div>
+          <div><label style="font-size:10px">Barrio</label><input type="text" id="ev-barrio"></div>
+        </div>
+      </div>
+
+      <!-- Pago -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f0ead6">Pago</div>
+        <div class="g2" style="gap:8px">
+          <div><label style="font-size:10px">Medio de pago</label>
+            <select id="ev-pago" onchange="evTogglePago()">
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="SISTECREDITO">Sistecredito</option>
+              <option value="ADDI">Addi</option>
+              <option value="CREDICONTADO">Credicontado</option>
+            </select>
+          </div>
+          <div><label style="font-size:10px">Vendedor</label><input type="text" id="ev-vend"></div>
+        </div>
+        <div id="ev-cred-wrap" style="display:none;margin-top:8px">
+          <div class="g2" style="gap:8px;margin-bottom:8px">
+            <div><label style="font-size:10px">Cuotas</label>
+              <select id="ev-cuotas">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option>
+                <option value="6">6</option><option value="8">8</option><option value="10">10</option>
+                <option value="12">12</option><option value="18">18</option><option value="24">24</option>
+              </select>
+            </div>
+            <div><label style="font-size:10px">Inicial $</label><input type="number" id="ev-ini" class="noup" value="0"></div>
+          </div>
+          <div><label style="font-size:10px">Fecha primer pago</label><input type="date" id="ev-fecha-pago"></div>
+        </div>
+      </div>
+
+      <!-- Fecha venta -->
+      <div>
+        <label style="font-size:10px">Fecha de la venta</label>
+        <input type="text" id="ev-fecha" placeholder="DD/MM/YYYY">
+      </div>
+
+    </div>
+    <div class="mdf">
+      <button class="btn bgray" onclick="cm('medit-venta')">Cancelar</button>
+      <button class="btn bg" onclick="guardarEdicionVenta()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 const IK='maxi_inv_v3', VK='maxi_ven_v3';
@@ -900,6 +983,7 @@ function renderHist(){
       '<td style="text-align:center;color:#7d6010;font-weight:700">'+(v.cuotas>0?v.cuotas+'C':'-')+'</td>'+
       '<td style="white-space:nowrap">'+
       '<button class="btn bgold" onclick="showDet('+i+')" style="margin-right:3px">Ver</button>'+
+      '<button class="btn borg" onclick="abrirEditarVenta('+i+')" style="margin-right:3px">Editar</button>'+
       '<button class="btn bpdf" onclick="dlPDFi('+i+')" style="margin-right:3px">PDF</button>'+
       (isA()?'<button class="btn bred" onclick="delVenta('+i+','+v.idx+','+v.qty+')">X</button>':'')+
       '</td></tr>';
@@ -1256,7 +1340,7 @@ function delUser(i){
   users.splice(i,1);save();renderUsers();renderSV();toast('Usuario eliminado');
 }
 function cm(id){document.getElementById(id).classList.remove('open');}
-['med','mdet','mcuot'].forEach(function(id){
+['med','mdet','mcuot','medit-venta'].forEach(function(id){
   var el=document.getElementById(id);
   if(el) el.addEventListener('click',function(e){if(e.target===this)cm(id);});
 });
@@ -1288,6 +1372,143 @@ function toast(msg,err){
 }
 // Iniciar app cuando el DOM este listo
 
+
+// ── EDITAR VENTA ──
+var evItems=[];
+var evSelectedIdx=-1;
+
+function abrirEditarVenta(i){
+  var v=ven[i];
+  var c=v.comprador||{};
+  g('ev-idx').value=i;
+  // Items
+  evItems=v.items?JSON.parse(JSON.stringify(v.items)):[{idx:v.idx,art:v.art,qty:v.qty,precio:v.precio,desc:v.desc||0,subtotal:v.total}];
+  renderEvItems();
+  // Comprador
+  g('ev-nombre').value=c.nombre||'';
+  g('ev-apellido').value=c.apellido||'';
+  g('ev-cedula').value=c.cedula||'';
+  g('ev-tel').value=c.tel||'';
+  g('ev-barrio').value=c.barrio||'';
+  // Pago
+  g('ev-pago').value=v.pago||'EFECTIVO';
+  g('ev-vend').value=v.vend||'';
+  evTogglePago();
+  if(v.ci){
+    g('ev-cuotas').value=v.ci.cuotas||3;
+    g('ev-ini').value=v.ci.inicial||0;
+    g('ev-fecha-pago').value=v.ci.fecha||'';
+  }
+  g('ev-fecha').value=v.fecha||'';
+  g('ev-buscar').value='';
+  g('ev-results').style.display='none';
+  g('medit-venta').classList.add('open');
+}
+
+function renderEvItems(){
+  var container=g('ev-items');
+  if(!evItems.length){container.innerHTML='<div style="font-size:11px;color:#aaa;text-align:center;padding:6px">Sin articulos</div>';return;}
+  var total=evItems.reduce(function(s,it){return s+it.subtotal;},0);
+  container.innerHTML=evItems.map(function(it,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f8f5ee;border-radius:6px;font-size:11px">'+
+      '<div><span style="font-weight:700;color:#1a3a1a">'+it.art+'</span> '+
+      '<span style="color:#888">x'+it.qty+' = '+fmt(it.subtotal)+'</span></div>'+
+      '<button onclick="evQuitarItem('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer">X</button>'+
+    '</div>';
+  }).join('')+
+  '<div style="display:flex;justify-content:space-between;padding:5px 8px 0;border-top:1px solid #e0e0e0;margin-top:3px">'+
+  '<span style="font-size:11px;font-weight:700;color:#555">TOTAL</span>'+
+  '<span style="font-size:13px;font-weight:700;color:#1a3a1a">'+fmt(total)+'</span></div>';
+}
+
+function evQuitarItem(i){
+  // Devolver stock
+  if(evItems[i].idx>=0&&inv[evItems[i].idx])inv[evItems[i].idx].stk+=evItems[i].qty;
+  evItems.splice(i,1);
+  renderEvItems();
+}
+
+function filtrarArtsEdit(){
+  var q=(g('ev-buscar').value||'').toUpperCase().trim();
+  var res=g('ev-results');
+  if(!q){res.style.display='none';return;}
+  var matches=inv.map(function(a,i){return{a:a,i:i};}).filter(function(x){return x.a.art.indexOf(q)>=0;});
+  if(!matches.length){res.style.display='flex';res.innerHTML='<div style="font-size:11px;color:#aaa;padding:6px">Sin resultados</div>';return;}
+  res.style.display='flex';
+  res.innerHTML=matches.map(function(x){
+    var stk=x.a.stk;var col=stk<=0?'#e74c3c':stk<=2?'#e67e22':'#1e8449';
+    return '<div onclick="evSeleccionarArt('+x.i+')" style="padding:6px 8px;background:#f8f5ee;border-radius:5px;display:flex;justify-content:space-between;cursor:pointer;font-size:11px">'+
+      '<span style="font-weight:700">'+x.a.art+'</span>'+
+      '<span style="color:'+col+';font-weight:700">Stock: '+stk+'</span></div>';
+  }).join('');
+}
+
+function evSeleccionarArt(i){
+  evSelectedIdx=i;
+  g('ev-buscar').value=inv[i].art;
+  g('ev-results').style.display='none';
+  g('ev-qty').value=1;
+}
+
+function evAgregarItem(){
+  if(evSelectedIdx<0||!inv[evSelectedIdx]){toast('Selecciona un articulo',1);return;}
+  var a=inv[evSelectedIdx];
+  var qty=+g('ev-qty').value||1;
+  if(qty>a.stk){toast('Stock insuficiente',1);return;}
+  a.stk-=qty;
+  evItems.push({idx:evSelectedIdx,art:a.art,qty:qty,precio:a.venta,desc:0,subtotal:qty*a.venta});
+  evSelectedIdx=-1;
+  g('ev-buscar').value='';
+  g('ev-qty').value=1;
+  renderEvItems();
+}
+
+function evTogglePago(){
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(g('ev-pago').value)>=0;
+  g('ev-cred-wrap').style.display=cr?'block':'none';
+}
+
+function guardarEdicionVenta(){
+  var i=+g('ev-idx').value;
+  var v=ven[i];
+  if(!evItems.length){toast('Agrega al menos un articulo',1);return;}
+  var total=evItems.reduce(function(s,it){return s+it.subtotal;},0);
+  var pago=g('ev-pago').value;
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
+  var cc=pago==='CREDICONTADO';
+  var cuotas=cr?(+g('ev-cuotas').value||3):0;
+  var ini=+g('ev-ini').value||0;
+  var saldo=Math.max(0,total-ini);
+  var cval=cuotas>0?saldo/cuotas:0;
+  // Update venta
+  ven[i].items=JSON.parse(JSON.stringify(evItems));
+  ven[i].art=evItems.length===1?evItems[0].art:evItems.map(function(it){return it.art+' x'+it.qty;}).join(', ');
+  ven[i].total=total;
+  ven[i].qty=evItems.reduce(function(s,it){return s+it.qty;},0);
+  ven[i].pago=pago;
+  ven[i].cuotas=cuotas;
+  ven[i].vend=g('ev-vend').value.trim();
+  ven[i].fecha=g('ev-fecha').value.trim();
+  ven[i].comprador={
+    nombre:g('ev-nombre').value.trim().toUpperCase(),
+    apellido:g('ev-apellido').value.trim().toUpperCase(),
+    cedula:g('ev-cedula').value.trim(),
+    tel:g('ev-tel').value.trim(),
+    barrio:g('ev-barrio').value.trim().toUpperCase()
+  };
+  if(cr){
+    ven[i].ci={cuotas:cuotas,inicial:ini,saldo:saldo,cval:cval,fecha:g('ev-fecha-pago').value};
+    if(!ven[i].cp||ven[i].cp.length!==cuotas){
+      ven[i].cp=Array.from({length:cuotas},function(){return{pagado:false,monto:0,fecha:null};});
+    }
+  }else{
+    ven[i].ci=null;ven[i].cp=[];ven[i].cuotas=0;
+  }
+  lv=ven[i];
+  save();cm('medit-venta');renderAll();showFac(ven[i]);
+  g('btnpdf').style.display='block';
+  toast('Venta actualizada');
+}
 
 document.addEventListener('click',function(e){
   var res=g('buscar-results');
