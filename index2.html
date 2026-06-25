@@ -849,20 +849,26 @@ function procesarDatos(data){
   if(!data)return;
   if(data.inv)inv=data.inv;
   if(data.ven)ven=data.ven;
-  if(data.users&&Array.isArray(data.users)){
-    // Mezclar usuarios de Firebase con los del codigo base
-    data.users.forEach(function(fu){
+  if(data.users){
+    // Firebase guarda users como objeto o array
+    var fbUsers=Array.isArray(data.users)?data.users:Object.values(data.users);
+    fbUsers.forEach(function(fu){
+      if(!fu||!fu.uname)return;
       var existe=users.find(function(u){return u.uname===fu.uname;});
-      if(!existe)users.push(fu);
+      if(!existe){ users.push(fu); }
       else{
-        existe.pass=fu.pass||existe.pass;
-        existe.nombre=fu.nombre||existe.nombre;
-        existe.rol=fu.rol||existe.rol;
+        if(fu.pass)existe.pass=fu.pass;
+        if(fu.nombre)existe.nombre=fu.nombre;
+        if(fu.rol)existe.rol=fu.rol;
+        if(fu.permisos)existe.permisos=fu.permisos;
+        if(fu.pregunta)existe.pregunta=fu.pregunta;
+        if(fu.respuesta)existe.respuesta=fu.respuesta;
       }
     });
   }
   renderAll();
-  if(typeof renderUsuarios==='function')renderUsuarios();
+  renderSV();
+  renderUsuarios();
 }
 
 function cargar(){
@@ -1262,7 +1268,14 @@ function tpw(inp,btn){
 function renderSV(){
   var s=g('sv');
   if(!s)return;
-  s.innerHTML='<option value="Admin">Admin</option>';
+  s.innerHTML=users.map(function(u){
+    return '<option value="'+(u.nombre||u.uname)+'">'+(u.nombre||u.uname)+'</option>';
+  }).join('');
+  // Seleccionar el usuario actual por defecto
+  if(currentUser){
+    var nombre=currentUser.nombre||currentUser.uname;
+    s.value=nombre;
+  }
 }
 function onPago(){
   var pago=g('sp').value;
