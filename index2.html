@@ -787,7 +787,7 @@ tr:hover td{background:#f8f9ff}
               <option value="CREDICONTADO">Credicontado</option>
             </select>
           </div>
-          <div><label style="font-size:10px">Vendedor</label><input type="text" id="ev-vend"></div>
+          <div><label style="font-size:10px">Vendedor</label><select id="ev-vend"></select></div>
         </div>
         <div id="ev-cred-wrap" style="display:none;margin-top:8px">
           <div class="g2" style="gap:8px;margin-bottom:8px">
@@ -808,7 +808,7 @@ tr:hover td{background:#f8f9ff}
       <!-- Fecha venta -->
       <div>
         <label style="font-size:10px">Fecha de la venta</label>
-        <input type="text" id="ev-fecha" placeholder="DD/MM/YYYY">
+        <input type="date" id="ev-fecha" class="noup">
       </div>
 
     </div>
@@ -1451,8 +1451,11 @@ function gestCuot(vi){
     }
     var fechaV='';
     if(v.ci&&v.ci.fecha){
-      var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+i);
-      fechaV=fp.toLocaleDateString('es-CO');
+      var fp=parseDate(v.ci.fecha);
+      if(fp&&!isNaN(fp.getTime())){
+        fp.setMonth(fp.getMonth()+i);
+        fechaV=fp.toLocaleDateString('es-CO');
+      }
     }
     var bgc=cp.pagado?'#eafaf1':dias!==null&&dias<=0?'#fff5f5':dias!==null&&dias<=3?'#fff8f0':'#fefdf5';
     var alertTxt='';
@@ -2023,14 +2026,25 @@ function abrirEditarVenta(i){
   g2('ev-tel').value=c.tel||'';
   g2('ev-barrio').value=c.barrio||'';
   g2('ev-pago').value=v.pago||'EFECTIVO';
-  g2('ev-vend').value=v.vend||'';
+  // Populate vendedor select with current users
+  var evVendSel=g2('ev-vend');
+  if(evVendSel){
+    evVendSel.innerHTML=users.map(function(u){
+      var nombre=u.nombre||u.uname;
+      return '<option value="'+nombre+'">'+nombre+'</option>';
+    }).join('');
+    evVendSel.value=v.vend||'';
+  }
   evTogglePago();
   if(v.ci){
     g2('ev-cuotas').value=v.ci.cuotas||3;
     g2('ev-ini').value=v.ci.inicial||0;
     g2('ev-fecha-pago').value=v.ci.fecha||'';
   }
-  g2('ev-fecha').value=v.fecha||'';
+  // Convert DD/MM/YYYY to YYYY-MM-DD for date input
+  var fechaParts=(v.fecha||'').split('/');
+  var fechaISO=fechaParts.length===3?fechaParts[2]+'-'+fechaParts[1]+'-'+fechaParts[0]:'';
+  g2('ev-fecha').value=fechaISO;
   g2('ev-buscar').value='';
   var res=document.getElementById('ev-results');
   if(res)res.style.display='none';
@@ -2229,9 +2243,26 @@ function renderHist(){
   }).join('');
 }
 
+function parseDate(str){
+  if(!str)return null;
+  // Handle YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)){
+    var p=str.split('-');
+    return new Date(+p[0],+p[1]-1,+p[2]);
+  }
+  // Handle DD/MM/YYYY
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)){
+    var p=str.split('/');
+    return new Date(+p[2],+p[1]-1,+p[0]);
+  }
+  return new Date(str);
+}
 function diasPP(v,ci){
   if(!v.ci||!v.ci.fecha)return null;
-  var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+ci);
+  var fp=parseDate(v.ci.fecha);
+  if(!fp||isNaN(fp.getTime()))return null;
+  // Each cuota is ci months after primer pago
+  fp.setMonth(fp.getMonth()+ci);
   var hoy=new Date();hoy.setHours(0,0,0,0);fp.setHours(0,0,0,0);
   return Math.ceil((fp-hoy)/(1000*60*60*24));
 }
@@ -2443,8 +2474,13 @@ function guardarEdicionVenta(){
   ven[i].qty=evItems.reduce(function(s,it){return s+it.qty;},0);
   ven[i].pago=pago;
   ven[i].cuotas=cuotas;
-  ven[i].vend=document.getElementById('ev-vend').value.trim();
-  ven[i].fecha=document.getElementById('ev-fecha').value.trim();
+  ven[i].vend=document.getElementById('ev-vend').value;
+  // Convert YYYY-MM-DD back to DD/MM/YYYY
+  var rawFecha=document.getElementById('ev-fecha').value;
+  if(rawFecha){
+    var fp=rawFecha.split('-');
+    ven[i].fecha=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;
+  }
   ven[i].comprador={
     nombre:document.getElementById('ev-nombre').value.trim().toUpperCase(),
     apellido:document.getElementById('ev-apellido').value.trim().toUpperCase(),
@@ -2546,7 +2582,7 @@ function renderCreditos(){
     for(var i=0;i<(v.cp||[]).length;i++){if(!v.cp[i].pagado){proxIdx=i;break;}}
     var diasStr='-';var diasStyle='color:#1e8449;font-weight:700';
     if(proxIdx!==null&&v.ci&&v.ci.fecha){
-      var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+proxIdx);fp.setHours(0,0,0,0);
+      var fp=parseDate(v.ci.fecha);if(fp&&!isNaN(fp.getTime()))fp.setMonth(fp.getMonth()+proxIdx);fp.setHours(0,0,0,0);
       var diff=Math.ceil((hoy-fp)/(1000*60*60*24));
       if(diff>0){
         diasStr=diff+' dias';
@@ -2744,7 +2780,7 @@ function dlReciboCuota(vi,ci){
     var proxIdx=null;
     for(var i=0;i<(v.cp||[]).length;i++){if(!v.cp[i].pagado){proxIdx=i;break;}}
     if(proxIdx!==null&&v.ci&&v.ci.fecha){
-      var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+proxIdx);
+      var fp=parseDate(v.ci.fecha);if(fp&&!isNaN(fp.getTime()))fp.setMonth(fp.getMonth()+proxIdx);
       doc.setTextColor(180,210,180);doc.setFontSize(7);doc.setFont('helvetica','normal');
       doc.text('Proxima cuota: '+fp.toLocaleDateString('es-CO')+' — '+fmt(cuotasVal[proxIdx]||cuotaBase),W/2,y+11,{align:'center'});
     }
