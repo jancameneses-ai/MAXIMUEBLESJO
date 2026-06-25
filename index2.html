@@ -1400,43 +1400,60 @@ function validarTelRef(input,errId){
 function gestCuot(vi){
   var v=ven[vi];
   if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null,pendiente:0};});
-  var cuotaBase=v.ci?Math.round(v.ci.cval):Math.round(v.total/v.cuotas);
+  // cuotaBase: use ci.cval if available, otherwise calculate
+  // Safety: if value looks like it was stored in thousands (< 10000 but total > 100000), recalculate
+  var cuotaBase;
+  if(v.ci&&v.ci.cval){
+    cuotaBase=Math.round(v.ci.cval);
+    // If cuotaBase seems wrong (total much larger), recalculate
+    if(v.total>0&&cuotaBase>0&&cuotaBase<v.total/100){
+      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(v.total-(v.ci.inicial||0))/v.cuotas);
+    }
+  }else{
+    cuotaBase=Math.round(v.total/v.cuotas);
+  }
   var cl=[v.comprador&&v.comprador.nombre,v.comprador&&v.comprador.apellido].filter(Boolean).join(' ')||'Sin nombre';
 
-  // Calcular cuanto debe cada cuota (base + pendiente acumulado de anterior)
+  // Calcular cuanto debe cada cuota con acumulado de saldo o exceso
+  // Si pago menos: el faltante se suma a la siguiente cuota
+  // Si pago mas: el exceso se resta de la siguiente cuota
   var cuotasVal=[];
-  var acum=0;
+  var acum=0; // positivo = deuda acumulada, negativo = exceso a favor
   for(var i=0;i<v.cuotas;i++){
     var cp=v.cp[i];
-    var debeEsta=cuotaBase+acum;
+    var debeEsta=Math.max(0, cuotaBase+acum);
     if(cp.pagado){
-      var faltante=debeEsta-(cp.monto||0);
-      acum=faltante>0?faltante:0;
+      var faltante=debeEsta-(cp.monto||0); // negativo si pago de mas
+      acum=faltante; // se acumula al siguiente (suma o resta)
     }else{
       acum=0;
     }
     cuotasVal.push(debeEsta);
   }
-  // Total pagado hasta ahora
-  var totalPagado=(v.cp||[]).reduce(function(s,c){return s+(c.pagado?c.monto||0:0);},0);
-  var saldoPendiente=v.total-totalPagado;
+  // totalAbonado y saldoPendiente ya calculados arriba
 
   // Resumen financiero arriba
+  // Calcular saldo correctamente:
+  // saldo = total - inicial - todo lo abonado en cuotas (sea mas o menos de la cuota referencia)
+  var totalAbonado=(v.cp||[]).reduce(function(s,c){return s+(c.pagado?c.monto||0:0);},0);
+  var ini=v.ci?v.ci.inicial||0:0;
+  var saldoPendiente=Math.max(0,v.total-ini-totalAbonado);
+
   var h='<div style="background:#1a3a1a;border-radius:10px;padding:12px 14px;margin-bottom:12px;color:#fff">';
   h+='<div style="font-size:11px;color:#c9a227;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">'+v.art+'</div>';
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
-  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">VALOR TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
   h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">CUOTA REFERENCIA</div><div style="font-size:15px;font-weight:700;color:#c9a227">'+fmt(cuotaBase)+'/mes</div></div>';
-  if(v.ci&&v.ci.inicial>0){
-    h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">INICIAL PAGADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(v.ci.inicial)+'</div></div>';
-  }
-  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">TOTAL ABONADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(totalPagado)+'</div></div>';
-  h+='<div style="grid-column:span 2;border-top:1px solid rgba(255,255,255,.15);padding-top:6px;margin-top:2px">';
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">INICIAL PAGADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(ini)+'</div></div>';
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">ABONADO EN CUOTAS</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(totalAbonado)+'</div></div>';
+  h+='<div style="grid-column:span 2;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;margin-top:2px">';
   h+='<div style="font-size:9px;color:rgba(255,255,255,.6)">SALDO PENDIENTE</div>';
-  h+='<div style="font-size:17px;font-weight:700;color:'+(saldoPendiente<=0?'#2ecc71':'#e74c3c')+'">'+fmt(Math.max(0,saldoPendiente))+'</div></div>';
+  h+='<div style="font-size:20px;font-weight:700;color:'+(saldoPendiente<=0?'#2ecc71':'#e74c3c')+'">'+fmt(saldoPendiente)+'</div>';
+  if(saldoPendiente<=0)h+='<div style="font-size:10px;color:#2ecc71;margin-top:2px">✓ CREDITO CANCELADO EN SU TOTALIDAD</div>';
+  h+='</div>';
   h+='</div></div>';
 
-  h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Detalle de cuotas</div>';
+h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Detalle de cuotas</div>';
   h+='<div style="display:flex;flex-direction:column;gap:8px">';
 
   for(var i=0;i<v.cuotas;i++){
@@ -1468,9 +1485,11 @@ function gestCuot(vi){
 
     // Mostrar si hay saldo acumulado de cuota anterior
     var acumLabel='';
-    if(!cp.pagado&&debeEsta>cuotaBase){
-      var extra=debeEsta-cuotaBase;
-      acumLabel='<div style="font-size:10px;color:#e67e22;font-weight:700;margin-top:3px">+ $'+Math.round(extra).toLocaleString('es-CO')+' pendiente de cuota anterior</div>';
+    var diff=debeEsta-cuotaBase;
+    if(!cp.pagado&&diff>0){
+      acumLabel='<div style="font-size:10px;color:#e67e22;font-weight:700;margin-top:3px">+ '+fmt(diff)+' pendiente de cuota anterior</div>';
+    }else if(!cp.pagado&&diff<0){
+      acumLabel='<div style="font-size:10px;color:#2ecc71;font-weight:700;margin-top:3px">- '+fmt(Math.abs(diff))+' a favor (pago extra anterior)</div>';
     }
 
     h+='<div style="padding:10px 12px;background:'+bgc+';border-radius:8px;border:'+border+'">';
@@ -1497,8 +1516,11 @@ function gestCuot(vi){
     }else{
       h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
       h+='<span style="color:#1e8449;font-weight:700;font-size:11px">Pagado: '+fmt(cp.monto)+'</span>';
-      if(cp.monto<debeEsta){
-        h+='<span style="color:#e67e22;font-size:10px;font-weight:700">Faltan: '+fmt(debeEsta-cp.monto)+' (sumados a siguiente cuota)</span>';
+      var diff2=cp.monto-(debeEsta);
+      if(diff2<0){
+        h+='<span style="color:#e67e22;font-size:10px;font-weight:700">Faltan: '+fmt(Math.abs(diff2))+' (se suman a siguiente cuota)</span>';
+      }else if(diff2>0){
+        h+='<span style="color:#2ecc71;font-size:10px;font-weight:700">Exceso: '+fmt(diff2)+' (se restan de siguiente cuota)</span>';
       }
       h+='<button class="btn bpdf" onclick="dlReciboCuota('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Recibo PDF</button>';
       h+='<button class="btn bgray" onclick="desPagar('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Deshacer</button></div>';
@@ -2623,7 +2645,18 @@ function dlReciboCuota(vi,ci){
   var v=ven[vi];
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
-  var cuotaBase=v.ci?Math.round(v.ci.cval):Math.round(v.total/v.cuotas);
+  // cuotaBase: use ci.cval if available, otherwise calculate
+  // Safety: if value looks like it was stored in thousands (< 10000 but total > 100000), recalculate
+  var cuotaBase;
+  if(v.ci&&v.ci.cval){
+    cuotaBase=Math.round(v.ci.cval);
+    // If cuotaBase seems wrong (total much larger), recalculate
+    if(v.total>0&&cuotaBase>0&&cuotaBase<v.total/100){
+      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(v.total-(v.ci.inicial||0))/v.cuotas);
+    }
+  }else{
+    cuotaBase=Math.round(v.total/v.cuotas);
+  }
 
   // Calcular valores reales por cuota con acumulados
   var cuotasVal=[];
