@@ -439,7 +439,7 @@ tr:hover td{background:#f8f9ff}
         <h2>Vendedor</h2>
         <div><label>Vendedor responsable</label><select id="sv"></select></div>
       </div>
-      <button class="btn bg" onclick="regVenta()" style="font-size:13px;padding:13px">Registrar venta</button>
+      <button class="btn bg" id="btn-reg-venta" onclick="regVenta()" style="font-size:13px;padding:13px">Registrar venta</button>
     </div>
     <div class="card" style="position:sticky;top:10px">
       <h2>Factura</h2>
@@ -596,7 +596,7 @@ tr:hover td{background:#f8f9ff}
         </div>
       </div>
       <div><label>Rol</label>
-        <select id="eu-rol">
+        <select id="eu-rol" onchange="togglePermsPanel('eu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
@@ -611,6 +611,24 @@ tr:hover td{background:#f8f9ff}
       </div>
       <div><label>Respuesta</label>
         <input type="text" id="eu-respuesta" placeholder="Respuesta secreta" style="text-transform:none">
+      </div>
+    </div>
+    <!-- Panel permisos edicion -->
+    <div id="eu-perms-panel" style="margin-top:10px;padding:14px;background:#f0f7ff;border-radius:10px;border:1px solid #aed6f1;display:none">
+      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Permisos del vendedor</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-inv-ver"> Ver inventario</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-inv-stock"> Editar stock</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-inv-add"> Agregar articulos</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-inv-edit"> Editar/eliminar articulos</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-ven-reg"> Registrar ventas</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-his-ver"> Ver historial</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-his-edit"> Editar/eliminar ventas</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-cart-ver"> Ver cartera</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-cuot-gest"> Gestionar cuotas</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-cred-ver"> Ver credicontados</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-res-ver"> Ver resumen</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="ep-pdf"> Descargar PDFs</label>
       </div>
     </div>
     <div class="mdf">
@@ -670,7 +688,7 @@ tr:hover td{background:#f8f9ff}
       </div>
       <div>
         <label>Rol</label>
-        <select id="nu-rol">
+        <select id="nu-rol" onchange="togglePermsPanel('nu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
@@ -691,7 +709,25 @@ tr:hover td{background:#f8f9ff}
         <input type="text" id="nu-respuesta" placeholder="Respuesta secreta" style="text-transform:none">
       </div>
     </div>
-    <button class="btn bblue" onclick="crearUsuario()" style="padding:10px 24px">Crear usuario</button>
+    <!-- Panel de permisos (solo para vendedor) -->
+    <div id="nu-perms-panel" style="margin-top:10px;padding:14px;background:#f0f7ff;border-radius:10px;border:1px solid #aed6f1;display:block">
+      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Permisos del vendedor</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-inv-ver" checked> Ver inventario</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-inv-stock"> Editar stock</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-inv-add"> Agregar articulos</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-inv-edit"> Editar/eliminar articulos</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-ven-reg" checked> Registrar ventas</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-his-ver" checked> Ver historial</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-his-edit"> Editar/eliminar ventas</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-cart-ver" checked> Ver cartera</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-cuot-gest" checked> Gestionar cuotas</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-cred-ver" checked> Ver credicontados</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-res-ver"> Ver resumen</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:400;text-transform:none;cursor:pointer"><input type="checkbox" id="p-pdf" checked> Descargar PDFs</label>
+      </div>
+    </div>
+    <button class="btn bblue" onclick="crearUsuario()" style="padding:10px 24px;margin-top:10px">Crear usuario</button>
   </div>
 </div>
 
@@ -886,6 +922,81 @@ var currentUser=null;
 
 function isAdmin(){return currentUser&&currentUser.rol==='admin';}
 
+// ── SISTEMA DE PERMISOS ──
+var PERMS_DEFAULT = {
+  'inv-ver':true,'inv-stock':false,'inv-add':false,'inv-edit':false,
+  'ven-reg':true,'his-ver':true,'his-edit':false,
+  'cart-ver':true,'cuot-gest':true,'cred-ver':true,
+  'res-ver':false,'pdf':true
+};
+
+function getPerm(key){
+  if(!currentUser) return false;
+  if(currentUser.rol==='admin') return true;
+  var perms=currentUser.permisos||PERMS_DEFAULT;
+  return perms[key]===true;
+}
+
+function togglePermsPanel(prefix){
+  var rol=g(prefix+'-rol');
+  var panel=g(prefix+'-perms-panel');
+  if(!rol||!panel) return;
+  panel.style.display=rol.value==='vendedor'?'block':'none';
+}
+
+function getPermsFromForm(prefix){
+  var keys=['inv-ver','inv-stock','inv-add','inv-edit','ven-reg','his-ver','his-edit','cart-ver','cuot-gest','cred-ver','res-ver','pdf'];
+  var perms={};
+  keys.forEach(function(k){
+    var el=g(prefix+k);
+    perms[k]=el?el.checked:false;
+  });
+  return perms;
+}
+
+function setPermsToForm(prefix,perms){
+  var keys=['inv-ver','inv-stock','inv-add','inv-edit','ven-reg','his-ver','his-edit','cart-ver','cuot-gest','cred-ver','res-ver','pdf'];
+  keys.forEach(function(k){
+    var el=g(prefix+k);
+    if(el) el.checked=perms?perms[k]===true:PERMS_DEFAULT[k]===true;
+  });
+}
+
+function applyRol(){
+  if(!currentUser) return;
+  var esAdmin=isAdmin();
+  // Sidebar items
+  document.querySelectorAll('.admin-only').forEach(function(el){
+    el.style.display=esAdmin?'flex':'none';
+  });
+  // Tabs segun permisos
+  var tabs={
+    'venta': esAdmin||getPerm('ven-reg'),
+    'inventario': esAdmin||getPerm('inv-ver'),
+    'historial': esAdmin||getPerm('his-ver'),
+    'cartera': esAdmin||getPerm('cart-ver'),
+    'creditos': esAdmin||getPerm('cred-ver'),
+    'resumen': esAdmin||getPerm('res-ver'),
+  };
+  document.querySelectorAll('.sitem[onclick]').forEach(function(el){
+    var onclick=el.getAttribute('onclick')||'';
+    Object.keys(tabs).forEach(function(tab){
+      if(onclick.indexOf("'"+tab+"'")>=0){
+        el.style.display=tabs[tab]?'flex':'none';
+      }
+    });
+  });
+  // Boton registrar venta
+  var btnReg=g('btn-reg-venta');
+  if(btnReg) btnReg.style.display=(esAdmin||getPerm('ven-reg'))?'block':'none';
+  // Agregar articulos
+  var cadd=g('cadd');
+  if(cadd) cadd.style.display=(esAdmin||getPerm('inv-add'))?'block':'none';
+  // PDFs
+  var btnpdf=g('btnpdf');
+  if(btnpdf&&!esAdmin&&!getPerm('pdf')) btnpdf.style.display='none';
+}
+
 function tpwGen(inputId,btnId){
   var i=g(inputId),b=g(btnId);
   if(!i||!b)return;
@@ -1034,7 +1145,8 @@ function crearUsuario(){
   if(users.find(function(u){return u.uname===uname;})){toast('Ese usuario ya existe',1);return;}
   var pregunta=g('nu-pregunta')?g('nu-pregunta').value:'Nombre de tu mascota';
   var respuesta=g('nu-respuesta')?g('nu-respuesta').value.trim():'';
-  users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta});
+  var permisos=rol==='vendedor'?getPermsFromForm('p-'):PERMS_DEFAULT;
+  users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta,permisos:permisos});
   save();
   g('nu-nombre').value='';g('nu-user').value='';g('nu-pass').value='';
   renderUsuarios();
@@ -1050,6 +1162,13 @@ function abrirEditarUsuario(idx){
   g('eu-rol').value=u.rol||'vendedor';
   var ep=g('eu-pregunta');if(ep)ep.value=u.pregunta||'Nombre de tu mascota';
   var er=g('eu-respuesta');if(er)er.value=u.respuesta||'';
+  // Mostrar permisos si es vendedor
+  var euPanel=g('eu-perms-panel');
+  var euRol=g('eu-rol');
+  if(euPanel&&euRol){
+    euPanel.style.display=u.rol==='vendedor'?'block':'none';
+    setPermsToForm('ep-',u.permisos||PERMS_DEFAULT);
+  }
   g('m-edit-user').classList.add('open');
 }
 
@@ -1069,6 +1188,16 @@ function guardarUsuario(){
   if(pass)users[idx].pass=pass;
   var ep=g('eu-pregunta');if(ep)users[idx].pregunta=ep.value;
   var er=g('eu-respuesta');if(er&&er.value.trim())users[idx].respuesta=er.value.trim();
+  if(users[idx].rol==='vendedor'){
+    users[idx].permisos=getPermsFromForm('ep-');
+  }else{
+    delete users[idx].permisos;
+  }
+  // Si es el usuario activo, actualizar permisos en sesion
+  if(currentUser&&currentUser.uname===users[idx].uname){
+    currentUser.permisos=users[idx].permisos;
+    applyRol();
+  }
   // Si es el usuario actual actualizarlo
   if(currentUser&&currentUser.uname===users[idx].uname){
     currentUser=users[idx];
@@ -1911,7 +2040,7 @@ function renderInv(){
   var admin=isAdmin();
   var costoCol=admin?'<th style="text-align:right">P.Costo</th>':'';
   var margenCol=admin?'<th style="text-align:right">Margen</th>':'';
-  var accionesCol=admin?'<th>Acciones</th>':'';
+  var accionesCol=(admin||getPerm('inv-edit'))?'<th>Acciones</th>':'';
   th.innerHTML='<tr><th>Cod</th><th>Articulo</th><th style="text-align:center">Stock</th>'+costoCol+'<th style="text-align:right">P.Venta</th>'+margenCol+'<th>Estado</th>'+accionesCol+'</tr>';
   tb.innerHTML=inv.map(function(a,i){
     var mg=a.venta>0?((a.venta-a.costo)/a.venta*100).toFixed(1):0;
@@ -1919,13 +2048,15 @@ function renderInv(){
     var col=a.stk<=0?'#e74c3c':a.stk<=2?'#e67e22':'#1e8449';
     var costoTd=admin?'<td style="text-align:right">'+fmt(a.costo)+'</td>':'';
     var margenTd=admin?'<td style="text-align:right;font-weight:700;color:#2c3e50">'+mg+'%</td>':'';
-    var accionesTd=admin?'<td style="white-space:nowrap">'+
+    var puedeEditarInv=admin||getPerm('inv-edit');
+    var puedeStock=admin||getPerm('inv-stock');
+    var accionesTd=puedeEditarInv?'<td style="white-space:nowrap">'+
         '<button class="btn borg" onclick="openEA('+i+')" style="margin-right:3px">Editar</button>'+
         '<button class="btn bred" onclick="delArt('+i+')">Eliminar</button>'+
       '</td>':'';
     return '<tr><td style="font-size:10px;color:#888">'+a.cod+'</td>'+
       '<td style="font-weight:700">'+a.art+'</td>'+
-      '<td style="text-align:center"><input class="si" type="number" min="0" value="'+a.stk+'" style="color:'+col+'" onchange="updStk('+i+',this.value)"'+(admin?'':' readonly')+'></td>'+
+      '<td style="text-align:center"><input class="si" type="number" min="0" value="'+a.stk+'" style="color:'+col+'" onchange="updStk('+i+',this.value)"'+(puedeStock?'':' readonly')+'></td>'+
       costoTd+
       '<td style="text-align:right;font-weight:700">'+fmt(a.venta)+'</td>'+
       margenTd+
@@ -1955,9 +2086,9 @@ function renderHist(){
       '<td style="text-align:center;color:#7d6010;font-weight:700">'+(v.cuotas>0?v.cuotas+'C':'-')+'</td>'+
       '<td style="white-space:nowrap">'+
         '<button class="btn bgold" onclick="showDet('+i+')" style="margin-right:3px">Ver</button>'+
-        '<button class="btn borg" onclick="abrirEditarVenta('+i+')" style="margin-right:3px">Editar</button>'+
-        '<button class="btn bpdf" onclick="dlPDFi('+i+')" style="margin-right:3px">PDF</button>'+
-        '<button class="btn bred" onclick="delVenta('+i+','+(v.idx||0)+','+(v.qty||1)+')">X</button>'+
+        (getPerm('his-edit')?'<button class="btn borg" onclick="abrirEditarVenta('+i+')" style="margin-right:3px">Editar</button>':'')+
+        (getPerm('pdf')?'<button class="btn bpdf" onclick="dlPDFi('+i+')" style="margin-right:3px">PDF</button>':'')+
+        (getPerm('his-edit')?'<button class="btn bred" onclick="delVenta('+i+','+(v.idx||0)+','+(v.qty||1)+')">X</button>':'')+
       '</td></tr>';
   }).join('');
 }
