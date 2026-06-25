@@ -476,7 +476,7 @@ tr:hover td{background:#f8f9ff}
   <div class="card"><h2>Historial de ventas</h2>
     <input type="text" id="hist-search" placeholder="Buscar por nombre, articulo, fecha, pago..." oninput="renderHist()" class="noup" style="text-transform:none;margin-bottom:12px">
     <div style="overflow-x:auto"><table>
-      <thead id="hth"><tr><th>#</th><th onclick="setHisSort('fecha')" style="cursor:pointer">Fecha</th><th onclick="setHisSort('art')" style="cursor:pointer">Articulo</th><th>Cant</th><th onclick="setHisSort('total')" style="text-align:right;cursor:pointer">Total</th><th onclick="setHisSort('cliente')" style="cursor:pointer">Cliente</th><th onclick="setHisSort('vend')" style="cursor:pointer">Vendedor</th><th onclick="setHisSort('pago')" style="cursor:pointer">Pago</th><th onclick="setHisSort('cuotas')" style="cursor:pointer">Cuotas</th><th></th></tr></thead>
+      <thead id="hth"></thead>
       <tbody id="htb"></tbody>
     </table></div>
   </div>
@@ -491,10 +491,9 @@ tr:hover td{background:#f8f9ff}
       <div class="met"><div class="ml">Cobrado</div><div class="mv" id="cc" style="color:#1e8449">$0</div></div>
       <div class="met"><div class="ml">Por cobrar</div><div class="mv" id="cpend" style="color:#c9a227">$0</div></div>
     </div>
-    <input type="text" id="cart-search" placeholder="Buscar cliente o articulo..." oninput="renderCart()" class="noup" style="text-transform:none;margin-bottom:12px">
-    <input type="text" id="cart-buscar" placeholder="Buscar por cliente, articulo..." oninput="renderCart()" style="margin-bottom:12px;text-transform:none">
+    <input type="text" id="cart-buscar" placeholder="Buscar por fecha, cliente, articulo, pago, total..." oninput="renderCart()" style="margin-bottom:12px;text-transform:none">
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Articulo</th><th>Pago</th><th style="text-align:right">Total</th><th>Cuotas</th><th>Prox. pago</th><th>Estado</th><th></th></tr></thead>
+      <thead id="carth"></thead>
       <tbody id="cartb"></tbody>
     </table></div>
   </div>
@@ -1020,7 +1019,7 @@ function doLogin(){
   g('login-err').style.display='none';
   currentUser=user;
   // Guardar sesion
-  try{localStorage.setItem('maxi_sess',JSON.stringify({uname:user.uname}));}catch(e){}
+  try{localStorage.setItem('maxi_sess',JSON.stringify({uname:user.uname,exp:Date.now()+(8*60*60*1000)}));}catch(e){}
   // Mostrar app
   g('login-overlay').classList.add('hidden');
   // Actualizar header
@@ -1038,6 +1037,8 @@ function doLogin(){
 function doLogout(){
   currentUser=null;
   try{localStorage.removeItem('maxi_sess');}catch(e){}
+  try{localStorage.removeItem('maxi_sess');}catch(e){}
+  currentUser=null;
   var lo=g('login-overlay');if(lo)lo.classList.remove('hidden');
   var lu=g('login-user');if(lu)lu.value='';
   var lp=g('login-pass');if(lp)lp.value='';
@@ -1112,6 +1113,7 @@ function checkSession(){
     var sess=localStorage.getItem('maxi_sess');
     if(!sess)return false;
     var su=JSON.parse(sess);
+    if(su.exp&&Date.now()>su.exp){localStorage.removeItem('maxi_sess');return false;}
     var user=users.find(function(u){return u.uname===su.uname;});
     if(!user)return false;
     currentUser=user;
@@ -2068,7 +2070,7 @@ function renderInv(){
     '<th onclick="setInvSort(\'stk\')" style="text-align:center;'+ss+'">Stock'+ah('stk')+'</th>'+
     costoCol+
     '<th onclick="setInvSort(\'venta\')" style="text-align:right;'+ss+'">P.Venta'+ah('venta')+'</th>'+
-    margenCol+'<th>Estado</th>'+accionesCol+'</tr>';
+    margenCol+'<th onclick="setInvSort(\'estado\')" style="cursor:pointer;user-select:none">Estado'+ah('estado')+'</th>'+accionesCol+'</tr>';
   // Filtrar
   var lista=inv.map(function(a,i){return{a:a,i:i};}).filter(function(x){
     if(!q)return true;
@@ -2083,6 +2085,9 @@ function renderInv(){
       case 'costo':va=a.costo;vb=b.costo;break;
       case 'venta':va=a.venta;vb=b.venta;break;
       case 'margen':va=a.venta>0?(a.venta-a.costo)/a.venta:0;vb=b.venta>0?(b.venta-b.costo)/b.venta:0;break;
+      case 'estado':
+        var eo=function(x){if(x.stk<=0)return 0;if(x.stk<=2)return 1;return 2;};
+        va=eo(a);vb=eo(b);break;
       default:va=a.art;vb=b.art;
     }
     if(typeof va==='string')return invSort.asc?va.localeCompare(vb):vb.localeCompare(va);
@@ -2119,27 +2124,49 @@ function renderInv(){
 function renderSel(){
   if(g('buscar-art')&&g('buscar-art').value) filtrarArts();
 }
-var hisSort={col:'fecha',asc:false}; // mas reciente primero por defecto
+var hisSort={col:'fecha',asc:false};
 function setHisSort(col){
   if(hisSort.col===col){ hisSort.asc=!hisSort.asc; }
   else{ hisSort.col=col; hisSort.asc=true; }
   renderHist();
 }
+var cartSort={col:'dias',asc:true}; // vencidas primero por defecto
+function setCartSort(col){
+  if(cartSort.col===col){ cartSort.asc=!cartSort.asc; }
+  else{ cartSort.col=col; cartSort.asc=true; }
+  renderCart();
+}
 function renderHist(){
-  var tb=g('htb');
+  var th=g('hth'),tb=g('htb');
   if(!tb)return;
-  var q=((g('hist-search')||g('his-buscar')||{value:''}).value||'').toLowerCase().trim();
+  var q=((g('hist-search')||{value:''}).value||'').toLowerCase().trim();
+  var ss='cursor:pointer;user-select:none;white-space:nowrap';
+  function ah(col){return hisSort.col===col?(hisSort.asc?' ▲':' ▼'):'';}
+  if(th){
+    var hcols=[
+      {col:'',label:'#',style:'color:#888'},
+      {col:'fecha',label:'Fecha'},{col:'art',label:'Articulo'},
+      {col:'',label:'Cant'},{col:'total',label:'Total',align:'right'},
+      {col:'cliente',label:'Cliente'},{col:'vend',label:'Vendedor'},
+      {col:'pago',label:'Pago'},{col:'cuotas',label:'Cuotas'},
+      {col:'',label:''}
+    ];
+    th.innerHTML='<tr>'+hcols.map(function(c){
+      if(!c.col)return '<th style="'+(c.style||'')+'">'+(c.label||'')+'</th>';
+      var al=c.align?'text-align:'+c.align+';':'';
+      return '<th onclick="setHisSort(this.dataset.col)" data-col="'+c.col+'" style="'+al+ss+'">'+c.label+ah(c.col)+'</th>';
+    }).join('')+'</tr>';
+  }
   var venFiltradas=ven.map(function(v,i){return{v:v,i:i};}).filter(function(x){
     if(!q)return true;
     var v=x.v,c=v.comprador||{};
     var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toLowerCase();
-    return cl.indexOf(q)>=0||
-      (v.art||'').toUpperCase().indexOf(q)>=0||
-      (v.fecha||'').indexOf(q)>=0||
-      (v.pago||'').toUpperCase().indexOf(q)>=0||
-      (v.vend||'').toUpperCase().indexOf(q)>=0;
+    return v.art.toLowerCase().indexOf(q)>=0||
+           v.fecha.toLowerCase().indexOf(q)>=0||
+           cl.indexOf(q)>=0||
+           v.pago.toLowerCase().indexOf(q)>=0||
+           (v.vend||'').toLowerCase().indexOf(q)>=0;
   });
-  // Ordenar historial
   venFiltradas.sort(function(x,y){
     var a=x.v,b=y.v,va,vb;
     switch(hisSort.col){
@@ -2156,9 +2183,11 @@ function renderHist(){
     return hisSort.asc?va-vb:vb-va;
   });
   if(!venFiltradas.length){
-    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin ventas registradas')+'</td></tr>';return;
+    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin ventas registradas')+'</td></tr>';
+    return;
   }
-  tb.innerHTML=venFiltradas.map(function(x){var v=x.v,i=x.i;
+  tb.innerHTML=venFiltradas.map(function(x){
+    var v=x.v,i=x.i;
     var c=v.comprador||{};
     var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
     return '<tr>'+
@@ -2166,10 +2195,10 @@ function renderHist(){
       '<td style="font-size:10px">'+v.fecha+'</td>'+
       '<td style="font-weight:700">'+v.art+'</td>'+
       '<td style="text-align:center">'+(v.qty||1)+'</td>'+
-      '<td style="text-align:right;font-weight:700;color:#1e8449">'+fmt(v.total)+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:#27ae60">'+fmt(v.total)+'</td>'+
       '<td>'+cl+'</td><td>'+v.vend+'</td>'+
       '<td class="vcr">'+v.pago+'</td>'+
-      '<td style="text-align:center;color:#7d6010;font-weight:700">'+(v.cuotas>0?v.cuotas+'C':'-')+'</td>'+
+      '<td style="text-align:center;color:#9b59b6;font-weight:700">'+(v.cuotas>0?v.cuotas+'C':'-')+'</td>'+
       '<td style="white-space:nowrap">'+
         '<button class="btn bgold" onclick="showDet('+i+')" style="margin-right:3px">Ver</button>'+
         (getPerm('his-edit')?'<button class="btn borg" onclick="abrirEditarVenta('+i+')" style="margin-right:3px">Editar</button>':'')+
@@ -2178,6 +2207,7 @@ function renderHist(){
       '</td></tr>';
   }).join('');
 }
+
 function diasPP(v,ci){
   if(!v.ci||!v.ci.fecha)return null;
   var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+ci);
@@ -2190,63 +2220,82 @@ function proxNP(v){
   return null;
 }
 function renderCart(){
+  var th=g('carth'),tb=g('cartb');
+  if(!tb)return;
   var q=((g('cart-buscar')||{value:''}).value||'').toLowerCase().trim();
-  var creds=ven.filter(function(v){
-    if(v.pago!=='CREDICONTADO'||!v.cuotas) return false;
-    if(!q) return true;
-    var c=v.comprador||{};
-    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toLowerCase();
-    return cl.indexOf(q)>=0 || v.art.toLowerCase().indexOf(q)>=0;
-  });
+  // Calcular metricas
+  var allCreds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
   var tot=0,cob=0;
-  creds.forEach(function(v){
+  allCreds.forEach(function(v){
     tot+=v.total;
     (v.cp||[]).forEach(function(c){if(c.pagado)cob+=c.monto||0;});
   });
-  if(g('cn'))g('cn').textContent=creds.length;
+  if(g('cn'))g('cn').textContent=allCreds.length;
   if(g('ct'))g('ct').textContent=fmt(tot);
   if(g('cc'))g('cc').textContent=fmt(cob);
   if(g('cpend'))g('cpend').textContent=fmt(tot-cob);
-  var tb=g('cartb');if(!tb)return;
-  if(!creds.length){tb.innerHTML='<tr><td colspan="10" class="empty">Sin creditos</td></tr>';return;}
-  var q=(g('cart-search')&&g('cart-search').value||'').toUpperCase().trim();
+
+  // Headers dinamicos con flechas
+  var ss='cursor:pointer;user-select:none;white-space:nowrap';
+  function ah(col){return cartSort.col===col?(cartSort.asc?' ▲':' ▼'):'';}
+  if(th){
+    var ccols=[
+      {col:'',label:'#',style:'color:#888'},
+      {col:'fecha',label:'Fecha'},{col:'cliente',label:'Cliente'},
+      {col:'art',label:'Articulo'},{col:'pago',label:'Pago'},
+      {col:'total',label:'Total',align:'right'},{col:'cuotas',label:'Cuotas'},
+      {col:'dias',label:'Prox. pago'},{col:'estado',label:'Estado'},{col:'',label:''}
+    ];
+    th.innerHTML='<tr>'+ccols.map(function(c){
+      if(!c.col)return '<th style="'+(c.style||'')+'">'+(c.label||'')+'</th>';
+      var al=c.align?'text-align:'+c.align+';':'';
+      return '<th onclick="setCartSort(this.dataset.col)" data-col="'+c.col+'" style="'+al+ss+'">'+c.label+ah(c.col)+'</th>';
+    }).join('')+'</tr>';
+  }
+
   // Filtrar
-  if(q){
-    creds=creds.filter(function(v){
-      var c=v.comprador||{};
-      var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toUpperCase();
-      return cl.indexOf(q)>=0||(v.art||'').toUpperCase().indexOf(q)>=0;
-    });
-  }
-  // Ordenar: vencidos primero, luego por dias mas urgentes
-  var hoy=new Date();hoy.setHours(0,0,0,0);
-  creds.sort(function(a,b){
-    function diasDeuda(v){
-      var todas=(v.cp||[]).every(function(x){return x.pagado;});
-      if(todas)return -999;
-      var proxIdx=null;
-      for(var i=0;i<(v.cp||[]).length;i++){if(!v.cp[i].pagado){proxIdx=i;break;}}
-      if(proxIdx===null||!v.ci||!v.ci.fecha)return 0;
-      var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+proxIdx);fp.setHours(0,0,0,0);
-      return Math.ceil((hoy-fp)/(1000*60*60*24));
-    }
-    return diasDeuda(b)-diasDeuda(a);
+  var creds=allCreds.filter(function(v){
+    if(!q)return true;
+    var c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toLowerCase();
+    return cl.indexOf(q)>=0||
+           v.art.toLowerCase().indexOf(q)>=0||
+           v.fecha.toLowerCase().indexOf(q)>=0||
+           v.pago.toLowerCase().indexOf(q)>=0||
+           String(v.total).indexOf(q)>=0;
   });
+
+  // Calcular dias para cada credito y ordenar
+  var hoy=new Date();hoy.setHours(0,0,0,0);
+  function getDias(v){
+    var pi=proxNP(v);
+    if(pi===null)return 9999;
+    var d=diasPP(v,pi);
+    return d===null?9999:d;
+  }
+  creds.sort(function(a,b){
+    var va,vb;
+    switch(cartSort.col){
+      case 'fecha':va=a.fecha;vb=b.fecha;break;
+      case 'cliente':va=[(a.comprador||{}).nombre,(a.comprador||{}).apellido].filter(Boolean).join(' ');vb=[(b.comprador||{}).nombre,(b.comprador||{}).apellido].filter(Boolean).join(' ');break;
+      case 'art':va=a.art;vb=b.art;break;
+      case 'pago':va=a.pago||'';vb=b.pago||'';break;
+      case 'total':va=a.total||0;vb=b.total||0;break;
+      case 'cuotas':va=(a.cp||[]).filter(function(x){return x.pagado;}).length;vb=(b.cp||[]).filter(function(x){return x.pagado;}).length;break;
+      case 'estado':
+        var eoa=(function(v){var pi=proxNP(v);if(pi===null)return 4;var d=diasPP(v,pi);if(d===null)return 4;if(d<=0)return 0;if(d<=3)return 1;if(d<=8)return 2;return 3;})(a);
+        var eob=(function(v){var pi=proxNP(v);if(pi===null)return 4;var d=diasPP(v,pi);if(d===null)return 4;if(d<=0)return 0;if(d<=3)return 1;if(d<=8)return 2;return 3;})(b);
+        va=eoa;vb=eob;break;
+      default:va=getDias(a);vb=getDias(b);
+    }
+    if(typeof va==='string')return cartSort.asc?va.localeCompare(vb):vb.localeCompare(va);
+    return cartSort.asc?va-vb:vb-va;
+  });
+
   if(!creds.length){
-    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin creditos')+'</td></tr>';return;
+    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados':'Sin creditos')+'</td></tr>';
+    return;
   }
-  // Ordenar: vencidas primero, luego por dias mas proximos
-  var hoy=new Date();hoy.setHours(0,0,0,0);
-  creds.sort(function(a,b){
-    function urgencia(v){
-      var pi=proxNP(v);
-      if(pi===null) return 9999; // ya pagado
-      var dias=diasPP(v,pi);
-      if(dias===null) return 9999;
-      return dias; // menor = mas urgente
-    }
-    return urgencia(a)-urgencia(b);
-  });
   tb.innerHTML=creds.map(function(v){
     var vi=ven.indexOf(v);
     var c=v.comprador||{};
@@ -2274,7 +2323,8 @@ function renderCart(){
       '<td style="color:#aaa;font-size:10px">'+(vi+1)+'</td>'+
       '<td style="font-size:10px">'+v.fecha+'</td>'+
       '<td style="font-weight:700">'+cl+'</td>'+
-      '<td>'+v.art+'</td><td class="vcr">'+v.pago+'</td>'+
+      '<td>'+v.art+'</td>'+
+      '<td class="vcr">'+v.pago+'</td>'+
       '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
       '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
       '<td style="text-align:center">'+diasStr+'</td>'+
@@ -2283,6 +2333,7 @@ function renderCart(){
     '</tr>';
   }).join('');
 }
+
 function renderRes(){
   var tot=ven.reduce(function(s,v){return s+v.total;},0);
   var ef=ven.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+v.total;},0);
