@@ -2056,40 +2056,51 @@ function renderInv(){
   var th=g('ith'),tb=g('itb');
   if(!th||!tb)return;
   var admin=isAdmin();
-  var q=(g('inv-search')||g('inv-buscar')||{value:''}).value.toUpperCase().trim();
-  var q=(g('inv-search')&&g('inv-search').value||'').toUpperCase().trim();
-  var costoCol=admin?'<th style="text-align:right">P.Costo</th>':'';
-  var margenCol=admin?'<th style="text-align:right">Margen</th>':'';
+  var q=((g('inv-search')||{value:''}).value||'').toUpperCase().trim();
+  var costoCol=admin?'<th onclick="setInvSort(\'costo\')" style="text-align:right;cursor:pointer">P.Costo'+(invSort.col==='costo'?(invSort.asc?' ▲':' ▼'):'')+'</th>':'';
+  var margenCol=admin?'<th onclick="setInvSort(\'margen\')" style="text-align:right;cursor:pointer">Margen'+(invSort.col==='margen'?(invSort.asc?' ▲':' ▼'):'')+'</th>':'';
   var accionesCol=(admin||getPerm('inv-edit'))?'<th>Acciones</th>':'';
-    var ss='cursor:pointer;user-select:none;white-space:nowrap';
-  function sTh(col,label,align){
-    var arrow=invSort.col===col?(invSort.asc?' ▲':' ▼'):'';
-    var st=align?'text-align:'+align+';'+ss:ss;
-    return '<th onclick="setInvSort(\''+col+'\')" style="'+st+'">'+(label||col)+arrow+'</th>';
+  var ss='cursor:pointer;user-select:none';
+  function ah(col){return invSort.col===col?(invSort.asc?' ▲':' ▼'):'';}
+  th.innerHTML='<tr>'+
+    '<th onclick="setInvSort(\'cod\')" style="'+ss+'">Cod'+ah('cod')+'</th>'+
+    '<th onclick="setInvSort(\'art\')" style="'+ss+'">Articulo'+ah('art')+'</th>'+
+    '<th onclick="setInvSort(\'stk\')" style="text-align:center;'+ss+'">Stock'+ah('stk')+'</th>'+
+    costoCol+
+    '<th onclick="setInvSort(\'venta\')" style="text-align:right;'+ss+'">P.Venta'+ah('venta')+'</th>'+
+    margenCol+'<th>Estado</th>'+accionesCol+'</tr>';
+  // Filtrar
+  var lista=inv.map(function(a,i){return{a:a,i:i};}).filter(function(x){
+    if(!q)return true;
+    return x.a.art.indexOf(q)>=0||x.a.cod.indexOf(q)>=0;
+  });
+  // Ordenar
+  lista.sort(function(x,y){
+    var a=x.a,b=y.a,va,vb;
+    switch(invSort.col){
+      case 'cod':va=a.cod;vb=b.cod;break;
+      case 'stk':va=a.stk;vb=b.stk;break;
+      case 'costo':va=a.costo;vb=b.costo;break;
+      case 'venta':va=a.venta;vb=b.venta;break;
+      case 'margen':va=a.venta>0?(a.venta-a.costo)/a.venta:0;vb=b.venta>0?(b.venta-b.costo)/b.venta:0;break;
+      default:va=a.art;vb=b.art;
+    }
+    if(typeof va==='string')return invSort.asc?va.localeCompare(vb):vb.localeCompare(va);
+    return invSort.asc?va-vb:vb-va;
+  });
+  if(!lista.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
+    return;
   }
-  th.innerHTML='<tr>'+sTh('cod','Cod')+sTh('art','Articulo')+sTh('stk','Stock','center')+
-    (admin?sTh('costo','P.Costo','right'):'')+
-    sTh('venta','P.Venta','right')+
-    (admin?sTh('margen','Margen','right'):'')+
-    '<th>Estado</th>'+accionesCol+'</tr>';
-  // Filtrar y ordenar
-  var invFiltrado=inv.map(function(a,i){return{a:a,i:i};})
-    .filter(function(x){return !q||x.a.art.indexOf(q)>=0||x.a.cod.indexOf(q)>=0;})
-    .sort(function(x,y){
-      if(invOrden==='alfa') return x.a.art.localeCompare(y.a.art);
-      return 0; // fecha = orden original
-    });
-  if(!invFiltrado.length){
-    tb.innerHTML='<tr><td colspan="8" class="empty">Sin resultados para "'+q+'"</td></tr>';return;
-  }
-  tb.innerHTML=invFiltrado.map(function(x){var a=x.a,i=x.i;
+  tb.innerHTML=lista.map(function(x){
+    var a=x.a;var i=x.i;
     var mg=a.venta>0?((a.venta-a.costo)/a.venta*100).toFixed(1):0;
     var bdg=a.stk<=0?'<span class="bdg bout">Sin stock</span>':a.stk<=2?'<span class="bdg blow">Bajo</span>':'<span class="bdg bok">OK</span>';
     var col=a.stk<=0?'#e74c3c':a.stk<=2?'#e67e22':'#1e8449';
-    var costoTd=admin?'<td style="text-align:right">'+fmt(a.costo)+'</td>':'';
-    var margenTd=admin?'<td style="text-align:right;font-weight:700;color:#2c3e50">'+mg+'%</td>':'';
     var puedeEditarInv=admin||getPerm('inv-edit');
     var puedeStock=admin||getPerm('inv-stock');
+    var costoTd=admin?'<td style="text-align:right">'+fmt(a.costo)+'</td>':'';
+    var margenTd=admin?'<td style="text-align:right;font-weight:700;color:#2c3e50">'+mg+'%</td>':'';
     var accionesTd=puedeEditarInv?'<td style="white-space:nowrap">'+
         '<button class="btn borg" onclick="openEA('+i+')" style="margin-right:3px">Editar</button>'+
         '<button class="btn bred" onclick="delArt('+i+')">Eliminar</button>'+
@@ -2104,10 +2115,6 @@ function renderInv(){
       accionesTd+
     '</tr>';
   }).join('');
-  // Highlight orden activo
-  var ba=g('btn-alfa'),bf=g('btn-fecha');
-  if(ba)ba.className=invOrden==='alfa'?'btn bblue':'btn bgray';
-  if(bf)bf.className=invOrden==='fecha'?'btn bblue':'btn bgray';
 }
 function renderSel(){
   if(g('buscar-art')&&g('buscar-art').value) filtrarArts();
