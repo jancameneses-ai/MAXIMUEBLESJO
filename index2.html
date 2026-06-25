@@ -1037,6 +1037,7 @@ function doLogin(){
     rb.style.color='#fff';
   }
   renderAll();
+  renderSV();
   toast('Bienvenido, '+(user.nombre||user.uname));
 }
 
@@ -1131,6 +1132,7 @@ function checkSession(){
       rb.style.color='#fff';
     }
     g('login-overlay').classList.add('hidden');
+    renderSV(); // refresh vendedor list
     return true;
   }catch(e){return false;}
 }
@@ -1268,13 +1270,19 @@ function tpw(inp,btn){
 function renderSV(){
   var s=g('sv');
   if(!s)return;
-  s.innerHTML=users.map(function(u){
-    return '<option value="'+(u.nombre||u.uname)+'">'+(u.nombre||u.uname)+'</option>';
+  // Usar todos los usuarios disponibles
+  var lista=users.length>0?users:[{nombre:'Admin',uname:'admin'}];
+  s.innerHTML=lista.map(function(u){
+    var nombre=u.nombre||u.uname;
+    return '<option value="'+nombre+'">'+nombre+'</option>';
   }).join('');
-  // Seleccionar el usuario actual por defecto
+  // Seleccionar usuario actual por defecto
   if(currentUser){
     var nombre=currentUser.nombre||currentUser.uname;
-    s.value=nombre;
+    // Si el nombre del usuario actual está en la lista, seleccionarlo
+    for(var i=0;i<s.options.length;i++){
+      if(s.options[i].value===nombre){s.value=nombre;break;}
+    }
   }
 }
 function onPago(){
@@ -2810,14 +2818,16 @@ window.addEventListener('load',function(){
   try{var li=localStorage.getItem(IK);if(li)inv=JSON.parse(li);}catch(e){}
   try{var lv2=localStorage.getItem(VK);if(lv2)ven=JSON.parse(lv2);}catch(e){}
   cargar();
+  // Wait for Firebase to load users before checking session
   setTimeout(function(){
     if(checkSession()){
-      renderAll();renderSV();
+      renderAll();
+      renderSV();
     }else{
       var lo=g('login-overlay');
       if(lo)lo.classList.remove('hidden');
     }
-  },1800);
+  },3000);
 });
 </script>
 <script>
