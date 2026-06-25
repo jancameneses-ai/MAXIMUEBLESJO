@@ -455,6 +455,7 @@ tr:hover td{background:#f8f9ff}
 <!-- TAB INVENTARIO -->
 <div id="tab-inventario" class="sec">
   <div class="card"><h2>Stock de articulos</h2>
+    <input type="text" id="inv-search" placeholder="Buscar articulo..." oninput="renderInv()" class="noup" style="margin-bottom:12px;text-transform:none">
     <div style="overflow-x:auto"><table><thead id="ith"></thead><tbody id="itb"></tbody></table></div>
   </div>
   <div class="card admin-only" id="cadd">
@@ -473,8 +474,9 @@ tr:hover td{background:#f8f9ff}
 <!-- TAB HISTORIAL -->
 <div id="tab-historial" class="sec">
   <div class="card"><h2>Historial de ventas</h2>
+    <input type="text" id="hist-search" placeholder="Buscar por nombre, articulo, fecha, pago..." oninput="renderHist()" class="noup" style="text-transform:none;margin-bottom:12px">
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>#</th><th>Fecha</th><th>Articulo</th><th>Cant</th><th style="text-align:right">Total</th><th>Cliente</th><th>Vendedor</th><th>Pago</th><th>Cuotas</th><th></th></tr></thead>
+      <thead id="hth"><tr><th>#</th><th onclick="setHisSort('fecha')" style="cursor:pointer">Fecha</th><th onclick="setHisSort('art')" style="cursor:pointer">Articulo</th><th>Cant</th><th onclick="setHisSort('total')" style="text-align:right;cursor:pointer">Total</th><th onclick="setHisSort('cliente')" style="cursor:pointer">Cliente</th><th onclick="setHisSort('vend')" style="cursor:pointer">Vendedor</th><th onclick="setHisSort('pago')" style="cursor:pointer">Pago</th><th onclick="setHisSort('cuotas')" style="cursor:pointer">Cuotas</th><th></th></tr></thead>
       <tbody id="htb"></tbody>
     </table></div>
   </div>
@@ -489,6 +491,8 @@ tr:hover td{background:#f8f9ff}
       <div class="met"><div class="ml">Cobrado</div><div class="mv" id="cc" style="color:#1e8449">$0</div></div>
       <div class="met"><div class="ml">Por cobrar</div><div class="mv" id="cpend" style="color:#c9a227">$0</div></div>
     </div>
+    <input type="text" id="cart-search" placeholder="Buscar cliente o articulo..." oninput="renderCart()" class="noup" style="text-transform:none;margin-bottom:12px">
+    <input type="text" id="cart-buscar" placeholder="Buscar por cliente, articulo..." oninput="renderCart()" style="margin-bottom:12px;text-transform:none">
     <div style="overflow-x:auto"><table>
       <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Articulo</th><th>Pago</th><th style="text-align:right">Total</th><th>Cuotas</th><th>Prox. pago</th><th>Estado</th><th></th></tr></thead>
       <tbody id="cartb"></tbody>
@@ -2034,15 +2038,51 @@ function evQuitarItem(i){
   renderEvItems();
 }
 
+var invOrden='alfa'; // 'alfa' o 'fecha'
+function setInvOrden(orden){
+  invOrden=orden;
+  var ba=g('btn-alfa'),bf=g('btn-fecha');
+  if(ba)ba.className=orden==='alfa'?'btn bblue':'btn bgray';
+  if(bf)bf.className=orden==='fecha'?'btn bblue':'btn bgray';
+  renderInv();
+}
+var invSort={col:'Articulo',asc:true};
+function setInvSort(col){
+  if(invSort.col===col){ invSort.asc=!invSort.asc; }
+  else{ invSort.col=col; invSort.asc=true; }
+  renderInv();
+}
 function renderInv(){
   var th=g('ith'),tb=g('itb');
   if(!th||!tb)return;
   var admin=isAdmin();
+  var q=(g('inv-search')||g('inv-buscar')||{value:''}).value.toUpperCase().trim();
+  var q=(g('inv-search')&&g('inv-search').value||'').toUpperCase().trim();
   var costoCol=admin?'<th style="text-align:right">P.Costo</th>':'';
   var margenCol=admin?'<th style="text-align:right">Margen</th>':'';
   var accionesCol=(admin||getPerm('inv-edit'))?'<th>Acciones</th>':'';
-  th.innerHTML='<tr><th>Cod</th><th>Articulo</th><th style="text-align:center">Stock</th>'+costoCol+'<th style="text-align:right">P.Venta</th>'+margenCol+'<th>Estado</th>'+accionesCol+'</tr>';
-  tb.innerHTML=inv.map(function(a,i){
+    var ss='cursor:pointer;user-select:none;white-space:nowrap';
+  function sTh(col,label,align){
+    var arrow=invSort.col===col?(invSort.asc?' ▲':' ▼'):'';
+    var st=align?'text-align:'+align+';'+ss:ss;
+    return '<th onclick="setInvSort(\''+col+'\')" style="'+st+'">'+(label||col)+arrow+'</th>';
+  }
+  th.innerHTML='<tr>'+sTh('cod','Cod')+sTh('art','Articulo')+sTh('stk','Stock','center')+
+    (admin?sTh('costo','P.Costo','right'):'')+
+    sTh('venta','P.Venta','right')+
+    (admin?sTh('margen','Margen','right'):'')+
+    '<th>Estado</th>'+accionesCol+'</tr>';
+  // Filtrar y ordenar
+  var invFiltrado=inv.map(function(a,i){return{a:a,i:i};})
+    .filter(function(x){return !q||x.a.art.indexOf(q)>=0||x.a.cod.indexOf(q)>=0;})
+    .sort(function(x,y){
+      if(invOrden==='alfa') return x.a.art.localeCompare(y.a.art);
+      return 0; // fecha = orden original
+    });
+  if(!invFiltrado.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty">Sin resultados para "'+q+'"</td></tr>';return;
+  }
+  tb.innerHTML=invFiltrado.map(function(x){var a=x.a,i=x.i;
     var mg=a.venta>0?((a.venta-a.costo)/a.venta*100).toFixed(1):0;
     var bdg=a.stk<=0?'<span class="bdg bout">Sin stock</span>':a.stk<=2?'<span class="bdg blow">Bajo</span>':'<span class="bdg bok">OK</span>';
     var col=a.stk<=0?'#e74c3c':a.stk<=2?'#e67e22':'#1e8449';
@@ -2064,15 +2104,54 @@ function renderInv(){
       accionesTd+
     '</tr>';
   }).join('');
+  // Highlight orden activo
+  var ba=g('btn-alfa'),bf=g('btn-fecha');
+  if(ba)ba.className=invOrden==='alfa'?'btn bblue':'btn bgray';
+  if(bf)bf.className=invOrden==='fecha'?'btn bblue':'btn bgray';
 }
 function renderSel(){
   if(g('buscar-art')&&g('buscar-art').value) filtrarArts();
 }
+var hisSort={col:'fecha',asc:false}; // mas reciente primero por defecto
+function setHisSort(col){
+  if(hisSort.col===col){ hisSort.asc=!hisSort.asc; }
+  else{ hisSort.col=col; hisSort.asc=true; }
+  renderHist();
+}
 function renderHist(){
   var tb=g('htb');
   if(!tb)return;
-  if(!ven.length){tb.innerHTML='<tr><td colspan="10" class="empty">Sin ventas registradas</td></tr>';return;}
-  tb.innerHTML=ven.map(function(v,i){
+  var q=((g('hist-search')||g('his-buscar')||{value:''}).value||'').toLowerCase().trim();
+  var venFiltradas=ven.map(function(v,i){return{v:v,i:i};}).filter(function(x){
+    if(!q)return true;
+    var v=x.v,c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toLowerCase();
+    return cl.indexOf(q)>=0||
+      (v.art||'').toUpperCase().indexOf(q)>=0||
+      (v.fecha||'').indexOf(q)>=0||
+      (v.pago||'').toUpperCase().indexOf(q)>=0||
+      (v.vend||'').toUpperCase().indexOf(q)>=0;
+  });
+  // Ordenar historial
+  venFiltradas.sort(function(x,y){
+    var a=x.v,b=y.v,va,vb;
+    switch(hisSort.col){
+      case 'fecha':va=a.fecha;vb=b.fecha;break;
+      case 'art':va=a.art;vb=b.art;break;
+      case 'total':va=a.total||0;vb=b.total||0;break;
+      case 'cliente':va=[(a.comprador||{}).nombre,(a.comprador||{}).apellido].filter(Boolean).join(' ');vb=[(b.comprador||{}).nombre,(b.comprador||{}).apellido].filter(Boolean).join(' ');break;
+      case 'vend':va=a.vend||'';vb=b.vend||'';break;
+      case 'pago':va=a.pago||'';vb=b.pago||'';break;
+      case 'cuotas':va=a.cuotas||0;vb=b.cuotas||0;break;
+      default:va=x.i;vb=y.i;
+    }
+    if(typeof va==='string')return hisSort.asc?va.localeCompare(vb):vb.localeCompare(va);
+    return hisSort.asc?va-vb:vb-va;
+  });
+  if(!venFiltradas.length){
+    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin ventas registradas')+'</td></tr>';return;
+  }
+  tb.innerHTML=venFiltradas.map(function(x){var v=x.v,i=x.i;
     var c=v.comprador||{};
     var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
     return '<tr>'+
@@ -2104,7 +2183,14 @@ function proxNP(v){
   return null;
 }
 function renderCart(){
-  var creds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
+  var q=((g('cart-buscar')||{value:''}).value||'').toLowerCase().trim();
+  var creds=ven.filter(function(v){
+    if(v.pago!=='CREDICONTADO'||!v.cuotas) return false;
+    if(!q) return true;
+    var c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toLowerCase();
+    return cl.indexOf(q)>=0 || v.art.toLowerCase().indexOf(q)>=0;
+  });
   var tot=0,cob=0;
   creds.forEach(function(v){
     tot+=v.total;
@@ -2116,6 +2202,44 @@ function renderCart(){
   if(g('cpend'))g('cpend').textContent=fmt(tot-cob);
   var tb=g('cartb');if(!tb)return;
   if(!creds.length){tb.innerHTML='<tr><td colspan="10" class="empty">Sin creditos</td></tr>';return;}
+  var q=(g('cart-search')&&g('cart-search').value||'').toUpperCase().trim();
+  // Filtrar
+  if(q){
+    creds=creds.filter(function(v){
+      var c=v.comprador||{};
+      var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toUpperCase();
+      return cl.indexOf(q)>=0||(v.art||'').toUpperCase().indexOf(q)>=0;
+    });
+  }
+  // Ordenar: vencidos primero, luego por dias mas urgentes
+  var hoy=new Date();hoy.setHours(0,0,0,0);
+  creds.sort(function(a,b){
+    function diasDeuda(v){
+      var todas=(v.cp||[]).every(function(x){return x.pagado;});
+      if(todas)return -999;
+      var proxIdx=null;
+      for(var i=0;i<(v.cp||[]).length;i++){if(!v.cp[i].pagado){proxIdx=i;break;}}
+      if(proxIdx===null||!v.ci||!v.ci.fecha)return 0;
+      var fp=new Date(v.ci.fecha);fp.setMonth(fp.getMonth()+proxIdx);fp.setHours(0,0,0,0);
+      return Math.ceil((hoy-fp)/(1000*60*60*24));
+    }
+    return diasDeuda(b)-diasDeuda(a);
+  });
+  if(!creds.length){
+    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin creditos')+'</td></tr>';return;
+  }
+  // Ordenar: vencidas primero, luego por dias mas proximos
+  var hoy=new Date();hoy.setHours(0,0,0,0);
+  creds.sort(function(a,b){
+    function urgencia(v){
+      var pi=proxNP(v);
+      if(pi===null) return 9999; // ya pagado
+      var dias=diasPP(v,pi);
+      if(dias===null) return 9999;
+      return dias; // menor = mas urgente
+    }
+    return urgencia(a)-urgencia(b);
+  });
   tb.innerHTML=creds.map(function(v){
     var vi=ven.indexOf(v);
     var c=v.comprador||{};
