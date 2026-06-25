@@ -1630,13 +1630,13 @@ function regVenta(){
   var ccCuotas=+g('cc-cuotas').value||3;
   var ccSaldo=Math.max(0,total-ccIni);
   var ccCval=ccCuotas>0?ccSaldo/ccCuotas:0;
-  var ci=cc?{cuotas:ccCuotas,inicial:ccIni,saldo:ccSaldo,cval:ccCval,fecha:g('cc-fecha').value}:null;
+  var fechaHoy=new Date().toLocaleDateString('es-CO');var ci=cc?{cuotas:ccCuotas,inicial:ccIni,saldo:ccSaldo,cval:ccCval,fecha:g('cc-fecha').value}:null;
   var fecha=new Date().toLocaleDateString('es-CO');
   var cp=cr?Array.from({length:cuotas},function(){return{pagado:false,monto:0,fecha:null};}):[];
   // Nombre del articulo: si hay varios, listarlos
   var artNombre=carrito.length===1?carrito[0].art:carrito.map(function(it){return it.art+' x'+it.qty;}).join(', ');
   var primerIdx=carrito[0].idx;
-  var v={idx:primerIdx,art:artNombre,items:JSON.parse(JSON.stringify(carrito)),
+  var v={idx:primerIdx,art:artNombre,fechaIni:fechaHoy,items:JSON.parse(JSON.stringify(carrito)),
     qty:carrito.reduce(function(s,it){return s+it.qty;},0),
     precio:total,desc:0,total:total,
     comprador:{nombre:nom,apellido:ap,cedula:ced,tel:tel,barrio:bar},
@@ -2645,187 +2645,216 @@ function dlReciboCuota(vi,ci){
   var v=ven[vi];
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
-  // cuotaBase: use ci.cval if available, otherwise calculate
-  // Safety: if value looks like it was stored in thousands (< 10000 but total > 100000), recalculate
+  var asesor=v.vend||currentUser&&(currentUser.nombre||currentUser.uname)||'Admin';
+
+  // cuotaBase con safety check
   var cuotaBase;
   if(v.ci&&v.ci.cval){
     cuotaBase=Math.round(v.ci.cval);
-    // If cuotaBase seems wrong (total much larger), recalculate
     if(v.total>0&&cuotaBase>0&&cuotaBase<v.total/100){
       cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(v.total-(v.ci.inicial||0))/v.cuotas);
     }
-  }else{
-    cuotaBase=Math.round(v.total/v.cuotas);
+  }else{cuotaBase=Math.round(v.total/v.cuotas);}
+
+  // Dia de pago (del primer pago)
+  var diaPago='';
+  if(v.ci&&v.ci.fecha){
+    var fp=parseDate(v.ci.fecha);
+    if(fp&&!isNaN(fp.getTime()))diaPago=fp.getDate()+' de cada mes';
   }
 
-  // Calcular valores reales por cuota con acumulados
-  var cuotasVal=[];
-  var acum=0;
+  // cuotasVal con acumulados
+  var cuotasVal=[];var acum=0;
   for(var i=0;i<v.cuotas;i++){
-    var cp=v.cp[i];
-    var debeEsta=cuotaBase+acum;
-    if(cp&&cp.pagado){
-      var faltante=debeEsta-(cp.monto||0);
-      acum=faltante>0?faltante:0;
-    }else{ acum=0; }
-    cuotasVal.push(debeEsta);
+    var cp2=v.cp[i];
+    var debe=Math.max(0,cuotaBase+acum);
+    if(cp2&&cp2.pagado){acum=debe-(cp2.monto||0);}else{acum=0;}
+    cuotasVal.push(debe);
   }
 
-  // Total pagado (inicial + cuotas)
-  var totalCuotasPagadas=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
+  // Totales
+  var totalCuotas=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
-  var totalDado=totalCuotasPagadas+ini;
-  var saldoPendiente=Math.max(0,v.total-totalDado);
+  var totalDado=totalCuotas+ini;
+  var saldo=Math.max(0,v.total-totalDado);
+  var esteCp=(v.cp||[])[ci]||{};
+  var estePago=esteCp.monto||0;
+  var fechaPago=esteCp.fecha||v.fecha||'';
+
+  // Fecha y hora actual para el recibo
+  var ahora=new Date();
+  var fechaHoy=ahora.toLocaleDateString('es-CO');
+  var horaHoy=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
 
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({unit:'mm',format:'a5'});
   var W=doc.internal.pageSize.getWidth();
   var y=0;
+  var VERDE=[26,58,26];
+  var DORADO=[201,162,39];
+  var GR=[80,80,80];
+  var BL=[20,20,20];
 
   // ── HEADER ──
-  doc.setFillColor(26,58,26);doc.rect(0,0,W,26,'F');
-  try{doc.addImage(LOGO,'JPEG',6,4,18,18);}catch(e){}
-  doc.setTextColor(201,162,39);doc.setFontSize(13);doc.setFont('helvetica','bold');
-  doc.text('MAXIMUEBLES JO',30,11);
-  doc.setTextColor(180,210,180);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(0,0,W,28,'F');
+  try{doc.addImage(LOGO,'JPEG',6,5,18,18);}catch(e){}
+  // Logo texto izquierda
+  doc.setTextColor(DORADO[0],DORADO[1],DORADO[2]);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('MAXIMUEBLES JO',30,12);
+  doc.setTextColor(180,210,180);doc.setFontSize(8);doc.setFont('helvetica','normal');
   doc.text('Orito, Putumayo — Tel: 313 311 4598',30,17);
-  doc.text('RECIBO DE PAGO DE CUOTA',30,22);
-  y=32;
+  doc.setTextColor(150,190,150);doc.setFontSize(7);
+  doc.text('Recibo de pago de cuota',30,22);
+  // Fecha y hora derecha
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text(fechaHoy,W-8,13,{align:'right'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.setTextColor(180,210,180);
+  doc.text(horaHoy,W-8,19,{align:'right'});
+  y=33;
 
-  // ── DATOS DEL CREDITO ──
-  doc.setFillColor(26,58,26);doc.rect(6,y-3,W-12,7,'F');
+  // ── DATOS DEL CREDITO (titulo centrado) ──
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(6,y-3,W-12,7,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  doc.text('DATOS DEL CREDITO',8,y+1);
-  y+=8;
-
-  function row(label,val,bold,color){
-    doc.setFontSize(8);doc.setFont('helvetica','bold');
-    doc.setTextColor(80,80,80);doc.text(label,8,y);
-    doc.setFont('helvetica',bold?'bold':'normal');
-    if(color)doc.setTextColor(color[0],color[1],color[2]);
-    else doc.setTextColor(20,20,20);
-    doc.text(String(val||'-'),W-8,y,{align:'right'});
-    doc.setTextColor(20,20,20);y+=5.5;
-  }
-
-  row('Cliente:',cl,true);
-  var artCorto=v.art.length>38?v.art.substring(0,38)+'...':v.art;
-  row('Articulo:',artCorto);
-  row('Total del credito:',fmt(v.total),true);
-  row('Cuotas pactadas:',v.cuotas+' cuotas de '+fmt(cuotaBase));
-  if(v.ci&&v.ci.fecha)row('Fecha primer pago:',v.ci.fecha);
-  y+=2;
-
-  // ── HISTORIAL DE PAGOS ──
-  doc.setFillColor(26,58,26);doc.rect(6,y-3,W-12,7,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  doc.text('HISTORIAL DE PAGOS',8,y+1);
+  doc.text('DATOS DEL CREDITO',W/2,y+1,{align:'center'});
   y+=9;
 
-  // Header tabla
+  function fila(label,val){
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.setTextColor(GR[0],GR[1],GR[2]);doc.text(label,8,y);
+    doc.setTextColor(BL[0],BL[1],BL[2]);doc.text(String(val||'-'),W-8,y,{align:'right'});
+    y+=5.5;
+  }
+  fila('Cliente:',cl);
+  fila('Articulo:',v.art.length>38?v.art.substring(0,38)+'...':v.art);
+  fila('Total del credito:',fmt(v.total));
+  fila('Cuotas pactadas:',v.cuotas+' cuotas de '+fmt(cuotaBase));
+  fila('Dias de pago:',diaPago||'-');
+  y+=3;
+
+  // ── HISTORIAL DE PAGOS (titulo centrado) ──
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(6,y-3,W-12,7,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('HISTORIAL DE PAGOS',W/2,y+1,{align:'center'});
+  y+=9;
+
+  // Cabecera tabla
   doc.setFillColor(240,234,214);doc.rect(6,y-3,W-12,7,'F');
-  doc.setTextColor(26,58,26);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
-  doc.text('CONCEPTO',9,y+1);
-  doc.text('FECHA',W/2,y+1,{align:'center'});
-  doc.text('VALOR',W-9,y+1,{align:'right'});
+  doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
+  doc.text('Concepto',9,y+1);
+  doc.text('Fecha',W/2,y+1,{align:'center'});
+  doc.text('Valor',W-9,y+1,{align:'right'});
   y+=8;
 
-  // Fila inicial
+  // Cuota inicial
   if(ini>0){
-    doc.setFillColor(248,255,248);doc.rect(6,y-3,W-12,7,'F');
-    doc.setTextColor(30,30,30);doc.setFontSize(8);doc.setFont('helvetica','bold');
-    doc.text('Cuota Inicial',9,y+1);
-    doc.setFont('helvetica','normal');
-    var fechaIni=v.ci&&v.ci.fecha?'Antes de '+v.ci.fecha:v.fecha;
-    doc.text(fechaIni,W/2,y+1,{align:'center'});
-    doc.setFont('helvetica','bold');doc.setTextColor(30,130,30);
-    doc.text(fmt(ini),W-9,y+1,{align:'right'});
-    doc.setTextColor(30,30,30);
+    var fechaIniReal=v.fechaIni||v.fecha||'-';
+    doc.setFillColor(250,255,250);doc.rect(6,y-3,W-12,7,'F');
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.setTextColor(BL[0],BL[1],BL[2]);doc.text('Cuota inicial',9,y+1);
+    doc.text(fechaIniReal,W/2,y+1,{align:'center'});
+    doc.setFont('helvetica','bold');doc.text(fmt(ini),W-9,y+1,{align:'right'});
     y+=7;
-    // Linea separadora
     doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-0.5,W-6,y-0.5);
+    // Espacio separador
+    doc.setFillColor(245,245,245);doc.rect(6,y-0.5,W-12,3,'F');
+    y+=3;
   }
 
-  // Filas cuotas pagadas
-  var pagosList=(v.cp||[]).map(function(p,i){return{idx:i,p:p};}).filter(function(x){return x.p.pagado;});
-  if(pagosList.length===0&&ini===0){
-    doc.setTextColor(150,150,150);doc.setFontSize(8);
-    doc.text('Sin pagos registrados aun',W/2,y+3,{align:'center'});
-    y+=10;
-  }else{
-    pagosList.forEach(function(x,rowIdx){
-      var bg=rowIdx%2===0?[255,255,255]:[250,250,255];
-      doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(6,y-3,W-12,7,'F');
-      doc.setTextColor(30,30,30);doc.setFontSize(8);doc.setFont('helvetica','normal');
-      var debeEsta=cuotasVal[x.idx]||cuotaBase;
-      var falta=debeEsta-(x.p.monto||0);
-      var label='Cuota '+(x.idx+1);
-      if(falta>0)label+=' (abono parcial)';
-      doc.text(label,9,y+1);
-      doc.text(x.p.fecha||'-',W/2,y+1,{align:'center'});
-      doc.setFont('helvetica','bold');
-      var col=falta>0?[200,100,0]:[30,130,30];
-      doc.setTextColor(col[0],col[1],col[2]);
-      doc.text(fmt(x.p.monto||0),W-9,y+1,{align:'right'});
-      doc.setTextColor(30,30,30);
-      y+=7;
-      if(falta>0){
-        // Mostrar faltante en rojo pequeno
-        doc.setFontSize(6.5);doc.setTextColor(180,60,0);doc.setFont('helvetica','italic');
-        doc.text('  Faltaron '+fmt(falta)+' sumados a cuota siguiente',9,y-3);
-        doc.setTextColor(30,30,30);doc.setFontSize(8);doc.setFont('helvetica','normal');
-      }
-      doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-0.5,W-6,y-0.5);
-    });
-  }
+  // Cuotas pagadas
+  var pagadas=(v.cp||[]).map(function(p,i){return{idx:i,p:p};}).filter(function(x){return x.p.pagado;});
+  pagadas.forEach(function(x,ri){
+    var bg=ri%2===0?[255,255,255]:[250,250,255];
+    doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(6,y-3,W-12,7,'F');
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
+    var debe=cuotasVal[x.idx]||cuotaBase;
+    var falta=debe-(x.p.monto||0);
+    var lbl='Cuota '+(x.idx+1)+(Math.abs(falta)>0?' *':'');
+    doc.text(lbl,9,y+1);
+    doc.text(x.p.fecha||'-',W/2,y+1,{align:'center'});
+    doc.setFont('helvetica','bold');doc.text(fmt(x.p.monto||0),W-9,y+1,{align:'right'});
+    y+=7;
+    if(Math.abs(falta)>0){
+      doc.setFontSize(6.5);doc.setFont('helvetica','italic');
+      doc.setTextColor(falta>0?180:30,falta>0?60:130,0);
+      var msg=falta>0?'* Faltaron '+fmt(falta)+' — sumados a cuota siguiente':
+                      '* Exceso de '+fmt(Math.abs(falta))+' — restados de cuota siguiente';
+      doc.text(msg,9,y-3);
+      doc.setTextColor(BL[0],BL[1],BL[2]);doc.setFontSize(9);doc.setFont('helvetica','normal');
+    }
+    doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-0.5,W-6,y-0.5);
+  });
+  y+=5;
 
-  y+=4;
-  // ── RESUMEN FINAL ──
-  doc.setFillColor(26,58,26);doc.rect(6,y-3,W-12,32,'F');
-  doc.setTextColor(180,210,180);doc.setFontSize(7.5);doc.setFont('helvetica','normal');
-  doc.text('Total del credito:',10,y+3);
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');
-  doc.text(fmt(v.total),W-10,y+3,{align:'right'});
-  y+=7;
-  if(ini>0){
-    doc.setTextColor(180,210,180);doc.setFont('helvetica','normal');
-    doc.text('Inicial pagado:',10,y);
-    doc.setTextColor(100,230,100);doc.setFont('helvetica','bold');
-    doc.text(fmt(ini),W-10,y,{align:'right'});
-    y+=6;
-  }
-  doc.setTextColor(180,210,180);doc.setFont('helvetica','normal');
-  doc.text('Total abonado en cuotas:',10,y);
-  doc.setTextColor(100,230,100);doc.setFont('helvetica','bold');
-  doc.text(fmt(totalCuotasPagadas),W-10,y,{align:'right'});
-  y+=7;
-  // Linea divisora
-  doc.setDrawColor(201,162,39);doc.setLineWidth(0.4);doc.line(10,y-2,W-10,y-2);
-  if(saldoPendiente<=0){
-    doc.setTextColor(100,230,100);doc.setFontSize(10);doc.setFont('helvetica','bold');
-    doc.text('CREDITO CANCELADO EN SU TOTALIDAD',W/2,y+4,{align:'center'});
-  }else{
-    doc.setTextColor(180,210,180);doc.setFontSize(8);doc.setFont('helvetica','normal');
-    doc.text('SALDO PENDIENTE POR PAGAR:',10,y+4);
-    doc.setTextColor(255,180,80);doc.setFontSize(11);doc.setFont('helvetica','bold');
-    doc.text(fmt(saldoPendiente),W-10,y+4,{align:'right'});
-    // Proxima cuota
+  // ── RESUMEN ──
+  // 1. Total dado
+  doc.setFillColor(250,250,250);doc.rect(6,y-3,W-12,8,'F');
+  doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y+5,W-6,y+5);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Total dado (inicial + abonos)',8,y+2);
+  doc.setFont('helvetica','bold');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text(fmt(totalDado),W-8,y+2,{align:'right'});
+  y+=9;
+
+  // 2. Valor total
+  doc.setFillColor(250,250,250);doc.rect(6,y-3,W-12,8,'F');
+  doc.setDrawColor(220,220,220);doc.line(6,y+5,W-6,y+5);
+  doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Valor total de la venta',8,y+2);
+  doc.setFont('helvetica','bold');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text(fmt(v.total),W-8,y+2,{align:'right'});
+  y+=9;
+
+  // 3. Saldo pendiente
+  doc.setFillColor(250,250,250);doc.rect(6,y-3,W-12,8,'F');
+  doc.setDrawColor(220,220,220);doc.line(6,y+5,W-6,y+5);
+  doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Saldo pendiente por pagar',8,y+2);
+  doc.setFont('helvetica','bold');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text(fmt(saldo),W-8,y+2,{align:'right'});
+  y+=11;
+
+  // 4. Abono recibido — grande
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.4);doc.line(6,y-4,W-6,y-4);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text('Abono recibido',8,y+2);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Cuota '+(ci+1)+(fechaPago?' — '+fechaPago:''),8,y+7);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
+  doc.text(fmt(estePago),W-8,y+7,{align:'right'});
+  y+=14;
+
+  // Asesor centrado
+  doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-2,W-6,y-2);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Asesor: '+asesor,W/2,y+2,{align:'center'});
+  y+=8;
+
+  // Proxima cuota centrado
+  if(saldo>0){
     var proxIdx=null;
     for(var i=0;i<(v.cp||[]).length;i++){if(!v.cp[i].pagado){proxIdx=i;break;}}
     if(proxIdx!==null&&v.ci&&v.ci.fecha){
-      var fp=parseDate(v.ci.fecha);if(fp&&!isNaN(fp.getTime()))fp.setMonth(fp.getMonth()+proxIdx);
-      doc.setTextColor(180,210,180);doc.setFontSize(7);doc.setFont('helvetica','normal');
-      doc.text('Proxima cuota: '+fp.toLocaleDateString('es-CO')+' — '+fmt(cuotasVal[proxIdx]||cuotaBase),W/2,y+11,{align:'center'});
+      var fp2=parseDate(v.ci.fecha);
+      if(fp2&&!isNaN(fp2.getTime())){
+        fp2.setMonth(fp2.getMonth()+proxIdx);
+        doc.setFontSize(8);doc.setTextColor(GR[0],GR[1],GR[2]);
+        doc.text('Proxima cuota: '+fp2.toLocaleDateString('es-CO')+' — '+fmt(cuotasVal[proxIdx]||cuotaBase),W/2,y+1,{align:'center'});
+        y+=8;
+      }
     }
+  }else{
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
+    doc.text('CREDITO CANCELADO EN SU TOTALIDAD',W/2,y+1,{align:'center'});
+    y+=8;
   }
-  y+=20;
 
-  // ── FOOTER ──
-  doc.setDrawColor(201,162,39);doc.setLineWidth(0.3);doc.line(6,y,W-6,y);y+=5;
-  doc.setTextColor(150,150,150);doc.setFontSize(6.5);doc.setFont('helvetica','italic');
+  // Footer
+  doc.setDrawColor(DORADO[0],DORADO[1],DORADO[2]);doc.setLineWidth(0.3);doc.line(6,y,W-6,y);y+=5;
+  doc.setFontSize(7);doc.setFont('helvetica','italic');doc.setTextColor(150,150,150);
   doc.text('Gracias por su pago — Maximuebles Jo, Orito Putumayo — Tel: 313 311 4598',W/2,y,{align:'center'});
 
-  doc.save('Recibo_Pago_'+cl.replace(/ /g,'_')+'_Cuota'+(ci+1)+'.pdf');
+  doc.save('Recibo_'+cl.replace(/ /g,'_')+'_Cuota'+(ci+1)+'.pdf');
   toast('Recibo descargado');
 }
 
