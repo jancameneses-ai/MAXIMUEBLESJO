@@ -2980,12 +2980,12 @@ function sincronizarContable(){
     if(!v.fecha)return;
     // Efectivo - toda la venta
     if(v.pago==='EFECTIVO'){
-      cont.push({fecha:v.fecha,desc:'Venta efectivo: '+v.art,ing:v.total,egr:0,tipo:'auto',ts:parseTS(v.fecha,0)});
+      cont.push({fecha:normFechaGlobal(v.fecha)||v.fecha,desc:'Venta efectivo: '+v.art,ing:v.total,egr:0,tipo:'auto',ts:parseTS(v.fecha,0)});
     }
     // Credicontado - cuota inicial
     if(v.pago==='CREDICONTADO'&&v.ci&&v.ci.inicial>0){
       var fIni=v.fechaIni||v.fecha;
-      cont.push({fecha:fIni,desc:'Cuota inicial Credicontado: '+v.art,ing:v.ci.inicial,egr:0,tipo:'auto',ts:parseTS(fIni,1)});
+      cont.push({fecha:normFechaGlobal(fIni)||fIni,desc:'Cuota inicial Credicontado: '+v.art,ing:v.ci.inicial,egr:0,tipo:'auto',ts:parseTS(fIni,1)});
     }
     // Credicontado - cuotas pagadas
     if(v.pago==='CREDICONTADO'&&v.cp){
@@ -2994,7 +2994,7 @@ function sincronizarContable(){
           var fPago=p.fecha||v.fecha;
           var c2=v.comprador||{};
           var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
-          cont.push({fecha:fPago,desc:'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
+          cont.push({fecha:normFechaGlobal(fPago)||fPago,desc:'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
         }
       });
     }
@@ -3008,9 +3008,20 @@ function sincronizarContable(){
 
 function parseTS(fecha,offset){
   if(!fecha)return Date.now()+(offset||0);
+  // Handle YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(fecha)){
+    var p=fecha.split('-');
+    return new Date(+p[0],+p[1]-1,+p[2]).getTime()+(offset||0)*1000;
+  }
+  // Handle DD/MM/YYYY
   var p=fecha.split('/');
   if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime()+(offset||0)*1000;
   return Date.now()+(offset||0);
+}
+function normFechaGlobal(f){
+  if(!f)return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(f)){var p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+  return f;
 }
 
 function addContableAuto(fecha,desc,ing,egr,tipo){
@@ -3032,16 +3043,28 @@ function renderContable(){
   var q=((g('cont-buscar')||{value:''}).value||'').toLowerCase().trim();
   if(q)contPage=1;
 
-  // Sort by date then timestamp
+  // Normalizar fechas a DD/MM/YYYY
+  function normFecha(f){
+    if(!f)return '';
+    // YYYY-MM-DD -> DD/MM/YYYY
+    if(/^\d{4}-\d{2}-\d{2}$/.test(f)){var p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+    // D/M/YYYY or DD/M/YYYY variations already fine
+    return f;
+  }
+  function fechaToMs(f){
+    var fn=normFecha(f);
+    var p=fn.split('/');
+    if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime();
+    return 0;
+  }
+  // Sort newest first
   var sorted=cont.slice().sort(function(a,b){
-    if(a.fecha!==b.fecha){
-      var af=a.fecha.split('/');var bf=b.fecha.split('/');
-      var ad=new Date(+af[2],+af[1]-1,+af[0]);
-      var bd=new Date(+bf[2],+bf[1]-1,+bf[0]);
-      return ad-bd;
-    }
-    return (a.ts||0)-(b.ts||0);
+    var da=fechaToMs(a.fecha);var db=fechaToMs(b.fecha);
+    if(da!==db)return db-da; // newest first
+    return (b.ts||0)-(a.ts||0);
   });
+  // Apply normalized fecha to display
+  sorted=sorted.map(function(m){return Object.assign({},m,{fecha:normFecha(m.fecha)});});
 
   // Filter
   var filtered=sorted.map(function(m,i){return{m:m,i:cont.indexOf(m)};}).filter(function(x){
