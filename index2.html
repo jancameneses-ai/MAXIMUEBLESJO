@@ -3183,12 +3183,20 @@ function renderContable(){
     return x.m.desc.toLowerCase().indexOf(q)>=0||x.m.fecha.indexOf(q)>=0;
   });
 
-  // Calculate running total
+  // Calculate totals first
   var totalIng=0,totalEgr=0;
-  var withTotal=filtered.map(function(x){
+  filtered.forEach(function(x){
     totalIng+=x.m.ing||0;
     totalEgr+=x.m.egr||0;
-    return{m:x.m,i:x.i,acum:totalIng-totalEgr};
+  });
+  // Running total goes DOWN from the final balance (newest first)
+  var saldoFinal=totalIng-totalEgr;
+  var acumRun=saldoFinal;
+  var withTotal=filtered.map(function(x){
+    var acumEsta=acumRun;
+    acumRun-=(x.m.ing||0);
+    acumRun+=(x.m.egr||0);
+    return{m:x.m,i:x.i,acum:acumEsta};
   });
 
   // Update summary cards
