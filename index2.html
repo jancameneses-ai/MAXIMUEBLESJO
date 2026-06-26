@@ -206,6 +206,13 @@ tr:hover td{background:#f8f9ff}
 #buscar-results,#ev-results{flex-direction:column;gap:4px;margin-top:5px;max-height:180px;overflow-y:auto;border-radius:8px;border:1px solid #e8e8e8;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:4px}
 /* ── SIDEBAR ICONS SVG ── */
 .sicon svg{pointer-events:none}
+/* ── PAGINACION ── */
+.pag-wrap{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 0 4px;flex-wrap:wrap}
+.pag-btn{min-width:34px;height:34px;border:1.5px solid #e0e0e0;background:#fff;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#555;display:flex;align-items:center;justify-content:center;transition:all .2s;padding:0 8px}
+.pag-btn:hover{background:#f0f7ff;border-color:#3498db;color:#3498db}
+.pag-btn.active{background:#2c3e50;color:#fff;border-color:#2c3e50}
+.pag-btn:disabled{opacity:.35;cursor:default;pointer-events:none}
+.pag-info{font-size:11px;color:#aaa;margin:0 4px}
 /* ── LOGIN ── */
 .login-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1a252f}
 .login-overlay.hidden{display:none}
@@ -332,6 +339,9 @@ tr:hover td{background:#f8f9ff}
     <div class="sitem admin-only" onclick="goTab('usuarios',this)" style="display:none">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <span class="slbl">Usuarios</span></div>
+    <div class="sitem admin-only" onclick="goTab('contable',this)" style="display:none">
+      <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+      <span class="slbl">Contable</span></div>
 
 
   </div>
@@ -477,6 +487,7 @@ tr:hover td{background:#f8f9ff}
   <div class="card"><h2>Stock de articulos</h2>
     <input type="text" id="inv-search" placeholder="Buscar articulo..." oninput="renderInv()" class="noup" style="margin-bottom:12px;text-transform:none">
     <div style="overflow-x:auto"><table><thead id="ith"></thead><tbody id="itb"></tbody></table></div>
+    <div id="inv-pag"></div>
   </div>
   <div class="card admin-only" id="cadd">
     <h2>Agregar articulo</h2>
@@ -499,6 +510,7 @@ tr:hover td{background:#f8f9ff}
       <thead id="hth"></thead>
       <tbody id="htb"></tbody>
     </table></div>
+    <div id="his-pag"></div>
   </div>
 </div>
 
@@ -536,6 +548,7 @@ tr:hover td{background:#f8f9ff}
       </tr></thead>
       <tbody id="credtb"></tbody>
     </table></div>
+    <div id="cred-pag"></div>
   </div>
 
   <!-- Referencias por cliente -->
@@ -623,6 +636,55 @@ tr:hover td{background:#f8f9ff}
   </div>
 
 </div>
+<!-- TAB CONTABLE -->
+<div id="tab-contable" class="sec">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
+      <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <h2>Registrar movimiento manual</h2>
+    <div style="display:grid;grid-template-columns:140px 1fr 140px 140px auto;gap:10px;align-items:end">
+      <div><label>Fecha</label><input type="date" id="cont-fecha" class="noup"></div>
+      <div><label>Descripcion</label><input type="text" id="cont-desc" placeholder="Ej: Compra mercancia, pago servicios..."></div>
+      <div><label style="color:#1e8449">Ingreso $</label><input type="number" id="cont-ing" class="noup" placeholder="0" style="border-color:#a9dfbf;background:#f0fff4;color:#1e8449;font-weight:600"></div>
+      <div><label style="color:#c0392b">Egreso $</label><input type="number" id="cont-egr" class="noup" placeholder="0" style="border-color:#f5b7b1;background:#fff5f5;color:#c0392b;font-weight:600"></div>
+      <div><button class="btn bg" onclick="addContable()" style="margin-top:0;padding:10px 18px;white-space:nowrap">Agregar</button></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+    <div style="background:#f0fff4;border:1.5px solid #a9dfbf;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:10px;color:#1e8449;font-weight:600;text-transform:uppercase;margin-bottom:4px">Total ingresos</div>
+      <div style="font-size:20px;font-weight:700;color:#1e8449" id="cont-tot-ing">$0</div>
+    </div>
+    <div style="background:#fff5f5;border:1.5px solid #f5b7b1;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:10px;color:#c0392b;font-weight:600;text-transform:uppercase;margin-bottom:4px">Total egresos</div>
+      <div style="font-size:20px;font-weight:700;color:#c0392b" id="cont-tot-egr">$0</div>
+    </div>
+    <div style="background:#eaf4ff;border:1.5px solid #aed6f1;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:10px;color:#1a5276;font-weight:600;text-transform:uppercase;margin-bottom:4px">Saldo actual</div>
+      <div style="font-size:20px;font-weight:700;color:#1a5276" id="cont-tot-sal">$0</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Movimientos</h2>
+    <input type="text" id="cont-buscar" placeholder="Buscar por fecha o descripcion..." oninput="renderContable()" style="margin-bottom:12px;text-transform:none">
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>Fecha</th><th>Descripcion</th>
+        <th style="text-align:right;background:#f0fff4;color:#1e8449">Ingreso</th>
+        <th style="text-align:right;background:#fff5f5;color:#c0392b">Egreso</th>
+        <th style="text-align:right;background:#eaf4ff;color:#1a5276">Total acumulado</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="cont-tb"></tbody>
+    </table></div>
+    <div id="cont-pag"></div>
+  </div>
+</div>
+
 <div id="tab-usuarios" class="sec">
   <div class="card">
     <h2>Usuarios registrados</h2>
@@ -837,7 +899,7 @@ const DI=[
   {cod:"MUE-010",art:"COLCHON KING SIZE",stk:4,costo:580000,venta:950000},
 ];
 
-let inv=[],ven=[],lv=null,sc=false;
+let inv=[],ven=[],cont=[],lv=null,sc=false;
 
 // Simular admin siempre activo
 function isA(){return isAdmin();}
@@ -865,6 +927,7 @@ function procesarDatos(data){
       }
     });
   }
+  if(data.cont&&Array.isArray(data.cont))cont=data.cont;
   renderAll();
   renderSV();
   renderUsuarios();
@@ -873,6 +936,7 @@ function procesarDatos(data){
 function cargar(){
   // Cargar local primero
   try{var li=localStorage.getItem(IK);if(li)inv=JSON.parse(li);}catch(e){}
+  try{var lc=localStorage.getItem(CK);if(lc)cont=JSON.parse(lc);}catch(e){}
   try{var lv2=localStorage.getItem(VK);if(lv2)ven=JSON.parse(lv2);}catch(e){}
   // Conectar Firebase listener (tiempo real)
   var intentos=0;
@@ -900,11 +964,12 @@ function save(){
   var b=g('sbadge');if(!b)return;
   // Guardar local siempre
   try{localStorage.setItem(IK,JSON.stringify(inv));}catch(e){}
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   try{localStorage.setItem(VK,JSON.stringify(ven));}catch(e){}
   // Guardar en Firebase
   if(typeof window.fbSet==='function'){
     b.textContent='Guardando...';b.style.background='#f39c12';
-    window.fbSet({inv:inv,ven:ven,users:users},function(err){
+    window.fbSet({inv:inv,ven:ven,users:users,cont:cont},function(err){
       if(err){
         console.error('Firebase save error:',err);
         b.textContent='Solo local';b.style.background='#e67e22';
@@ -1289,6 +1354,15 @@ function renderCreditos(){
     }
     return urgencia(a)-urgencia(b);
   });
+  // Pagination
+  var totalCred=creds.length;
+  var totalPagCred=Math.max(1,Math.ceil(totalCred/CRED_PER_PAGE));
+  if(credPag>totalPagCred)credPag=1;
+  var cStart=(credPag-1)*CRED_PER_PAGE;
+  creds=creds.slice(cStart,cStart+CRED_PER_PAGE);
+  var cpw=document.getElementById('cred-pag');
+  if(cpw)cpw.innerHTML=pagWidget('cred',credPag,totalCred,CRED_PER_PAGE,'setCredPage');
+
   tb.innerHTML=creds.map(function(v){
     var vi=ven.indexOf(v);
     var c=v.comprador||{};
@@ -1347,6 +1421,7 @@ function renderCreditos(){
   }).join('');
 }
 
+function setCredPage(p){credPag=p;renderCreditos();}
 function verRefsCred(vi){
   var v=ven[vi];
   var c=v.comprador||{};
@@ -1681,6 +1756,10 @@ function togCuota(vi,ci){
   var monto=parseFloat(g('cm'+vi+'_'+ci).value)||0;
   var fecha=g('cf'+vi+'_'+ci).value||new Date().toISOString().split('T')[0];
   v.cp[ci]={pagado:true,monto:monto,fecha:fecha};
+  // Auto-registro contable abono Credicontado
+  var c2=v.comprador||{};
+  var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
+  addContableAuto(fecha||new Date().toLocaleDateString('es-CO'),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),monto,0,'auto');
   save();gestCuot(vi);renderCart();toast('Cuota marcada como pagada');
 }
 function desPagar(vi,ci){
@@ -2392,6 +2471,31 @@ function setInvOrden(orden){
   renderInv();
 }
 var invSort={col:'Articulo',asc:true};
+var invPage=1; var INV_PER_PAGE=15;
+var hisPag=1; var HIS_PER_PAGE=15;
+var credPag=1; var CRED_PER_PAGE=15;
+
+function pagWidget(id,page,total,perPage,onPage){
+  var pages=Math.max(1,Math.ceil(total/perPage));
+  if(pages<=1)return '<div class="pag-wrap"><span class="pag-info">'+total+' registros</span></div>';
+  var start=(page-1)*perPage+1;
+  var end=Math.min(page*perPage,total);
+  var h='<div class="pag-wrap">';
+  h+='<button class="pag-btn" onclick="'+onPage+'('+(page-1)+')" '+(page<=1?'disabled':'')+'>&#8592;</button>';
+  // Show page numbers
+  var from=Math.max(1,page-2);
+  var to=Math.min(pages,from+4);
+  if(from>1)h+='<button class="pag-btn" onclick="'+onPage+'(1)">1</button>'+(from>2?'<span class="pag-info">...</span>':'');
+  for(var p=from;p<=to;p++){
+    h+='<button class="pag-btn'+(p===page?' active':'')+'" onclick="'+onPage+'('+p+')">'+p+'</button>';
+  }
+  if(to<pages)h+=(to<pages-1?'<span class="pag-info">...</span>':'')+'<button class="pag-btn" onclick="'+onPage+'('+pages+')">'+pages+'</button>';
+  h+='<button class="pag-btn" onclick="'+onPage+'('+(page+1)+')" '+(page>=pages?'disabled':'')+'>&#8594;</button>';
+  h+='<span class="pag-info">'+start+'-'+end+' de '+total+'</span>';
+  h+='</div>';
+  return h;
+}
+function setInvPage(p){invPage=p;renderInv();}
 function setInvSort(col){
   if(invSort.col===col){ invSort.asc=!invSort.asc; }
   else{ invSort.col=col; invSort.asc=true; }
@@ -2402,6 +2506,7 @@ function renderInv(){
   if(!th||!tb)return;
   var admin=isAdmin();
   var q=((g('inv-search')||{value:''}).value||'').toUpperCase().trim();
+  if(q)invPage=1;
   var costoCol=admin?'<th onclick="setInvSort(\'costo\')" style="text-align:right;cursor:pointer">P.Costo'+(invSort.col==='costo'?(invSort.asc?' ▲':' ▼'):'')+'</th>':'';
   var margenCol=admin?'<th onclick="setInvSort(\'margen\')" style="text-align:right;cursor:pointer">Margen'+(invSort.col==='margen'?(invSort.asc?' ▲':' ▼'):'')+'</th>':'';
   var accionesCol=(admin||getPerm('inv-edit'))?'<th>Acciones</th>':'';
@@ -2440,7 +2545,21 @@ function renderInv(){
     tb.innerHTML='<tr><td colspan="8" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
     return;
   }
-  tb.innerHTML=lista.map(function(x){
+  // Pagination
+  var totalInv=lista.length;
+  var totalPagInv=Math.max(1,Math.ceil(totalInv/INV_PER_PAGE));
+  if(invPage>totalPagInv)invPage=1;
+  var start=(invPage-1)*INV_PER_PAGE;
+  var paginada=lista.slice(start,start+INV_PER_PAGE);
+  // Pagination widget
+  var pw=document.getElementById('inv-pag');
+  if(pw)pw.innerHTML=pagWidget('inv',invPage,totalInv,INV_PER_PAGE,'setInvPage');
+
+  if(!paginada.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
+    return;
+  }
+  tb.innerHTML=paginada.map(function(x){
     var a=x.a;var i=x.i;
     var mg=a.venta>0?((a.venta-a.costo)/a.venta*100).toFixed(1):0;
     var bdg=a.stk<=0?'<span class="bdg bout">Sin stock</span>':a.stk<=2?'<span class="bdg blow">Bajo</span>':'<span class="bdg bok">OK</span>';
@@ -2468,6 +2587,7 @@ function renderSel(){
   if(g('buscar-art')&&g('buscar-art').value) filtrarArts();
 }
 var hisSort={col:'fecha',asc:false};
+function setHisPage(p){hisPag=p;renderHist();}
 function setHisSort(col){
   if(hisSort.col===col){ hisSort.asc=!hisSort.asc; }
   else{ hisSort.col=col; hisSort.asc=true; }
@@ -2483,6 +2603,7 @@ function renderHist(){
   var th=g('hth'),tb=g('htb');
   if(!tb)return;
   var q=((g('hist-search')||{value:''}).value||'').toLowerCase().trim();
+  if(q)hisPag=1; // reset to page 1 when searching
   var ss='cursor:pointer;user-select:none;white-space:nowrap';
   function ah(col){return hisSort.col===col?(hisSort.asc?' ▲':' ▼'):'';}
   if(th){
@@ -2820,11 +2941,123 @@ function renderRes(){
   }
 }
 
+var contPage=1; var CONT_PER_PAGE=15;
+
+function addContable(){
+  var fecha=g('cont-fecha').value;
+  var desc=g('cont-desc').value.trim();
+  var ing=parseFloat(g('cont-ing').value)||0;
+  var egr=parseFloat(g('cont-egr').value)||0;
+  if(!fecha){toast('Selecciona una fecha',1);return;}
+  if(!desc){toast('Escribe una descripcion',1);return;}
+  if(!ing&&!egr){toast('Ingresa un valor de ingreso o egreso',1);return;}
+  // Convert fecha to DD/MM/YYYY
+  var fp=fecha.split('-');
+  var fechaFmt=fp[2]+'/'+fp[1]+'/'+fp[0];
+  cont.push({
+    fecha:fechaFmt,
+    desc:desc,
+    ing:ing,
+    egr:egr,
+    tipo:'manual',
+    ts:Date.now()
+  });
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  save();
+  g('cont-fecha').value='';g('cont-desc').value='';
+  g('cont-ing').value='';g('cont-egr').value='';
+  renderContable();
+  toast('Movimiento registrado');
+}
+
+function addContableAuto(fecha,desc,ing,egr,tipo){
+  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now()});
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  save();
+  renderContable();
+}
+
+function delContable(i){
+  if(!confirm('Eliminar este movimiento?'))return;
+  cont.splice(i,1);
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  save();renderContable();toast('Movimiento eliminado');
+}
+
+function renderContable(){
+  var tb=g('cont-tb');if(!tb)return;
+  var q=((g('cont-buscar')||{value:''}).value||'').toLowerCase().trim();
+  if(q)contPage=1;
+
+  // Sort by date then timestamp
+  var sorted=cont.slice().sort(function(a,b){
+    if(a.fecha!==b.fecha){
+      var af=a.fecha.split('/');var bf=b.fecha.split('/');
+      var ad=new Date(+af[2],+af[1]-1,+af[0]);
+      var bd=new Date(+bf[2],+bf[1]-1,+bf[0]);
+      return ad-bd;
+    }
+    return (a.ts||0)-(b.ts||0);
+  });
+
+  // Filter
+  var filtered=sorted.map(function(m,i){return{m:m,i:cont.indexOf(m)};}).filter(function(x){
+    if(!q)return true;
+    return x.m.desc.toLowerCase().indexOf(q)>=0||x.m.fecha.indexOf(q)>=0;
+  });
+
+  // Calculate running total
+  var totalIng=0,totalEgr=0;
+  var withTotal=filtered.map(function(x){
+    totalIng+=x.m.ing||0;
+    totalEgr+=x.m.egr||0;
+    return{m:x.m,i:x.i,acum:totalIng-totalEgr};
+  });
+
+  // Update summary cards
+  var ti=g('cont-tot-ing');if(ti)ti.textContent=fmt(totalIng);
+  var te=g('cont-tot-egr');if(te)te.textContent=fmt(totalEgr);
+  var ts2=g('cont-tot-sal');if(ts2){
+    ts2.textContent=fmt(totalIng-totalEgr);
+    ts2.style.color=(totalIng-totalEgr)>=0?'#1a5276':'#e74c3c';
+  }
+
+  // Pagination
+  var total=withTotal.length;
+  var pages=Math.max(1,Math.ceil(total/CONT_PER_PAGE));
+  if(contPage>pages)contPage=1;
+  var start=(contPage-1)*CONT_PER_PAGE;
+  var paginada=withTotal.slice(start,start+CONT_PER_PAGE);
+  var cpw=g('cont-pag');
+  if(cpw)cpw.innerHTML=pagWidget('cont',contPage,total,CONT_PER_PAGE,'setContPage');
+
+  if(!paginada.length){
+    tb.innerHTML='<tr><td colspan="6" class="empty">'+(q?'Sin resultados':'Sin movimientos registrados')+'</td></tr>';
+    return;
+  }
+
+  tb.innerHTML=paginada.map(function(x){
+    var m=x.m;var idx=x.i;var acum=x.acum;
+    var autoLabel=m.tipo==='auto'?'<span style="font-size:9px;background:#ebf5fb;color:#1a5276;padding:1px 5px;border-radius:3px;margin-left:4px">auto</span>':'';
+    return '<tr>'+
+      '<td style="font-size:11px;color:#888">'+m.fecha+'</td>'+
+      '<td style="font-weight:500">'+m.desc+autoLabel+'</td>'+
+      '<td style="text-align:right;background:#f0fff4;font-weight:600;color:#1e8449">'+(m.ing>0?fmt(m.ing):'—')+'</td>'+
+      '<td style="text-align:right;background:#fff5f5;font-weight:600;color:#c0392b">'+(m.egr>0?fmt(m.egr):'—')+'</td>'+
+      '<td style="text-align:right;background:#eaf4ff;font-weight:700;color:'+(acum>=0?'#1a5276':'#e74c3c')+'">'+fmt(acum)+'</td>'+
+      '<td><button class="btn bred" onclick="delContable('+idx+')" style="font-size:10px;padding:3px 8px">✕</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function setContPage(p){contPage=p;renderContable();}
+
+
 function renderAll(){
   if(!currentUser)return;
   applyRol();
   renderInv();renderSel();renderHist();renderCart();renderRes();renderSV();renderCreditos();
-  renderUsuarios();
+  renderUsuarios();renderContable();
 }
 
 function goTab(id,el){
@@ -2837,6 +3070,7 @@ function goTab(id,el){
   if(id==='cartera')renderCart();
   if(id==='creditos')renderCreditos();
   if(id==='usuarios')renderUsuarios();
+  if(id==='contable')renderContable();
 }
 
 function toast(msg,err){
