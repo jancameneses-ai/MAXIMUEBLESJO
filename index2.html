@@ -933,10 +933,7 @@ tr:hover td{background:#f8f9ff}
         <label style="font-size:10px">Fecha de la venta</label>
         <input type="date" id="ev-fecha" class="noup">
       </div>
-      <div>
-        <label style="font-size:10px">Fecha primer pago (Credicontado)</label>
-        <input type="date" id="ev-fecha-pago" class="noup">
-      </div>
+
     </div>
     <!-- Buscador articulos edicion -->
     <div style="margin-bottom:8px">
@@ -1982,16 +1979,25 @@ function guardarEdicionVenta(){
   if(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'){
     ven[i].cuotas=+g('ev-cuotas').value||0;
   }
-  // Actualizar fecha en libro contable si cambio
+  // Actualizar fecha en libro contable para TODOS los tipos de pago
   if(rawFecha){
     var fechaNueva=ven[i].fecha;
-    // Buscar entradas auto de esta venta en contable y actualizar fecha
-    var artNombreV=ven[i].art;
+    var v2=ven[i];
+    var c2=v2.comprador||{};
+    var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
+    // Actualizar entradas auto relacionadas con esta venta
     cont.forEach(function(c){
-      if(c.tipo==='auto'&&c.desc&&c.desc.indexOf(artNombreV)>=0){
-        c.fecha=fechaNueva;
-        c.ts=parseTS(fechaNueva,0);
+      if(c.tipo!=='auto')return;
+      var desc=c.desc||'';
+      // Efectivo: buscar por articulo
+      if(desc.indexOf('Venta efectivo:')>=0&&desc.indexOf(v2.art)>=0){
+        c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,0);
       }
+      // Credicontado inicial: usar fecha de la venta
+      if(desc.indexOf('Cuota inicial Credicontado:')>=0&&desc.indexOf(v2.art)>=0){
+        c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,1);
+      }
+      // Abonos: NO cambian, conservan fecha real del pago
     });
     try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   }
@@ -3071,12 +3077,13 @@ function sincronizarContable(){
     if(!v.fecha)return;
     // Efectivo - toda la venta
     if(v.pago==='EFECTIVO'){
-      cont.push({fecha:normFechaGlobal(v.fecha)||v.fecha,desc:'Venta efectivo: '+v.art,ing:v.total,egr:0,tipo:'auto',ts:parseTS(v.fecha,0)});
+      cont.push({fecha:normFechaGlobal(v.fecha)||v.fecha,desc:'Venta efectivo: '+v.art,ing:v.total,egr:0,tipo:'auto',ts:parseTS(v.fecha,0),ventaArt:v.art,ventaPago:v.pago});
     }
     // Credicontado - cuota inicial
     if(v.pago==='CREDICONTADO'&&v.ci&&v.ci.inicial>0){
-      var fIni=v.fechaIni||v.fecha;
-      cont.push({fecha:normFechaGlobal(fIni)||fIni,desc:'Cuota inicial Credicontado: '+v.art,ing:v.ci.inicial,egr:0,tipo:'auto',ts:parseTS(fIni,1)});
+      // Cuota inicial usa la fecha de la venta (cuando se llevo el articulo)
+      var fIni=normFechaGlobal(v.fecha)||v.fecha;
+      cont.push({fecha:fIni,desc:'Cuota inicial Credicontado: '+v.art,ing:v.ci.inicial,egr:0,tipo:'auto',ts:parseTS(fIni,1),ventaArt:v.art,ventaPago:v.pago});
     }
     // Credicontado - cuotas pagadas
     if(v.pago==='CREDICONTADO'&&v.cp){
