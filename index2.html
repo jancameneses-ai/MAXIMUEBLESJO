@@ -757,6 +757,62 @@ tr:hover td{background:#f8f9ff}
 <div class="toast" id="toast"></div>
 
 <!-- MODAL EDITAR VENTA -->
+<!-- MODAL EDITAR USUARIO -->
+<div class="mb" id="m-edit-user">
+  <div class="md">
+    <h3>Editar usuario</h3>
+    <input type="hidden" id="eu-id">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label>Nombre completo</label><input type="text" id="eu-nombre"></div>
+      <div><label>Usuario</label><input type="text" id="eu-user" style="text-transform:none"></div>
+      <div><label>Nueva contrasena (vacio = no cambia)</label>
+        <div style="position:relative">
+          <input type="password" id="eu-pass" placeholder="Nueva contrasena" style="text-transform:none;padding-right:65px">
+          <button onclick="tpwGen('eu-pass','eu-eye')" id="eu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer">Ver</button>
+        </div>
+      </div>
+      <div><label>Rol</label>
+        <select id="eu-rol" onchange="togglePermsPanel('eu')">
+          <option value="vendedor">Vendedor</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div><label>Pregunta de seguridad</label>
+        <select id="eu-pregunta">
+          <option value="Nombre de tu mascota">Nombre de tu mascota</option>
+          <option value="Ciudad donde naciste">Ciudad donde naciste</option>
+          <option value="Nombre de tu madre">Nombre de tu madre</option>
+          <option value="Colegio donde estudiaste">Colegio donde estudiaste</option>
+        </select>
+      </div>
+      <div><label>Respuesta</label>
+        <input type="text" id="eu-respuesta" placeholder="Respuesta secreta" style="text-transform:none">
+      </div>
+    </div>
+    <div id="eu-perms-panel" style="display:none;margin-top:10px;padding:14px;background:#f0f7ff;border-radius:10px;border:1px solid #aed6f1">
+      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Permisos del vendedor</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-inv-ver" style="width:18px;height:18px"> Ver inventario</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-inv-stock" style="width:18px;height:18px"> Editar stock</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-inv-add" style="width:18px;height:18px"> Agregar articulos</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-inv-edit" style="width:18px;height:18px"> Editar y eliminar articulos</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-ven-reg" style="width:18px;height:18px"> Registrar ventas</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-his-ver" style="width:18px;height:18px"> Ver historial</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-his-edit" style="width:18px;height:18px"> Editar y eliminar ventas</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-cart-ver" style="width:18px;height:18px"> Ver cartera</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-cuot-gest" style="width:18px;height:18px"> Gestionar cuotas</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-cred-ver" style="width:18px;height:18px"> Ver credicontados</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-res-ver" style="width:18px;height:18px"> Ver resumen</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-pdf" style="width:18px;height:18px"> Descargar PDFs</label>
+      </div>
+    </div>
+    <div class="mdf">
+      <button class="btn bgray" onclick="cm('m-edit-user')">Cancelar</button>
+      <button class="btn bblue" onclick="guardarUsuario()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EDITAR ARTICULO -->
 <div class="mb" id="med">
   <div class="md">
@@ -874,6 +930,31 @@ tr:hover td{background:#f8f9ff}
       </div>
 
     </div>
+    <!-- Fields added to fix missing IDs -->
+    <div class="g2" style="gap:8px;margin-bottom:8px">
+      <div>
+        <label style="font-size:10px">Fecha de la venta</label>
+        <input type="date" id="ev-fecha" class="noup">
+      </div>
+      <div>
+        <label style="font-size:10px">Fecha primer pago (Credicontado)</label>
+        <input type="date" id="ev-fecha-pago" class="noup">
+      </div>
+    </div>
+    <!-- Buscador articulos edicion -->
+    <div style="margin-bottom:8px">
+      <label style="font-size:10px">Agregar articulo</label>
+      <input type="hidden" id="ev-art-idx" value="-1">
+      <input type="text" id="ev-search-art" placeholder="Buscar articulo..." oninput="filtrarArtsEdit()" class="noup" style="margin-bottom:4px;text-transform:none">
+      <div id="ev-results" style="display:none;flex-direction:column;gap:3px;max-height:140px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:4px;background:#fff"></div>
+      <div class="g2" style="gap:6px;margin-top:4px">
+        <div><label style="font-size:10px">Cantidad</label><input type="number" id="ev-art-qty" value="1" min="1" class="noup"></div>
+        <div><label style="font-size:10px">Precio $</label><input type="number" id="ev-art-precio" class="noup" placeholder="0"></div>
+      </div>
+      <button class="btn bblue" onclick="evAgregarItem()" style="width:100%;margin-top:6px;font-size:11px">+ Agregar al pedido</button>
+    </div>
+    <div id="ev-items-list" style="margin-bottom:6px"></div>
+    <div style="text-align:right;font-size:12px;color:#2c3e50;font-weight:700">Total: <span id="ev-total-val">$0</span></div>
     <div class="mdf">
       <button class="btn bgray" onclick="cm('medit-venta')">Cancelar</button>
       <button class="btn bg" onclick="guardarEdicionVenta()">Guardar cambios</button>
@@ -901,6 +982,9 @@ const DI=[
 ];
 
 let inv=[],ven=[],cont=[],lv=null,sc=false;
+var editVentaIdx=-1;
+var editVentaItems=[];
+var evItems=[];
 
 // Simular admin siempre activo
 function isA(){return isAdmin();}
@@ -1239,11 +1323,11 @@ function crearUsuario(){
 
 function abrirEditarUsuario(idx){
   var u=users[idx];
-  g('eu-id').value=idx;
-  g('eu-nombre').value=u.nombre||'';
-  g('eu-user').value=u.uname||'';
-  g('eu-pass').value='';
-  g('eu-rol').value=u.rol||'vendedor';
+  sv('eu-id',idx);
+  sv('eu-nombre',u.nombre||'');
+  sv('eu-user',u.uname||'');
+  sv('eu-pass','');
+  sv('eu-rol',u.rol||'vendedor');
   var ep=g('eu-pregunta');if(ep)ep.value=u.pregunta||'Nombre de tu mascota';
   var er=g('eu-respuesta');if(er)er.value=u.respuesta||'';
   // Mostrar permisos si es vendedor
@@ -1885,9 +1969,9 @@ function evQuitarItem(i){
   renderEvItems();
 }
 function guardarEdicionVenta(){
-  var i=editVentaIdx;
-  if(i<0||i>=ven.length){toast('Error al guardar',1);return;}
-  var items=editVentaItems||[];
+  var i=+(document.getElementById('ev-idx')||{value:-1}).value;
+  if(isNaN(i)||i<0||i>=ven.length){toast('Error al guardar',1);return;}
+  var items=evItems||editVentaItems||[];
   if(!items.length){toast('Agrega al menos un articulo',1);return;}
   var total=items.reduce(function(s,it){return s+it.subtotal;},0);
   ven[i].items=items;
@@ -2401,21 +2485,20 @@ function dlPDFi(i){lv=ven[i];showFac(ven[i]);dlPDF();}
 var evItems=[];
 var evSelectedIdx=-1;
 
+function sv(id,val){var el=document.getElementById(id);if(el)el.value=val;}
 function abrirEditarVenta(i){
   var v=ven[i];
   var c=v.comprador||{};
-  var g2=document.getElementById.bind(document);
-  g2('ev-idx').value=i;
-  evItems=v.items?JSON.parse(JSON.stringify(v.items)):[{idx:v.idx,art:v.art,qty:v.qty||1,precio:v.precio||v.total,desc:v.desc||0,subtotal:v.total}];
+  evItems=v.items?JSON.parse(JSON.stringify(v.items)):[{idx:v.idx,art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
+  sv('ev-idx',i);
   renderEvItems();
-  g2('ev-nombre').value=c.nombre||'';
-  g2('ev-apellido').value=c.apellido||'';
-  g2('ev-cedula').value=c.cedula||'';
-  g2('ev-tel').value=c.tel||'';
-  g2('ev-barrio').value=c.barrio||'';
-  g2('ev-pago').value=v.pago||'EFECTIVO';
-  // Populate vendedor select with current users
-  var evVendSel=g2('ev-vend');
+  sv('ev-nombre',c.nombre||'');
+  sv('ev-apellido',c.apellido||'');
+  sv('ev-cedula',c.cedula||'');
+  sv('ev-tel',c.tel||'');
+  sv('ev-barrio',c.barrio||'');
+  sv('ev-pago',v.pago||'EFECTIVO');
+  var evVendSel=document.getElementById('ev-vend');
   if(evVendSel){
     evVendSel.innerHTML=users.map(function(u){
       var nombre=u.nombre||u.uname;
@@ -2425,15 +2508,13 @@ function abrirEditarVenta(i){
   }
   evTogglePago();
   if(v.ci){
-    g2('ev-cuotas').value=v.ci.cuotas||3;
-    g2('ev-ini').value=v.ci.inicial||0;
-    g2('ev-fecha-pago').value=v.ci.fecha||'';
+    sv('ev-cuotas',v.ci.cuotas||3);
+    sv('ev-ini',v.ci.inicial||0);
+    sv('ev-fecha-pago',v.ci.fecha||'');
   }
-  // Convert DD/MM/YYYY to YYYY-MM-DD for date input
-  var fechaParts=(v.fecha||'').split('/');
-  var fechaISO=fechaParts.length===3?fechaParts[2]+'-'+fechaParts[1]+'-'+fechaParts[0]:'';
-  g2('ev-fecha').value=fechaISO;
-  g2('ev-buscar').value='';
+  var fp=(v.fecha||'').split('/');
+  sv('ev-fecha',fp.length===3?fp[2]+'-'+fp[1]+'-'+fp[0]:'');
+  sv('ev-buscar','');
   var res=document.getElementById('ev-results');
   if(res)res.style.display='none';
   var md=document.getElementById('medit-venta');
