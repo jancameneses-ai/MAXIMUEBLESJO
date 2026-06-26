@@ -643,6 +643,7 @@ tr:hover td{background:#f8f9ff}
       <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
       <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
     </div>
+    <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
   </div>
   <div class="card" style="margin-bottom:14px">
     <h2>Registrar movimiento manual</h2>
@@ -2970,6 +2971,48 @@ function addContable(){
   toast('Movimiento registrado');
 }
 
+function sincronizarContable(){
+  // Reconstruir entradas automaticas desde ventas existentes
+  // Eliminar solo las entradas 'auto' previas
+  cont=cont.filter(function(c){return c.tipo!=='auto';});
+
+  ven.forEach(function(v){
+    if(!v.fecha)return;
+    // Efectivo - toda la venta
+    if(v.pago==='EFECTIVO'){
+      cont.push({fecha:v.fecha,desc:'Venta efectivo: '+v.art,ing:v.total,egr:0,tipo:'auto',ts:parseTS(v.fecha,0)});
+    }
+    // Credicontado - cuota inicial
+    if(v.pago==='CREDICONTADO'&&v.ci&&v.ci.inicial>0){
+      var fIni=v.fechaIni||v.fecha;
+      cont.push({fecha:fIni,desc:'Cuota inicial Credicontado: '+v.art,ing:v.ci.inicial,egr:0,tipo:'auto',ts:parseTS(fIni,1)});
+    }
+    // Credicontado - cuotas pagadas
+    if(v.pago==='CREDICONTADO'&&v.cp){
+      v.cp.forEach(function(p,ci){
+        if(p.pagado&&p.monto>0){
+          var fPago=p.fecha||v.fecha;
+          var c2=v.comprador||{};
+          var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
+          cont.push({fecha:fPago,desc:'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
+        }
+      });
+    }
+  });
+
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  save();
+  renderContable();
+  toast('Libro contable sincronizado con '+ven.length+' ventas');
+}
+
+function parseTS(fecha,offset){
+  if(!fecha)return Date.now()+(offset||0);
+  var p=fecha.split('/');
+  if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime()+(offset||0)*1000;
+  return Date.now()+(offset||0);
+}
+
 function addContableAuto(fecha,desc,ing,egr,tipo){
   cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now()});
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
@@ -3112,45 +3155,34 @@ window.addEventListener('load',function(){
   try{var li=localStorage.getItem(IK);if(li)inv=JSON.parse(li);}catch(e){}
   try{var lv2=localStorage.getItem(VK);if(lv2)ven=JSON.parse(lv2);}catch(e){}
   cargar();
-  // Barra de carga 0-100
+  // Verificar sesion inmediatamente
   var dogScreen=g('dog-screen');
   var loginForm=g('login-form-wrap');
-  var bar=g('dog-bar');
-  var msg=g('dog-msg');
-  var pctEl=g('dog-pct');
-  var msgs=[
-    [0,'Iniciando...'],
-    [20,'Conectando con Firebase...'],
-    [45,'Cargando datos...'],
-    [70,'Verificando sesion...'],
-    [90,'Casi listo...'],
-    [99,'Bienvenido!']
-  ];
-  var pct=0;
-  var dogInt=setInterval(function(){
-    pct=Math.min(pct+1,99);
-    if(bar)bar.style.width=pct+'%';
-    if(pctEl)pctEl.textContent=pct+'%';
-    for(var i=msgs.length-1;i>=0;i--){
-      if(pct>=msgs[i][0]){if(msg)msg.textContent=msgs[i][1];break;}
-    }
-  },35);
-  setTimeout(function(){
-    clearInterval(dogInt);
-    pct=100;
-    if(bar)bar.style.width='100%';
-    if(pctEl)pctEl.textContent='100%';
-    if(msg)msg.textContent='Bienvenido!';
+  var lo=g('login-overlay');
+
+  if(checkSession()){
+    // Sesion valida - mostrar barra rapida y entrar
+    if(lo)lo.classList.add('hidden');
+    var bar=g('dog-bar');var pctEl=g('dog-pct');var msg=g('dog-msg');
+    var pct=0;
+    var dogInt=setInterval(function(){
+      pct=Math.min(pct+3,99);
+      if(bar)bar.style.width=pct+'%';
+      if(pctEl)pctEl.textContent=pct+'%';
+    },20);
     setTimeout(function(){
-      if(checkSession()){
-        var lo=g('login-overlay');if(lo)lo.classList.add('hidden');
-        renderAll();renderSV();
-      }else{
-        if(dogScreen)dogScreen.style.display='none';
-        if(loginForm)loginForm.style.display='flex';
-      }
-    },500);
-  },3500);
+      clearInterval(dogInt);
+      if(bar)bar.style.width='100%';
+      if(pctEl)pctEl.textContent='100%';
+      if(msg)msg.textContent='Bienvenido!';
+      if(lo)lo.classList.add('hidden');
+      renderAll();renderSV();
+    },800);
+  }else{
+    // Sin sesion - mostrar login directamente sin barra
+    if(dogScreen)dogScreen.style.display='none';
+    if(loginForm)loginForm.style.display='flex';
+  }
 });
 </script>
 <script>
