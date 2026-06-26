@@ -520,6 +520,31 @@ tr:hover td{background:#f8f9ff}
 </div>
 
 <!-- TAB RESUMEN -->
+<!-- TAB CREDICONTADO -->
+<div id="tab-creditos" class="sec">
+  <div class="card">
+    <h2>Clientes Credicontado</h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>Cliente</th>
+        <th>Articulo</th>
+        <th style="text-align:right">Total</th>
+        <th style="text-align:center">Cuotas</th>
+        <th style="text-align:center">Dias</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr></thead>
+      <tbody id="credtb"></tbody>
+    </table></div>
+  </div>
+
+  <!-- Referencias por cliente -->
+  <div class="card" id="cred-refs-wrap" style="display:none">
+    <h2>Referencias del cliente seleccionado</h2>
+    <div id="cred-refs-content"></div>
+  </div>
+</div>
+
 <div id="tab-resumen" class="sec">
 
   <!-- Selector de mes -->
@@ -669,6 +694,48 @@ tr:hover td{background:#f8f9ff}
 <div class="toast" id="toast"></div>
 
 <!-- MODAL EDITAR VENTA -->
+<!-- MODAL EDITAR ARTICULO -->
+<div class="mb" id="med">
+  <div class="md">
+    <h3>Editar articulo</h3>
+    <input type="hidden" id="ea-idx">
+    <div class="g2" style="gap:10px">
+      <div><label>Codigo</label><input type="text" id="ea-cod"></div>
+      <div><label>Nombre</label><input type="text" id="ea-art"></div>
+      <div><label>P. Costo $</label><input type="number" id="ea-costo" class="noup"></div>
+      <div><label>P. Venta $</label><input type="number" id="ea-venta" class="noup"></div>
+      <div><label>Stock</label><input type="number" id="ea-stk" class="noup"></div>
+    </div>
+    <div class="mdf">
+      <button class="btn bgray" onclick="cm('med')">Cancelar</button>
+      <button class="btn bblue" onclick="saveArt()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE VENTA -->
+<div class="mb" id="mdet">
+  <div class="md">
+    <h3>Detalle de venta</h3>
+    <div id="detc"></div>
+    <div class="mdf">
+      <button class="btn bgray" onclick="cm('mdet')">Cerrar</button>
+      <button class="btn bred" id="btnpdf" onclick="dlPDF()" style="display:none">Descargar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GESTION CUOTAS -->
+<div class="mb" id="mcuot">
+  <div class="md" style="max-width:520px">
+    <h3>Gestion de cuotas</h3>
+    <div id="cuotc"></div>
+    <div class="mdf">
+      <button class="btn bgray" onclick="cm('mcuot')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="mb" id="medit-venta">
   <div class="md" style="max-width:560px">
     <h3>Editar venta</h3>
@@ -1208,32 +1275,140 @@ function renderCreditos(){
   var tb=g('credtb');
   if(!tb)return;
   var creds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
-  if(!creds.length){tb.innerHTML='<tr><td colspan="8" class="empty">Sin creditos registrados</td></tr>';return;}
+  if(!creds.length){
+    tb.innerHTML='<tr><td colspan="6" class="empty">Sin creditos Credicontado registrados</td></tr>';
+    return;
+  }
+  // Ordenar: vencidas primero
+  creds.sort(function(a,b){
+    function urgencia(v){
+      var pi=proxNP(v);
+      if(pi===null)return 9999;
+      var d=diasPP(v,pi);
+      return d===null?9999:d;
+    }
+    return urgencia(a)-urgencia(b);
+  });
   tb.innerHTML=creds.map(function(v){
     var vi=ven.indexOf(v);
     var c=v.comprador||{};
     var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
     var pg=(v.cp||[]).filter(function(x){return x.pagado;}).length;
+    var todas=pg>=v.cuotas;
     var proxIdx=proxNP(v);
-    var diasStr='-';
-    if(proxIdx!==null){
+    var diasStr='',ac='',rbg='',diasNum=null;
+    if(!todas&&proxIdx!==null){
       var dias=diasPP(v,proxIdx);
       if(dias!==null){
-        if(dias<=0)diasStr='<b style="color:#e74c3c">VENCIDA</b>';
-        else diasStr=dias+'d';
+        diasNum=dias;
+        if(dias<=0){
+          var mora=Math.abs(dias);
+          diasStr='<div style="color:#e74c3c;font-weight:700;font-size:12px">VENCIDA</div>'+
+                  '<div style="color:#e74c3c;font-size:10px">'+(mora===0?'Vence hoy':mora+' dia'+(mora===1?'':'s')+' de mora')+'</div>';
+          ac='ba0';rbg='background:#fff5f5';
+        }else if(dias<=3){
+          diasStr='<div style="color:#e67e22;font-weight:700">'+dias+' dias</div>'+
+                  '<div style="color:#e67e22;font-size:10px">Vence pronto</div>';
+          ac='ba3';rbg='background:#fff8f0';
+        }else if(dias<=8){
+          diasStr='<div style="color:#9a7d0a;font-weight:700">'+dias+' dias</div>';
+          ac='ba8';rbg='background:#fffdf0';
+        }else{
+          diasStr='<div style="color:#27ae60;font-weight:600">'+dias+' dias</div>';
+        }
       }
+    }else if(todas){
+      diasStr='<span class="bdg bpag">Pagado</span>';
     }
-    return '<tr>'+
-      '<td style="font-weight:600">'+cl+'</td>'+
-      '<td>'+(c.cedula||'-')+'</td>'+
-      '<td>'+(c.tel||'-')+'</td>'+
-      '<td>'+(c.barrio||'-')+'</td>'+
-      '<td>'+v.art+'</td>'+
-      '<td style="text-align:right;font-weight:600">'+fmt(v.total)+'</td>'+
+    var est=todas?'<span class="bdg bpag">Pagado</span>':
+      ac==='ba0'?'<span class="bdg ba0">Vencida</span>':
+      ac==='ba3'?'<span class="bdg ba3">Prox.</span>':
+      ac==='ba8'?'<span class="bdg ba8">8 dias</span>':
+      '<span class="bdg bpend">Al dia</span>';
+    return '<tr style="'+rbg+'">'+
+      '<td>'+
+        '<div style="font-weight:700;font-size:12px">'+cl+'</div>'+
+        '<div style="font-size:10px;color:#888">'+(c.cedula||'-')+' | '+(c.tel||'-')+'</div>'+
+        '<div style="font-size:10px;color:#888">'+(c.barrio||'-')+'</div>'+
+      '</td>'+
+      '<td>'+
+        '<div style="font-size:11px;font-weight:600">'+v.art+'</div>'+
+        '<div style="font-size:10px;color:#888">'+v.fecha+'</div>'+
+      '</td>'+
+      '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
       '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
       '<td style="text-align:center">'+diasStr+'</td>'+
+      '<td>'+est+'</td>'+
+      '<td style="white-space:nowrap">'+
+        '<button class="btn bgold" onclick="verRefsCred('+vi+')" style="font-size:10px;padding:5px 10px;margin-right:4px">Referencias</button>'+
+        '<button class="btn bblue" onclick="gestCuot('+vi+')" style="font-size:10px;padding:5px 10px">Cuotas</button>'+
+      '</td>'+
     '</tr>';
   }).join('');
+}
+
+function verRefsCred(vi){
+  var v=ven[vi];
+  var c=v.comprador||{};
+  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
+  var refs=v.refs||[];
+  var pg=(v.cp||[]).filter(function(x){return x.pagado;}).length;
+  var proxIdx=proxNP(v);
+  var diasInfo='';
+  if(proxIdx!==null){
+    var dias=diasPP(v,proxIdx);
+    if(dias!==null){
+      if(dias<=0){
+        var mora=Math.abs(dias);
+        diasInfo='<div style="background:#fff5f5;border:1px solid #fadbd8;border-radius:8px;padding:10px 14px;margin-bottom:12px">'+
+          '<div style="color:#e74c3c;font-weight:700;font-size:14px">⚠ FACTURA VENCIDA</div>'+
+          '<div style="color:#e74c3c;font-size:12px;margin-top:3px">'+(mora===0?'Vencio hoy':'Lleva '+mora+' dia'+(mora===1?'':'s')+' de mora')+'</div>'+
+        '</div>';
+      }else{
+        diasInfo='<div style="background:#f0fff4;border:1px solid #d5f5e3;border-radius:8px;padding:8px 14px;margin-bottom:12px">'+
+          '<div style="color:#27ae60;font-size:12px">Proximo pago en <b>'+dias+' dias</b></div>'+
+        '</div>';
+      }
+    }
+  }else if(pg>=v.cuotas){
+    diasInfo='<div style="background:#f0fff4;border:1px solid #d5f5e3;border-radius:8px;padding:8px 14px;margin-bottom:12px">'+
+      '<div style="color:#27ae60;font-weight:700">✓ Credito cancelado en su totalidad</div>'+
+    '</div>';
+  }
+  var totalPagado=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
+  var ini=v.ci?v.ci.inicial||0:0;
+  var saldo=Math.max(0,v.total-ini-totalPagado);
+  var h=diasInfo+
+    '<div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px">'+
+    '<div style="font-weight:700;color:#2c3e50;margin-bottom:6px">'+cl+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">'+
+      '<div><span style="color:#888">Cedula:</span> '+(c.cedula||'-')+'</div>'+
+      '<div><span style="color:#888">Tel:</span> '+(c.tel||'-')+'</div>'+
+      '<div><span style="color:#888">Barrio:</span> '+(c.barrio||'-')+'</div>'+
+      '<div><span style="color:#888">Articulo:</span> '+v.art+'</div>'+
+      '<div><span style="color:#888">Total:</span> <b>'+fmt(v.total)+'</b></div>'+
+      '<div><span style="color:#888">Cuotas:</span> '+pg+'/'+v.cuotas+'</div>'+
+      '<div><span style="color:#888">Abonado:</span> <b style="color:#27ae60">'+fmt(ini+totalPagado)+'</b></div>'+
+      '<div><span style="color:#888">Saldo:</span> <b style="color:#e74c3c">'+fmt(saldo)+'</b></div>'+
+    '</div></div>'+
+    '<div style="font-size:11px;font-weight:700;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Referencias</div>'+
+    '<div style="display:flex;flex-direction:column;gap:8px">';
+  refs.filter(function(r){return r.nom;}).forEach(function(r,i){
+    h+='<div style="background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:10px 12px;font-size:12px">'+
+      '<div style="font-weight:700;color:#2c3e50;margin-bottom:4px">Referencia '+(i+1)+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">'+
+        '<div><span style="color:#888">Nombre:</span> '+r.nom+'</div>'+
+        '<div><span style="color:#888">Tel:</span> '+(r.tel||'-')+'</div>'+
+        '<div style="grid-column:span 2"><span style="color:#888">Barrio:</span> '+(r.bar||'-')+'</div>'+
+      '</div>'+
+    '</div>';
+  });
+  if(!refs.filter(function(r){return r.nom;}).length){
+    h+='<div style="color:#aaa;font-size:12px;text-align:center;padding:10px">Sin referencias registradas</div>';
+  }
+  h+='</div>';
+  g('detc').innerHTML=h;
+  g('mdet').classList.add('open');
 }
 
 function renderSV(){
@@ -1511,6 +1686,148 @@ function togCuota(vi,ci){
 function desPagar(vi,ci){
   ven[vi].cp[ci]={pagado:false,monto:0,fecha:null};
   save();gestCuot(vi);renderCart();toast('Cuota desmarcada');
+}
+
+function updStk(i,val){
+  inv[i].stk=Math.max(0,+val||0);
+  save();toast('Stock actualizado');
+}
+function openEA(i){
+  var a=inv[i];
+  g('ea-idx').value=i;
+  g('ea-cod').value=a.cod||'';
+  g('ea-art').value=a.art||'';
+  g('ea-costo').value=a.costo||0;
+  g('ea-venta').value=a.venta||0;
+  g('ea-stk').value=a.stk||0;
+  g('med').classList.add('open');
+}
+function saveArt(){
+  var i=+g('ea-idx').value;
+  var cod=g('ea-cod').value.trim().toUpperCase();
+  var art=g('ea-art').value.trim().toUpperCase();
+  var costo=+g('ea-costo').value||0;
+  var venta=+g('ea-venta').value||0;
+  var stk=+g('ea-stk').value||0;
+  if(!art){toast('Escribe el nombre del articulo',1);return;}
+  if(i>=0&&i<inv.length){
+    inv[i]={cod:cod,art:art,costo:costo,venta:venta,stk:stk};
+  }
+  save();cm('med');renderInv();toast('Articulo actualizado');
+}
+function addArt(){
+  var cod=(g('nc')||{value:''}).value.trim().toUpperCase();
+  var art=(g('na')||{value:''}).value.trim().toUpperCase();
+  var costo=+(g('nco')||{value:0}).value||0;
+  var venta=+(g('nv')||{value:0}).value||0;
+  var stk=+(g('ns')||{value:0}).value||0;
+  if(!art||!cod){toast('Codigo y nombre son obligatorios',1);return;}
+  if(inv.find(function(a){return a.cod===cod;})){toast('Ese codigo ya existe',1);return;}
+  inv.push({cod:cod,art:art,costo:costo,venta:venta,stk:stk});
+  save();
+  ['nc','na','nco','nv','ns'].forEach(function(id){var el=g(id);if(el)el.value='';});
+  renderInv();toast('Articulo agregado');
+}
+function delArt(i){
+  if(!confirm('Eliminar '+inv[i].art+'?'))return;
+  inv.splice(i,1);save();renderInv();toast('Articulo eliminado');
+}
+function doReset(){
+  if(!confirm('Limpiar el carrito?'))return;
+  carrito=[];lv=null;
+  var bf=g('btnpdf');if(bf)bf.style.display='none';
+  renderCarrito();showFac(null);
+  ['inm','iap','ic','itel','ibar'].forEach(function(id){var el=g(id);if(el)el.value='';});
+  var pe=g('sp');if(pe)pe.value='EFECTIVO';
+  var cw=g('ccbox');if(cw)cw.style.display='none';
+  var fw=g('fac');if(fw)fw.style.display='none';
+  var cw2=g('cred-wrap');if(cw2)cw2.style.display='none';
+  var ba=g('buscar-art');if(ba)ba.value='';
+  var br=g('buscar-results');if(br)br.style.display='none';
+  toast('Carrito limpiado');
+}
+function evTogglePago(){
+  var pago=g('ev-pago')&&g('ev-pago').value;
+  var ccw=g('ev-cred-wrap');
+  if(ccw)ccw.style.display=(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI')?'block':'none';
+}
+function filtrarArtsEdit(){
+  var q=(g('ev-search-art')||{value:''}).value.toUpperCase().trim();
+  var res=g('ev-results');if(!res)return;
+  if(!q){res.style.display='none';return;}
+  var matches=inv.map(function(a,i){return{a:a,i:i};}).filter(function(x){return x.a.art.indexOf(q)>=0;});
+  if(!matches.length){res.style.display='flex';res.innerHTML='<div style="font-size:11px;color:#aaa;padding:6px">Sin resultados</div>';return;}
+  res.style.display='flex';
+  res.innerHTML=matches.map(function(x){
+    return '<div onclick="evSeleccionarArt('+x.i+')" style="padding:7px 10px;cursor:pointer;background:#f8f5ee;border-radius:5px">'+
+      '<div style="font-size:11px;font-weight:700">'+x.a.art+'</div>'+
+      '<div style="font-size:10px;color:#888">'+fmt(x.a.venta)+' — Stock: '+x.a.stk+'</div>'+
+    '</div>';
+  }).join('');
+}
+function evSeleccionarArt(i){
+  g('ev-art-idx').value=i;
+  g('ev-search-art').value=inv[i].art;
+  g('ev-results').style.display='none';
+  g('ev-art-precio').value=inv[i].venta;
+  g('ev-art-qty').value=1;
+}
+function evAgregarItem(){
+  var idx=+g('ev-art-idx').value;
+  var qty=+g('ev-art-qty').value||1;
+  var precio=+g('ev-art-precio').value||0;
+  if(idx<0||idx>=inv.length){toast('Selecciona un articulo',1);return;}
+  var items=editVentaItems||[];
+  var existe=items.find(function(it){return it.art===inv[idx].art;});
+  if(existe){existe.qty+=qty;existe.subtotal=existe.qty*existe.precio;}
+  else items.push({art:inv[idx].art,qty:qty,precio:precio,subtotal:qty*precio});
+  editVentaItems=items;
+  renderEvItems();
+}
+function renderEvItems(){
+  var c=g('ev-items-list');if(!c)return;
+  var items=editVentaItems||[];
+  if(!items.length){c.innerHTML='<div style="font-size:11px;color:#aaa;padding:6px">Sin articulos</div>';return;}
+  c.innerHTML=items.map(function(it,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#f8f9fa;border-radius:6px;margin-bottom:4px">'+
+      '<div style="font-size:11px;font-weight:600">'+it.art+'</div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<span style="font-size:11px">x'+it.qty+' — '+fmt(it.subtotal)+'</span>'+
+        '<button onclick="evQuitarItem('+i+')" class="btn bred" style="font-size:10px;padding:2px 7px">X</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  var total=items.reduce(function(s,it){return s+it.subtotal;},0);
+  var et=g('ev-total-val');if(et)et.textContent=fmt(total);
+}
+function evQuitarItem(i){
+  if(editVentaItems)editVentaItems.splice(i,1);
+  renderEvItems();
+}
+function guardarEdicionVenta(){
+  var i=editVentaIdx;
+  if(i<0||i>=ven.length){toast('Error al guardar',1);return;}
+  var items=editVentaItems||[];
+  if(!items.length){toast('Agrega al menos un articulo',1);return;}
+  var total=items.reduce(function(s,it){return s+it.subtotal;},0);
+  ven[i].items=items;
+  ven[i].art=items.map(function(it){return it.art+(it.qty>1?' x'+it.qty:'');}).join(', ');
+  ven[i].total=total;
+  ven[i].vend=document.getElementById('ev-vend').value;
+  var rawFecha=document.getElementById('ev-fecha').value;
+  if(rawFecha){var fp=rawFecha.split('-');ven[i].fecha=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;}
+  var pago=g('ev-pago').value;
+  ven[i].pago=pago;
+  if(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'){
+    ven[i].cuotas=+g('ev-cuotas').value||0;
+  }
+  save();cm('medit-venta');renderHist();renderCart();toast('Venta actualizada');
+}
+function delVenta(i,artIdx,qty){
+  if(!confirm('Eliminar esta venta?'))return;
+  inv[artIdx].stk+=qty;
+  ven.splice(i,1);
+  save();renderAll();toast('Venta eliminada');
 }
 
 function agregarAlCarrito(){
