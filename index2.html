@@ -3353,54 +3353,66 @@ function addContable(){
 }
 
 function sincronizarContable(){
-  if(!confirm('Sincronizar agregará entradas automáticas de ventas que no estén en el libro. Las eliminaciones manuales se respetarán. ¿Continuar?'))return;
+  if(!confirm('Sincronizar revisará las ventas y agregará entradas faltantes sin borrar nada. ¿Continuar?'))return;
   contGuardarEstado();
-  // Solo eliminar entradas 'auto' que correspondan a ventas aun existentes
-  // Las entradas manuales y las eliminadas a proposito se mantienen
-  // Primero guardar entradas manuales intactas
-  var manuales=cont.filter(function(c){return c.tipo!=='auto';});
-  // Reconstruir solo las auto desde ventas actuales
-  cont=manuales;
 
+  // Generar lista de claves unicas de entradas ya existentes en cont
+  // para no duplicar ni borrar nada
+  function claveEntry(desc,fecha){return (desc||'').trim().toLowerCase()+'|'+(fecha||'');}
+  var existentes={};
+  cont.forEach(function(c){
+    existentes[claveEntry(c.desc,c.fecha)]=true;
+  });
+
+  var agregados=0;
   ven.forEach(function(v){
     if(!v.fecha)return;
-    // Efectivo - toda la venta
+    var fecha=normFechaGlobal(v.fecha)||v.fecha;
+    var cv=v.comprador||{};
+    var cl=[cv.nombre,cv.apellido].filter(Boolean).join(' ');
+
+    function tryAdd(desc,ing,egr,tipo,ts){
+      var clave=claveEntry(desc,fecha);
+      if(existentes[clave])return; // ya existe, no duplicar
+      existentes[clave]=true;
+      cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:ts||parseTS(fecha,0)});
+      agregados++;
+    }
+
+    // Efectivo
     if(v.pago==='EFECTIVO'){
-      var cv=v.comprador||{};var clv=[cv.nombre,cv.apellido].filter(Boolean).join(' ');
-      var descEf='Venta efectivo: '+v.art+(clv?' — '+clv:'');
-      cont.push({fecha:normFechaGlobal(v.fecha)||v.fecha,desc:descEf,ing:v.total,egr:0,tipo:'auto',ts:parseTS(v.fecha,0),ventaArt:v.art,ventaPago:v.pago});
+      tryAdd('Venta efectivo: '+v.art+(cl?' — '+cl:''),v.total,0,'auto',parseTS(v.fecha,0));
     }
     // Credicontado - cuota inicial
     if(v.pago==='CREDICONTADO'&&v.ci&&v.ci.inicial>0){
-      // Cuota inicial usa la fecha de la venta (cuando se llevo el articulo)
-      var fIni=normFechaGlobal(v.fecha)||v.fecha;
-      var cv2=v.comprador||{};var clv2=[cv2.nombre,cv2.apellido].filter(Boolean).join(' ');
-      var descIni='Cuota inicial Credicontado: '+v.art+(clv2?' — '+clv2:'');
-      cont.push({fecha:fIni,desc:descIni,ing:v.ci.inicial,egr:0,tipo:'auto',ts:parseTS(fIni,1),ventaArt:v.art,ventaPago:v.pago});
+      tryAdd('Cuota inicial Credicontado: '+v.art+(cl?' — '+cl:''),v.ci.inicial,0,'auto',parseTS(v.fecha,1));
     }
     // Credicontado - cuotas pagadas
     if(v.pago==='CREDICONTADO'&&v.cp){
       v.cp.forEach(function(p,ci){
         if(p.pagado&&p.monto>0){
-          var fPago=p.fecha||v.fecha;
-          var c2=v.comprador||{};
-          var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
-          cont.push({fecha:normFechaGlobal(fPago)||fPago,desc:'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
+          var fPago=normFechaGlobal(p.fecha||v.fecha)||v.fecha;
+          var cl2=[cv.nombre,cv.apellido].filter(Boolean).join(' ')||'Cliente';
+          var descAb='Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1);
+          var claveAb=claveEntry(descAb,fPago);
+          if(!existentes[claveAb]){
+            existentes[claveAb]=true;
+            cont.push({fecha:fPago,desc:descAb,ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
+            agregados++;
+          }
         }
       });
     }
-    // Sistecredito + Efectivo - registrar el efectivo complementario
+    // Sistecredito + Efectivo
     if(v.pago==='SISTECREDITO+EFECTIVO'&&v.sefEf>0){
-      var cvSef=v.comprador||{};
-      var clSef=[cvSef.nombre,cvSef.apellido].filter(Boolean).join(' ');
-      cont.push({fecha:normFechaGlobal(v.fecha)||v.fecha,desc:'Efectivo complementario Sistecredito: '+v.art+(clSef?' — '+clSef:''),ing:v.sefEf,egr:0,tipo:'auto',ts:parseTS(v.fecha,3),ventaArt:v.art,ventaPago:v.pago});
+      tryAdd('Efectivo complementario Sistecredito: '+v.art+(cl?' — '+cl:''),v.sefEf,0,'auto',parseTS(v.fecha,3));
     }
   });
 
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
   renderContable();
-  toast('Libro contable sincronizado con '+ven.length+' ventas');
+  toast('Sincronizado: '+agregados+' entradas nuevas agregadas');
 }
 
 function parseTS(fecha,offset){
