@@ -102,6 +102,8 @@ header{background:#2c3e50;color:#fff;padding:0 20px;display:flex;justify-content
 .dc-teal{background:linear-gradient(135deg,#1abc9c,#16a085)}
 .dc-pink{background:linear-gradient(135deg,#e91e8c,#c2185b)}
 .dc-indigo{background:linear-gradient(135deg,#3f51b5,#303f9f)}
+.dc-cyan{background:linear-gradient(135deg,#00bcd4,#0097a7)}
+.dc-red2{background:linear-gradient(135deg,#c0392b,#922b21)}
 
 /* ── CARDS ── */
 .card{background:#fff;border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:none}
@@ -387,9 +389,28 @@ tr:hover td{background:#f8f9ff}
               <option value="EFECTIVO">Efectivo</option>
               <option value="SISTECREDITO">Sistecredito</option>
               <option value="ADDI">Addi</option>
+              <option value="SISTECREDITO+EFECTIVO">Sistecredito + Efectivo</option>
               <option value="CREDICONTADO">Credicontado</option>
             </select>
           </div>
+          <!-- SISTECREDITO+EFECTIVO wrap -->
+          <div id="sefbox" style="display:none;margin-top:10px">
+            <div style="background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:12px">
+              <div style="font-size:11px;font-weight:700;color:#1a5276;margin-bottom:10px;text-transform:uppercase">Desglose del pago</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label style="color:#3498db;font-weight:600">Valor Sistecredito $</label>
+                  <input type="number" id="sef-sc" class="noup" placeholder="0" oninput="calcSef('sc')">
+                </div>
+                <div>
+                  <label style="color:#1e8449;font-weight:600">Complemento Efectivo $</label>
+                  <input type="number" id="sef-ef" class="noup" placeholder="0" oninput="calcSef('ef')">
+                </div>
+              </div>
+              <div id="sef-total" style="margin-top:8px;font-size:11px;color:#555;text-align:right"></div>
+            </div>
+          </div>
+
           <div class="ccbox" id="ccbox">
             <h4>Detalles Credicontado</h4>
             <div class="g2" style="margin-bottom:8px">
@@ -560,6 +581,28 @@ tr:hover td{background:#f8f9ff}
 
 <div id="tab-resumen" class="sec">
 
+  <!-- SUB-VISTA DETALLE VENTAS -->
+  <div id="res-subview" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button onclick="cerrarDetalleRes()" style="display:flex;align-items:center;gap:6px;background:#2c3e50;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">
+        ← Volver
+      </button>
+      <h2 id="res-detalle-titulo" style="margin:0;font-size:15px;color:#2c3e50">Detalle</h2>
+    </div>
+    <div class="card">
+      <div style="overflow-x:auto"><table>
+        <thead><tr>
+          <th>Fecha</th><th>Articulo</th><th>Cliente</th>
+          <th>Pago</th><th style="text-align:right">Total</th><th>Vendedor</th>
+        </tr></thead>
+        <tbody id="res-detalle-tb"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- VISTA PRINCIPAL RESUMEN -->
+  <div id="res-main">
+
   <!-- Selector de mes -->
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:8px;background:#fff;padding:8px 14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
@@ -572,25 +615,33 @@ tr:hover td{background:#f8f9ff}
 
   <!-- Tarjetas mes actual -->
   <div class="dash-grid">
-    <div class="dash-card dc-blue">
+    <div class="dash-card dc-blue" onclick="abrirDetalleRes('todas')" style="cursor:pointer">
       <div class="dc-info"><div class="dc-val" id="rn">0</div><div class="dc-lbl">Total ventas del mes</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
     </div>
-    <div class="dash-card dc-green">
+    <div class="dash-card dc-green" onclick="abrirDetalleRes('todas')" style="cursor:pointer">
       <div class="dc-info"><div class="dc-val" id="rt">$0</div><div class="dc-lbl">Valor total ventas del mes</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
     </div>
-    <div class="dash-card dc-teal">
+    <div class="dash-card dc-teal" onclick="abrirDetalleRes('EFECTIVO')" style="cursor:pointer">
       <div class="dc-info"><div class="dc-val" id="ref">$0</div><div class="dc-lbl">Recibido en efectivo</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
     </div>
-    <div class="dash-card dc-purple">
+    <div class="dash-card dc-purple" onclick="abrirDetalleRes('CREDICONTADO')" style="cursor:pointer">
       <div class="dc-info"><div class="dc-val" id="rcr">$0</div><div class="dc-lbl">Ventas a Credicontado</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
     </div>
-    <div class="dash-card dc-indigo">
-      <div class="dc-info"><div class="dc-val" id="rsca">$0</div><div class="dc-lbl">Ventas Sistecredito y Addi</div></div>
+    <div class="dash-card dc-indigo" onclick="abrirDetalleRes('SISTECREDITO')" style="cursor:pointer">
+      <div class="dc-info"><div class="dc-val" id="rsc">$0</div><div class="dc-lbl">Ventas Sistecredito</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+    </div>
+    <div class="dash-card dc-cyan" onclick="abrirDetalleRes('ADDI')" style="cursor:pointer">
+      <div class="dc-info"><div class="dc-val" id="rad">$0</div><div class="dc-lbl">Ventas Addi</div></div>
+      <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+    </div>
+    <div class="dash-card dc-red2" onclick="abrirDetalleRes('GASTOS')" style="cursor:pointer">
+      <div class="dc-info"><div class="dc-val" id="rgas">$0</div><div class="dc-lbl">Gastos del mes</div></div>
+      <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
     </div>
     <div class="dash-card dc-orange">
       <div class="dc-info"><div class="dc-val" id="rar">0</div><div class="dc-lbl">Articulos en catalogo</div></div>
@@ -612,7 +663,8 @@ tr:hover td{background:#f8f9ff}
     <div class="g4">
       <div class="met"><div class="ml">Ganancia efectivo</div><div class="mv" id="rg-ef">$0</div></div>
       <div class="met"><div class="ml">Ganancia Credicontado</div><div class="mv" id="rg-cc">$0</div></div>
-      <div class="met"><div class="ml">Ganancia Sistecredito/Addi</div><div class="mv" id="rg-sc">$0</div></div>
+      <div class="met"><div class="ml">Ganancia Sistecredito</div><div class="mv" id="rg-sc">$0</div></div>
+      <div class="met"><div class="ml">Ganancia Addi</div><div class="mv" id="rg-ad">$0</div></div>
       <div class="met" style="background:#f0f7ff"><div class="ml">Total ganancia mes</div><div class="mv" id="rg" style="color:#1a3a1a">$0</div></div>
     </div>
   </div>
@@ -635,7 +687,8 @@ tr:hover td{background:#f8f9ff}
     </table></div>
   </div>
 
-</div>
+  </div><!-- end res-main -->
+</div><!-- end tab-resumen -->
 <!-- TAB CONTABLE -->
 <div id="tab-contable" class="sec">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
@@ -906,6 +959,7 @@ tr:hover td{background:#f8f9ff}
               <option value="EFECTIVO">Efectivo</option>
               <option value="SISTECREDITO">Sistecredito</option>
               <option value="ADDI">Addi</option>
+              <option value="SISTECREDITO+EFECTIVO">Sistecredito + Efectivo</option>
               <option value="CREDICONTADO">Credicontado</option>
             </select>
           </div>
@@ -1570,12 +1624,21 @@ function renderSV(){
 }
 function onPago(){
   var pago=g('sp').value;
-  var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
+  var isSEF=pago==='SISTECREDITO+EFECTIVO';
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+EFECTIVO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
   var ef=pago==='EFECTIVO';
   g('ccbox').style.display=cc?'block':'none';
-  g('cred-wrap').style.display=(cr&&!cc)?'block':'none';
+  g('cred-wrap').style.display=(cr&&!cc&&!isSEF)?'block':'none';
   g('crefs').style.display=cc?'block':'none';
+  var sefb=g('sefbox');
+  if(sefb)sefb.style.display=isSEF?'block':'none';
+  if(isSEF){
+    var tot=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+    var sefSc=g('sef-sc');if(sefSc){sefSc.value=tot;}
+    var sefEf=g('sef-ef');if(sefEf){sefEf.value=0;}
+    calcSef('sc');
+  }
   var req='<span style="color:#e74c3c">*</span>';
   // Efectivo: nombre, tel, barrio obligatorios. Cedula y apellido opcionales
   // Credito: todo obligatorio
@@ -1601,6 +1664,27 @@ function onPago(){
 // ── CARRITO ──
 var carrito=[];
 
+function calcSef(campo){
+  var tot=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+  var scEl=g('sef-sc');var efEl=g('sef-ef');
+  if(!scEl||!efEl)return;
+  var sc=+scEl.value||0;
+  var ef=+efEl.value||0;
+  // Auto-completar el otro campo
+  if(campo==='sc'){
+    ef=Math.max(0,tot-sc);
+    efEl.value=ef||'';
+  }else if(campo==='ef'){
+    sc=Math.max(0,tot-ef);
+    scEl.value=sc||'';
+  }
+  var st=g('sef-total');
+  if(st){
+    var ok=Math.abs(sc+ef-tot)<1;
+    st.style.color=ok?'#27ae60':'#e74c3c';
+    st.innerHTML='Sistecredito: <b>'+fmt(sc)+'</b> + Efectivo: <b>'+fmt(ef)+'</b> = <b>'+fmt(sc+ef)+'</b>'+(ok?' ✓':' ≠ Total: <b>'+fmt(tot)+'</b>');
+  }
+}
 function calcCC(){
   var totalCarrito=carrito.reduce(function(s,it){return s+it.subtotal;},0);
   var base=totalCarrito>0?totalCarrito:((+g('ipr').value||0)*(+g('iq').value||1)*(1-(+g('id').value||0)/100));
@@ -1885,6 +1969,9 @@ function doReset(){
   var cw=g('ccbox');if(cw)cw.style.display='none';
   var fw=g('fac');if(fw)fw.style.display='none';
   var cw2=g('cred-wrap');if(cw2)cw2.style.display='none';
+  var sefb2=g('sefbox');if(sefb2)sefb2.style.display='none';
+  var ssc=g('sef-sc');if(ssc)ssc.value='';
+  var sef=g('sef-ef');if(sef)sef.value='';
   var ba=g('buscar-art');if(ba)ba.value='';
   var br=g('buscar-results');if(br)br.style.display='none';
   toast('Carrito limpiado');
@@ -2926,6 +3013,122 @@ function renderCart(){
   }).join('');
 }
 
+function abrirDetalleRes(tipo){
+  var subview=g('res-subview');
+  var main=g('res-main');
+  var tb=g('res-detalle-tb');
+  var titulo=g('res-detalle-titulo');
+  if(!subview||!tb)return;
+
+  // Get current month/year from selectors
+  var selMes=g('res-mes');var selAnio=g('res-anio');
+  var hoy=new Date();
+  var mes=selMes?+selMes.value:hoy.getMonth();
+  var anio=selAnio?+selAnio.value:hoy.getFullYear();
+  var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  function esMes(fecha,m,a){
+    if(!fecha)return false;
+    var p=fecha.split('/');
+    if(p.length===3)return (+p[1]-1)===m&&+p[2]===a;
+    return false;
+  }
+
+  var venMes=ven.filter(function(v){return esMes(v.fecha,mes,anio);});
+
+  // Filter by tipo
+  var filtradas=venMes;
+  var tituloStr='Todas las ventas — '+MESES[mes]+' '+anio;
+  if(tipo==='CREDICONTADO'){
+    filtradas=venMes.filter(function(v){return v.pago==='CREDICONTADO';});
+    tituloStr='Ventas Credicontado — '+MESES[mes]+' '+anio;
+  }else if(tipo==='SISTECREDITO'){
+    filtradas=venMes.filter(function(v){return v.pago==='SISTECREDITO';});
+    tituloStr='Ventas Sistecredito — '+MESES[mes]+' '+anio;
+  }else if(tipo==='ADDI'){
+    filtradas=venMes.filter(function(v){return v.pago==='ADDI';});
+    tituloStr='Ventas Addi — '+MESES[mes]+' '+anio;
+  }else if(tipo==='GASTOS'){
+    // Show gastos from contable
+    var gastosRows=cont.filter(function(c){
+      if(!c.egr||c.egr<=0)return false;
+      var p=(c.fecha||'').split('/');
+      return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
+    });
+    var titulo2=g('res-detalle-titulo');
+    var subview=g('res-subview');var main=g('res-main');
+    var tb2=g('res-detalle-tb');
+    if(titulo2)titulo2.textContent='Gastos del mes — '+MESES[mes]+' '+anio+' ('+gastosRows.length+')';
+    var totalGas=gastosRows.reduce(function(s,c){return s+(c.egr||0);},0);
+    if(tb2){
+      if(!gastosRows.length){
+        tb2.innerHTML='<tr><td colspan="3" class="empty">Sin gastos registrados este mes</td></tr>';
+      }else{
+        tb2.innerHTML=gastosRows.sort(function(a,b){return fechaToMs(b.fecha)-fechaToMs(a.fecha);}).map(function(c){
+          return '<tr><td style="font-size:11px;color:#888">'+c.fecha+'</td><td style="font-weight:500">'+c.desc+'</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(c.egr)+'</td></tr>';
+        }).join('')+
+        '<tr style="background:#fff5f5"><td colspan="2" style="text-align:right;font-weight:700">Total gastos:</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(totalGas)+'</td></tr>';
+      }
+    }
+    if(main)main.style.display='none';
+    if(subview)subview.style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }else if(tipo==='EFECTIVO'){
+    filtradas=venMes.filter(function(v){return v.pago==='EFECTIVO';});
+    tituloStr='Ventas en Efectivo — '+MESES[mes]+' '+anio;
+  }
+
+  if(titulo)titulo.textContent=tituloStr+' ('+filtradas.length+')';
+
+  if(!filtradas.length){
+    tb.innerHTML='<tr><td colspan="6" class="empty">Sin ventas este periodo</td></tr>';
+  }else{
+    // Sort by date desc
+    filtradas=filtradas.slice().sort(function(a,b){
+      var ap=a.fecha.split('/');var bp=b.fecha.split('/');
+      var ad=new Date(+ap[2],+ap[1]-1,+ap[0]);
+      var bd=new Date(+bp[2],+bp[1]-1,+bp[0]);
+      return bd-ad;
+    });
+    var totalFil=filtradas.reduce(function(s,v){return s+v.total;},0);
+    tb.innerHTML=filtradas.map(function(v){
+      var c=v.comprador||{};
+      var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
+      var pagoColor=v.pago==='EFECTIVO'?'color:#1e8449':v.pago==='CREDICONTADO'?'color:#9b59b6':'color:#3498db';
+      return '<tr>'+
+        '<td style="font-size:11px;color:#888">'+v.fecha+'</td>'+
+        '<td style="font-weight:600">'+v.art+'</td>'+
+        '<td>'+cl+'</td>'+
+        '<td style="'+pagoColor+';font-weight:600;font-size:11px">'+v.pago+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+        '<td style="font-size:11px;color:#888">'+( v.vend||'-')+'</td>'+
+      '</tr>';
+    }).join('')+
+    '<tr style="background:#f0f7ff;font-weight:700">'+
+      '<td colspan="4" style="text-align:right;padding-right:8px">Total:</td>'+
+      '<td style="text-align:right;color:#1e8449">'+fmt(totalFil)+'</td>'+
+      '<td></td>'+
+    '</tr>';
+  }
+
+  // Show sub-view, hide main
+  if(main)main.style.display='none';
+  if(subview)subview.style.display='block';
+  // Scroll to top
+  var tabEl=g('tab-resumen');
+  if(tabEl)tabEl.scrollTop=0;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cerrarDetalleRes(){
+  var subview=g('res-subview');
+  var main=g('res-main');
+  if(subview)subview.style.display='none';
+  if(main)main.style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
 function renderRes(){
   var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var hoy=new Date();
@@ -2972,7 +3175,15 @@ function renderRes(){
   var tot=venMes.reduce(function(s,v){return s+v.total;},0);
   var ef=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+v.total;},0);
   var cc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+v.total;},0);
-  var sca=venMes.filter(function(v){return v.pago==='SISTECREDITO'||v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
+  var sc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+v.total;},0);
+  var ad=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
+  var sca=sc+ad;
+  // Gastos del mes desde libro contable
+  var gas=cont.filter(function(c){
+    if(!c.egr||c.egr<=0)return false;
+    var p=(c.fecha||'').split('/');
+    return p.length===3&&(+p[1]-1)===mesActual&&+p[2]===anioActual;
+  }).reduce(function(s,c){return s+(c.egr||0);},0);
 
   // Ganancias por tipo de pago
   function ganancia(v){
@@ -2985,7 +3196,9 @@ function renderRes(){
   }
   var ganEf=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganSca=venMes.filter(function(v){return v.pago==='SISTECREDITO'||v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v);},0);
+  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v);},0);
+  var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v);},0);
+  var ganSca=ganSc+ganAd;
   var ganTot=ganEf+ganCc+ganSca;
 
   // Actualizar tarjetas
@@ -2994,6 +3207,9 @@ function renderRes(){
   if(g('ref'))g('ref').textContent=fmt(ef);
   if(g('rcr'))g('rcr').textContent=fmt(cc);
   if(g('rsca'))g('rsca').textContent=fmt(sca);
+  if(g('rsc'))g('rsc').textContent=fmt(sc);
+  if(g('rad'))g('rad').textContent=fmt(ad);
+  if(g('rgas'))g('rgas').textContent=fmt(gas);
   if(g('rar'))g('rar').textContent=inv.length;
   if(g('run'))g('run').textContent=inv.reduce(function(s,a){return s+a.stk;},0);
   var vv=inv.reduce(function(s,a){return s+a.stk*a.venta;},0);
@@ -3002,7 +3218,8 @@ function renderRes(){
   // Ganancias
   if(g('rg-ef'))g('rg-ef').textContent=fmt(Math.max(0,ganEf));
   if(g('rg-cc'))g('rg-cc').textContent=fmt(Math.max(0,ganCc));
-  if(g('rg-sc'))g('rg-sc').textContent=fmt(Math.max(0,ganSca));
+  if(g('rg-sc'))g('rg-sc').textContent=fmt(Math.max(0,ganSc));
+  if(g('rg-ad'))g('rg-ad').textContent=fmt(Math.max(0,ganAd));
   if(g('rg'))g('rg').textContent=fmt(Math.max(0,ganTot));
 
   // Por vendedor
@@ -3465,7 +3682,7 @@ function goTab(id,el){
     var el2=document.getElementById(sid);if(el2)el2.value='';
   });
   invPage=1;hisPag=1;cartSort={col:'dias',asc:true};credPag=1;contPage=1;
-  if(id==='resumen')renderRes();
+  if(id==='resumen'){renderRes();cerrarDetalleRes();}
   if(id==='cartera')renderCart();
   if(id==='creditos')renderCreditos();
   if(id==='usuarios')renderUsuarios();
