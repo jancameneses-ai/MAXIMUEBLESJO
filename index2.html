@@ -384,14 +384,25 @@ tr:hover td{background:#f8f9ff}
             </div>
           </div>
           <!-- Pago -->
-          <div><label>Medio de pago</label>
-            <select id="sp" onchange="onPago()">
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="SISTECREDITO">Sistecredito</option>
-              <option value="ADDI">Addi</option>
-              <option value="SISTECREDITO+EFECTIVO">Sistecredito + Efectivo</option>
-              <option value="CREDICONTADO">Credicontado</option>
-            </select>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:140px"><label>Forma de pago</label>
+              <select id="sp" onchange="onPago()">
+                <option value="EFECTIVO">Efectivo</option>
+                <option value="SISTECREDITO">Sistecredito</option>
+                <option value="ADDI">Addi</option>
+                <option value="SISTECREDITO+EFECTIVO">Sistecredito + Efectivo</option>
+                <option value="SISTECREDITO+CREDICONTADO">Sistecredito + Credicontado</option>
+                <option value="CREDICONTADO">Credicontado</option>
+              </select>
+            </div>
+            <div id="medio-pago-wrap" style="flex:1;min-width:130px;display:none"><label>Medio de pago</label>
+              <select id="mp">
+                <option value="">-- Seleccionar --</option>
+                <option value="NEQUI">Nequi</option>
+                <option value="BANCOLOMBIA">Bancolombia</option>
+                <option value="BBVA">BBVA</option>
+              </select>
+            </div>
           </div>
           <!-- SISTECREDITO+EFECTIVO wrap -->
           <div id="sefbox" style="display:none;margin-top:10px">
@@ -411,6 +422,24 @@ tr:hover td{background:#f8f9ff}
             </div>
           </div>
 
+          <!-- SISTECREDITO+CREDICONTADO wrap -->
+          <div id="scccbox" style="display:none;margin-top:10px">
+            <div style="background:#f0f0ff;border:1.5px solid #a9a9e0;border-radius:10px;padding:12px">
+              <div style="font-size:11px;font-weight:700;color:#2c2c8a;margin-bottom:10px;text-transform:uppercase">Desglose Sistecredito + Credicontado</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+                <div>
+                  <label style="color:#3498db;font-weight:600">Valor Sistecredito $</label>
+                  <input type="number" id="sccc-sc" class="noup" placeholder="0" oninput="calcSCCC()">
+                </div>
+                <div>
+                  <label style="color:#9b59b6;font-weight:600">Restante Credicontado $</label>
+                  <input type="text" id="sccc-cc" readonly style="background:#ede7f6;color:#6c3483;font-weight:700">
+                </div>
+              </div>
+              <div id="sccc-total" style="font-size:11px;color:#555;text-align:right"></div>
+            </div>
+          </div>
+
           <div class="ccbox" id="ccbox">
             <h4>Detalles Credicontado</h4>
             <div class="g2" style="margin-bottom:8px">
@@ -420,7 +449,7 @@ tr:hover td{background:#f8f9ff}
                   <option value="3" selected>3 cuotas</option><option value="4">4 cuotas</option><option value="5">5 cuotas</option>
                 </select>
               </div>
-              <div><label>Inicial pagado $</label><input type="number" id="cc-ini" value="0" oninput="calcCC()" class="noup"></div>
+              <div id="cc-ini-wrap"><label>Inicial pagado $</label><input type="number" id="cc-ini" value="0" oninput="calcCC()" class="noup"></div>
             </div>
             <div class="g2" style="margin-bottom:8px">
               <div><label>Saldo a cuotas $</label><input type="text" id="cc-saldo" readonly></div>
@@ -1457,7 +1486,9 @@ function tpw(inp,btn){
 function renderCreditos(){
   var tb=g('credtb');
   if(!tb)return;
-  var creds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
+  var creds=ven.filter(function(v){
+    return (v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO')&&v.cuotas>0;
+  });
   if(!creds.length){
     tb.innerHTML='<tr><td colspan="6" class="empty">Sin creditos Credicontado registrados</td></tr>';
     return;
@@ -1527,7 +1558,7 @@ function renderCreditos(){
         '<div style="font-size:11px;font-weight:600">'+v.art+'</div>'+
         '<div style="font-size:10px;color:#888">'+v.fecha+'</div>'+
       '</td>'+
-      '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+fmt(v.pago==='SISTECREDITO+CREDICONTADO'?(v.total-(v.scSistecredito||0)):v.total)+'</td>'+
       '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
       '<td style="text-align:center">'+diasStr+'</td>'+
       '<td>'+est+'</td>'+
@@ -1625,19 +1656,51 @@ function renderSV(){
 function onPago(){
   var pago=g('sp').value;
   var isSEF=pago==='SISTECREDITO+EFECTIVO';
-  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+EFECTIVO'].indexOf(pago)>=0;
+  var isSC_CC=pago==='SISTECREDITO+CREDICONTADO';
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+EFECTIVO','SISTECREDITO+CREDICONTADO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
   var ef=pago==='EFECTIVO';
-  g('ccbox').style.display=cc?'block':'none';
-  g('cred-wrap').style.display=(cr&&!cc&&!isSEF)?'block':'none';
-  g('crefs').style.display=cc?'block':'none';
+  g('ccbox').style.display=(cc||isSC_CC)?'block':'none';
+  g('cred-wrap').style.display=(cr&&!cc&&!isSEF&&!isSC_CC)?'block':'none';
+  g('crefs').style.display=(cc||isSC_CC)?'block':'none';
   var sefb=g('sefbox');
   if(sefb)sefb.style.display=isSEF?'block':'none';
+  // scccbox: solo para SISTECREDITO+CREDICONTADO
+  var scccb=g('scccbox');
+  if(scccb)scccb.style.display=isSC_CC?'block':'none';
+  // En SC+CC: ocultar "Inicial pagado" (lo alimenta scccbox automaticamente)
+  var ccIniW=g('cc-ini-wrap');
+  if(ccIniW)ccIniW.style.display=isSC_CC?'none':'block';
+  if(isSC_CC){
+    // Resetear y calcular
+    var scccScEl=g('sccc-sc');if(scccScEl)scccScEl.value='';
+    var scccCcEl=g('sccc-cc');if(scccCcEl)scccCcEl.value='';
+    var iniEl2=g('cc-ini');if(iniEl2)iniEl2.value=0;
+    var scccSt=g('sccc-total');if(scccSt)scccSt.innerHTML='';
+    calcCC();
+  }
   if(isSEF){
     var tot=carrito.reduce(function(s,it){return s+it.subtotal;},0);
     var sefSc=g('sef-sc');if(sefSc){sefSc.value=tot;}
     var sefEf=g('sef-ef');if(sefEf){sefEf.value=0;}
     calcSef('sc');
+  }
+  // Medio de pago (canal): mostrar solo si hay cuota inicial (EFECTIVO, SEF con ini>0, SC+CC con ini>0)
+  // Ocultar si es CREDICONTADO puro, ADDI, SISTECREDITO puro
+  var mpWrap=g('medio-pago-wrap');
+  if(mpWrap){
+    var showMP=false;
+    if(ef){showMP=true;}
+    else if(isSEF){
+      var ccIni=parseFloat((g('cc-ini')||{}).value)||0;
+      showMP=ccIni>0;
+    }else if(isSC_CC){
+      var ccIni2=parseFloat((g('cc-ini')||{}).value)||0;
+      showMP=ccIni2>0;
+    }
+    // CREDICONTADO, ADDI, SISTECREDITO puro: nunca mostrar
+    mpWrap.style.display=showMP?'flex':'none';
+    if(!showMP&&g('mp'))g('mp').value='';
   }
   var req='<span style="color:#e74c3c">*</span>';
   // Efectivo: nombre, tel, barrio obligatorios. Cedula y apellido opcionales
@@ -1685,6 +1748,23 @@ function calcSef(campo){
     st.innerHTML='Sistecredito: <b>'+fmt(sc)+'</b> + Efectivo: <b>'+fmt(ef)+'</b> = <b>'+fmt(sc+ef)+'</b>'+(ok?' ✓':' ≠ Total: <b>'+fmt(tot)+'</b>');
   }
 }
+function calcSCCC(){
+  var tot=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+  var scEl=g('sccc-sc');var ccEl=g('sccc-cc');
+  if(!scEl||!ccEl)return;
+  var sc=+scEl.value||0;
+  var restante=Math.max(0,tot-sc);
+  ccEl.value=fmt(restante);
+  // Alimentar automáticamente cc-ini con el valor Sistecredito y recalcular cuotas
+  var iniEl=g('cc-ini');
+  if(iniEl){iniEl.value=sc;calcCC();}
+  var st=g('sccc-total');
+  if(st){
+    var ok=sc<=tot&&sc>0;
+    st.style.color=ok?'#27ae60':'#e74c3c';
+    st.innerHTML='Sistecredito: <b>'+fmt(sc)+'</b> + Credicontado: <b>'+fmt(restante)+'</b> = <b>'+fmt(tot)+'</b>'+(sc>tot?' ⚠ Excede el total':'');
+  }
+}
 function calcCC(){
   var totalCarrito=carrito.reduce(function(s,it){return s+it.subtotal;},0);
   var base=totalCarrito>0?totalCarrito:((+g('ipr').value||0)*(+g('iq').value||1)*(1-(+g('id').value||0)/100));
@@ -1693,6 +1773,14 @@ function calcCC(){
   var saldo=Math.max(0,base-ini);
   g('cc-saldo').value=fmt(saldo);
   g('cc-cval').value=fmt(cuotas>0?saldo/cuotas:0);
+  // Reevaluar visibilidad de Medio de pago segun cuota inicial
+  var mpWrap=g('medio-pago-wrap');
+  if(mpWrap){
+    var pago=g('sp').value;
+    var showMP=(pago==='SISTECREDITO+EFECTIVO'||pago==='SISTECREDITO+CREDICONTADO')&&ini>0;
+    mpWrap.style.display=showMP?'flex':'none';
+    if(!showMP&&g('mp'))g('mp').value='';
+  }
 }
 function loadP(){
   var i=+g('sa').value;
@@ -1907,7 +1995,10 @@ function togCuota(vi,ci){
   // Auto-registro contable abono Credicontado
   var c2=v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
-  addContableAuto(fecha||new Date().toLocaleDateString('es-CO'),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),monto,0,'auto');
+  var descAbono=v.pago==='SISTECREDITO+CREDICONTADO'?
+    'Abono SC+Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1):
+    'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1);
+  addContableAuto(fecha||new Date().toLocaleDateString('es-CO'),descAbono,monto,0,'auto');
   save();gestCuot(vi);renderCart();toast('Cuota marcada como pagada');
 }
 function desPagar(vi,ci){
@@ -2152,11 +2243,12 @@ function quitarDelCarrito(i){
 function regVenta(){
   var pago=g('sp').value;
   var isSEF=pago==='SISTECREDITO+EFECTIVO';
+  var isSC_CC=pago==='SISTECREDITO+CREDICONTADO';
   // Read SEF values immediately before anything else
   var _sefSc=isSEF?(+(g('sef-sc')||{value:0}).value||0):0;
   var _sefEf=isSEF?(+(g('sef-ef')||{value:0}).value||0):0;
-  var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
-  var cc=pago==='CREDICONTADO';
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+CREDICONTADO'].indexOf(pago)>=0;
+  var cc=pago==='CREDICONTADO'||isSC_CC;
   var ef=pago==='EFECTIVO'||isSEF;
   // Verificar carrito
   if(!carrito.length){toast('Agrega al menos un articulo al carrito',1);return;}
@@ -2196,11 +2288,15 @@ function regVenta(){
   // Nombre del articulo: si hay varios, listarlos
   var artNombre=carrito.length===1?carrito[0].art:carrito.map(function(it){return it.art+' x'+it.qty;}).join(', ');
   var primerIdx=carrito[0].idx;
+  var mpEl=g('mp');var medioPago=(mpEl&&mpEl.style.display!=='none')?mpEl.value:'';
+  var scccScVal=isSC_CC?(+(g('sccc-sc')||{value:0}).value||0):0;
+  var isSC_CC=pago==='SISTECREDITO+CREDICONTADO';
+  if(isSC_CC){var ccIni2=ccIni;}
   var v={idx:primerIdx,art:artNombre,fechaIni:fechaHoy,items:JSON.parse(JSON.stringify(carrito)),
     qty:carrito.reduce(function(s,it){return s+it.qty;},0),
     precio:total,desc:0,total:total,
     comprador:{nombre:nom,apellido:ap,cedula:ced,tel:tel,barrio:bar},
-    vend:vend,pago:pago,cuotas:cuotas,cp:cp,refs:refs,fecha:fecha,ci:ci};
+    vend:vend,pago:pago,medioPago:medioPago,scSistecredito:isSC_CC?scccScVal:0,sefSc:isSEF?_sefSc:0,sefEf:isSEF?_sefEf:0,cuotas:cuotas,cp:cp,refs:refs,fecha:fecha,ci:ci};
   ven.unshift(v);lv=v;
   // Libro contable automatico
   var pagoV2=pago;
@@ -2213,6 +2309,9 @@ function regVenta(){
     if(ccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado: '+artNombreV+(cNom?' — '+cNom:''),ccIni,0,'auto');
   }else if(pagoV2==='SISTECREDITO+EFECTIVO'){
     if(_sefEf>0)addContableAuto(fechaVenta2,'Efectivo complementario Sistecredito: '+artNombreV+(cNom?' — '+cNom:''),_sefEf,0,'auto');
+  }else if(pagoV2==='SISTECREDITO+CREDICONTADO'){
+    // Sistecredito no entra al contable. Solo la parte CC (cuotas) se gestionara via abonos.
+    // No se registra nada aqui.
   }
   // Limpiar carrito
   carrito=[];renderCarrito();
@@ -2221,6 +2320,12 @@ function regVenta(){
   toast('Venta registrada y guardada');
   g('iq').value=1;g('id').value=0;
   if(g('cc-ini'))g('cc-ini').value=0;
+  if(g('mp'))g('mp').value='';
+  var mpWrapR=g('medio-pago-wrap');if(mpWrapR)mpWrapR.style.display='none';
+  var scccScR=g('sccc-sc');if(scccScR)scccScR.value='';
+  var scccCcR=g('sccc-cc');if(scccCcR)scccCcR.value='';
+  var scccStR=g('sccc-total');if(scccStR)scccStR.innerHTML='';
+  var scccbR=g('scccbox');if(scccbR)scccbR.style.display='none';
   ['inm','iap','icc','itel','ibar','r1n','r1t','r1b','r2n','r2t','r2b','r3n','r3t','r3b'].forEach(function(id){var el=g(id);if(el)el.value='';});
   calc();calcCC();
 }
@@ -2252,6 +2357,11 @@ function showFac(v){
     if(v.desc>0)h+='<div class="fac-row"><span>Descuento</span><span style="color:#e74c3c">-'+v.desc+'%</span></div>';
   }
   h+='<div class="fac-row"><span>Forma de pago</span><span style="color:#7d6010;font-weight:700">'+v.pago+'</span></div>';
+  if(v.medioPago)h+='<div class="fac-row"><span>Medio de pago</span><span style="color:#1a5276;font-weight:700">'+v.medioPago+'</span></div>';
+  if(v.pago==='SISTECREDITO+CREDICONTADO'&&v.scSistecredito>0){
+    h+='<div class="fac-row"><span>Valor Sistecredito</span><span style="color:#2980b9;font-weight:700">'+fmt(v.scSistecredito)+'</span></div>';
+    h+='<div class="fac-row"><span>Restante Credicontado</span><span style="color:#8e44ad;font-weight:700">'+fmt(v.total-v.scSistecredito)+'</span></div>';
+  }
   h+='<div class="fac-tot"><span>TOTAL</span><span>'+fmt(v.total)+'</span></div>';
   if(cc&&v.ci){
     h+='<div style="background:#f0ead6;border-radius:8px;padding:11px 13px;margin-top:10px;border-left:3px solid #c9a227">';
@@ -2459,7 +2569,9 @@ function dlPDF(){
   var yp=y+14;
 
   // Checkboxes
-  var pagos=['EFECTIVO','SISTECREDITO','ADDI','CREDICONTADO'];
+  var pagos=['EFECTIVO','SISTECREDITO','ADDI','CREDICONTADO','SC+CREDICONTADO'];
+  var pagoDisplay={'SC+CREDICONTADO':'SISTECREDITO+CREDICONTADO'};
+  var pagoLabel=function(p){return pagoDisplay[p]||p;};
   var xi=10;
   pagos.forEach(function(p){
     var checked=v.pago===p;
@@ -2919,10 +3031,14 @@ function renderCart(){
   if(!tb)return;
   var q=((g('cart-buscar')||{value:''}).value||'').toLowerCase().trim();
   // Calcular metricas
-  var allCreds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
+  var allCreds=ven.filter(function(v){
+    return (v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO')&&v.cuotas>0;
+  });
   var tot=0,cob=0;
   allCreds.forEach(function(v){
-    tot+=v.total;
+    // Para SC+CC solo se financia el restante (total - scSistecredito)
+    var base=v.pago==='SISTECREDITO+CREDICONTADO'?(v.total-(v.scSistecredito||0)):v.total;
+    tot+=base;
     (v.cp||[]).forEach(function(c){if(c.pagado)cob+=c.monto||0;});
   });
   if(g('cn'))g('cn').textContent=allCreds.length;
@@ -3019,8 +3135,8 @@ function renderCart(){
       '<td style="font-size:10px">'+v.fecha+'</td>'+
       '<td style="font-weight:700">'+cl+'</td>'+
       '<td>'+v.art+'</td>'+
-      '<td class="vcr">'+v.pago+'</td>'+
-      '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+      '<td class="vcr">'+(v.pago==='SISTECREDITO+CREDICONTADO'?'SC+CREDICONTADO':v.pago)+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+fmt(v.pago==='SISTECREDITO+CREDICONTADO'?(v.total-(v.scSistecredito||0)):v.total)+'</td>'+
       '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
       '<td style="text-align:center">'+diasStr+'</td>'+
       '<td>'+est+'</td>'+
@@ -3056,10 +3172,10 @@ function abrirDetalleRes(tipo){
   var filtradas=venMes;
   var tituloStr='Todas las ventas — '+MESES[mes]+' '+anio;
   if(tipo==='CREDICONTADO'){
-    filtradas=venMes.filter(function(v){return v.pago==='CREDICONTADO';});
+    filtradas=venMes.filter(function(v){return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';});
     tituloStr='Ventas Credicontado — '+MESES[mes]+' '+anio;
   }else if(tipo==='SISTECREDITO'){
-    filtradas=venMes.filter(function(v){return v.pago==='SISTECREDITO';});
+    filtradas=venMes.filter(function(v){return v.pago==='SISTECREDITO'||v.pago==='SISTECREDITO+EFECTIVO'||v.pago==='SISTECREDITO+CREDICONTADO';});
     tituloStr='Ventas Sistecredito — '+MESES[mes]+' '+anio;
   }else if(tipo==='ADDI'){
     filtradas=venMes.filter(function(v){return v.pago==='ADDI';});
@@ -3108,17 +3224,35 @@ function abrirDetalleRes(tipo){
       var bd=new Date(+bp[2],+bp[1]-1,+bp[0]);
       return bd-ad;
     });
-    var totalFil=filtradas.reduce(function(s,v){return s+v.total;},0);
+    // Para ventas mixtas, calcular el valor que corresponde al tipo de vista actual
+    function valorParaTipo(v, tipo){
+      if(tipo==='SISTECREDITO'){
+        if(v.pago==='SISTECREDITO')return v.total;
+        if(v.pago==='SISTECREDITO+EFECTIVO')return v.sefSc||0;
+        if(v.pago==='SISTECREDITO+CREDICONTADO')return v.scSistecredito||0;
+      }
+      if(tipo==='CREDICONTADO'){
+        if(v.pago==='CREDICONTADO')return v.total;
+        if(v.pago==='SISTECREDITO+CREDICONTADO')return v.total-(v.scSistecredito||0);
+      }
+      if(tipo==='EFECTIVO'){
+        if(v.pago==='EFECTIVO')return v.total;
+        if(v.pago==='SISTECREDITO+EFECTIVO')return v.sefEf||0;
+      }
+      return v.total;
+    }
+    var totalFil=filtradas.reduce(function(s,v){return s+valorParaTipo(v,tipo);},0);
     tb.innerHTML=filtradas.map(function(v){
       var c=v.comprador||{};
       var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
       var pagoColor=v.pago==='EFECTIVO'?'color:#1e8449':v.pago==='CREDICONTADO'?'color:#9b59b6':'color:#3498db';
+      var montoFil=valorParaTipo(v,tipo);
       return '<tr>'+
         '<td style="font-size:11px;color:#888">'+v.fecha+'</td>'+
         '<td style="font-weight:600">'+v.art+'</td>'+
         '<td>'+cl+'</td>'+
         '<td style="'+pagoColor+';font-weight:600;font-size:11px">'+v.pago+'</td>'+
-        '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+fmt(montoFil)+'</td>'+
         '<td style="font-size:11px;color:#888">'+( v.vend||'-')+'</td>'+
       '</tr>';
     }).join('')+
@@ -3191,8 +3325,25 @@ function renderRes(){
   // Calcular metricas
   var tot=venMes.reduce(function(s,v){return s+v.total;},0);
   var ef=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+v.total;},0);
-  var cc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+v.total;},0);
-  var sc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+v.total;},0);
+  // Credicontado: CREDICONTADO puro (total) + SC+CC (solo el restante = total - parte SC)
+  var cc=venMes.reduce(function(s,v){
+    if(v.pago==='CREDICONTADO')return s+v.total;
+    if(v.pago==='SISTECREDITO+CREDICONTADO')return s+(v.total-(v.scSistecredito||0));
+    return s;
+  },0);
+  // Sistecredito: SISTECREDITO puro (total) + SEF (parte sefSc) + SC+CC (parte scSistecredito)
+  var sc=venMes.reduce(function(s,v){
+    if(v.pago==='SISTECREDITO')return s+v.total;
+    if(v.pago==='SISTECREDITO+EFECTIVO')return s+(v.sefSc||0);
+    if(v.pago==='SISTECREDITO+CREDICONTADO')return s+(v.scSistecredito||0);
+    return s;
+  },0);
+  // Efectivo RECIBIDO: EFECTIVO puro (total) + SEF (solo parte sefEf en efectivo)
+  var efRecib=venMes.reduce(function(s,v){
+    if(v.pago==='EFECTIVO')return s+v.total;
+    if(v.pago==='SISTECREDITO+EFECTIVO')return s+(v.sefEf||0);
+    return s;
+  },0);
   var ad=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
   var sca=sc+ad;
   // Gastos del MES ACTUAL siempre (no cambia con el selector)
@@ -3211,9 +3362,9 @@ function renderRes(){
     },0);
     return v.total-costo;
   }
-  var ganEf=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v);},0);
+  var ganEf=venMes.filter(function(v){return v.pago==='EFECTIVO'||v.pago==='SISTECREDITO+EFECTIVO';}).reduce(function(s,v){return s+ganancia(v);},0);
+  var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
+  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO'||v.pago==='SISTECREDITO+EFECTIVO'||v.pago==='SISTECREDITO+CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganSca=ganSc+ganAd;
   var ganTot=ganEf+ganCc+ganSca;
@@ -3221,7 +3372,7 @@ function renderRes(){
   // Actualizar tarjetas
   if(g('rn'))g('rn').textContent=venMes.length;
   if(g('rt'))g('rt').textContent=fmt(tot);
-  if(g('ref'))g('ref').textContent=fmt(ef);
+  if(g('ref'))g('ref').textContent=fmt(efRecib);
   if(g('rcr'))g('rcr').textContent=fmt(cc);
   if(g('rsca'))g('rsca').textContent=fmt(sca);
   if(g('rsc'))g('rsc').textContent=fmt(sc);
@@ -3259,9 +3410,21 @@ function renderRes(){
       if(!porMes[key])porMes[key]={mes:+p[1]-1,anio:+p[2],n:0,ef:0,cc:0,sca:0,tot:0};
       porMes[key].n++;
       porMes[key].tot+=v.total;
-      if(v.pago==='EFECTIVO')porMes[key].ef+=v.total;
-      else if(v.pago==='CREDICONTADO')porMes[key].cc+=v.total;
-      else if(v.pago==='SISTECREDITO'||v.pago==='ADDI')porMes[key].sca+=v.total;
+      if(v.pago==='EFECTIVO'){
+        porMes[key].ef+=v.total;
+      }else if(v.pago==='CREDICONTADO'){
+        porMes[key].cc+=v.total;
+      }else if(v.pago==='SISTECREDITO+CREDICONTADO'){
+        // Parte CC (restante) va a credicontado; parte SC va a sistecredito
+        porMes[key].cc+=(v.total-(v.scSistecredito||0));
+        porMes[key].sca+=(v.scSistecredito||0);
+      }else if(v.pago==='SISTECREDITO+EFECTIVO'){
+        // sefSc = parte sistecredito; sefEf = parte efectivo recibido
+        porMes[key].sca+=(v.sefSc||0);
+        porMes[key].ef+=(v.sefEf||0);
+      }else if(v.pago==='SISTECREDITO'||v.pago==='ADDI'){
+        porMes[key].sca+=v.total;
+      }
     });
     var mesesList=Object.entries(porMes).sort(function(a,b){
       if(b[1].anio!==a[1].anio)return b[1].anio-a[1].anio;
@@ -3403,9 +3566,26 @@ function sincronizarContable(){
         }
       });
     }
-    // Sistecredito + Efectivo
+    // Sistecredito + Efectivo: solo entra al contable la parte en EFECTIVO
     if(v.pago==='SISTECREDITO+EFECTIVO'&&v.sefEf>0){
       tryAdd('Efectivo complementario Sistecredito: '+v.art+(cl?' — '+cl:''),v.sefEf,0,'auto',parseTS(v.fecha,3));
+    }
+    // Sistecredito + Credicontado: Sistecredito NO entra al contable.
+    // Solo entran los abonos de la parte Credicontado cuando se paguen.
+    if(v.pago==='SISTECREDITO+CREDICONTADO'&&v.cp){
+      v.cp.forEach(function(p,ci){
+        if(p.pagado&&p.monto>0){
+          var fPago=normFechaGlobal(p.fecha||v.fecha)||v.fecha;
+          var cl2=[cv.nombre,cv.apellido].filter(Boolean).join(' ')||'Cliente';
+          var descAb='Abono SC+Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1);
+          var claveAb=claveEntry(descAb,fPago);
+          if(!existentes[claveAb]){
+            existentes[claveAb]=true;
+            cont.push({fecha:fPago,desc:descAb,ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
+            agregados++;
+          }
+        }
+      });
     }
   });
 
