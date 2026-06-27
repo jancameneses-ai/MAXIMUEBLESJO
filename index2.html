@@ -671,7 +671,11 @@ tr:hover td{background:#f8f9ff}
   </div>
   <div class="card">
     <h2>Movimientos</h2>
-    <input type="text" id="cont-buscar" placeholder="Buscar por fecha o descripcion..." oninput="renderContable()" style="margin-bottom:12px;text-transform:none">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <input type="text" id="cont-buscar" placeholder="Buscar por fecha o descripcion..." oninput="renderContable()" style="margin-bottom:0;flex:1;text-transform:none">
+      <button id="cont-undo" onclick="contDeshacer()" title="Deshacer" style="min-width:38px;height:38px;border:1.5px solid #ddd;background:#fff;border-radius:8px;font-size:16px;cursor:pointer;opacity:0.35;transition:opacity .2s">↩</button>
+      <button id="cont-redo" onclick="contRehacer()" title="Rehacer" style="min-width:38px;height:38px;border:1.5px solid #ddd;background:#fff;border-radius:8px;font-size:16px;cursor:pointer;opacity:0.35;transition:opacity .2s">↪</button>
+    </div>
     <div style="overflow-x:auto"><table>
       <thead><tr>
         <th>Fecha</th><th>Descripcion</th>
@@ -3049,6 +3053,42 @@ function renderRes(){
 }
 
 var contPage=1; var CONT_PER_PAGE=15;
+var contHistorial=[]; // para undo/redo
+var contHistIdx=-1;   // posicion actual en el historial
+
+function contGuardarEstado(){
+  // Guardar estado actual para undo/redo
+  // Eliminar estados futuros si estamos en medio del historial
+  contHistorial=contHistorial.slice(0,contHistIdx+1);
+  contHistorial.push(JSON.parse(JSON.stringify(cont)));
+  if(contHistorial.length>30)contHistorial.shift(); // max 30 estados
+  contHistIdx=contHistorial.length-1;
+  contActualizarBotones();
+}
+function contDeshacer(){
+  if(contHistIdx<=0){toast('No hay nada que deshacer',1);return;}
+  contHistIdx--;
+  cont=JSON.parse(JSON.stringify(contHistorial[contHistIdx]));
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  save();renderContable();
+  contActualizarBotones();
+  toast('Movimiento deshecho');
+}
+function contRehacer(){
+  if(contHistIdx>=contHistorial.length-1){toast('No hay nada que rehacer',1);return;}
+  contHistIdx++;
+  cont=JSON.parse(JSON.stringify(contHistorial[contHistIdx]));
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  save();renderContable();
+  contActualizarBotones();
+  toast('Movimiento rehecho');
+}
+function contActualizarBotones(){
+  var btnD=document.getElementById('cont-undo');
+  var btnR=document.getElementById('cont-redo');
+  if(btnD)btnD.style.opacity=contHistIdx>0?'1':'0.35';
+  if(btnR)btnR.style.opacity=contHistIdx<contHistorial.length-1?'1':'0.35';
+}
 
 function addContable(){
   var fecha=g('cont-fecha').value;
@@ -3061,6 +3101,7 @@ function addContable(){
   // Convert fecha to DD/MM/YYYY
   var fp=fecha.split('-');
   var fechaFmt=fp[2]+'/'+fp[1]+'/'+fp[0];
+  contGuardarEstado();
   cont.push({
     fecha:fechaFmt,
     desc:desc,
@@ -3078,9 +3119,14 @@ function addContable(){
 }
 
 function sincronizarContable(){
-  // Reconstruir entradas automaticas desde ventas existentes
-  // Eliminar solo las entradas 'auto' previas
-  cont=cont.filter(function(c){return c.tipo!=='auto';});
+  if(!confirm('Sincronizar agregará entradas automáticas de ventas que no estén en el libro. Las eliminaciones manuales se respetarán. ¿Continuar?'))return;
+  contGuardarEstado();
+  // Solo eliminar entradas 'auto' que correspondan a ventas aun existentes
+  // Las entradas manuales y las eliminadas a proposito se mantienen
+  // Primero guardar entradas manuales intactas
+  var manuales=cont.filter(function(c){return c.tipo!=='auto';});
+  // Reconstruir solo las auto desde ventas actuales
+  cont=manuales;
 
   ven.forEach(function(v){
     if(!v.fecha)return;
@@ -3144,6 +3190,7 @@ function addContableAuto(fecha,desc,ing,egr,tipo){
 
 function delContable(i){
   if(!confirm('Eliminar este movimiento?'))return;
+  contGuardarEstado();
   cont.splice(i,1);
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();renderContable();toast('Movimiento eliminado');
@@ -3151,6 +3198,12 @@ function delContable(i){
 
 function renderContable(){
   var tb=g('cont-tb');if(!tb)return;
+  // Inicializar historial si esta vacio
+  if(contHistorial.length===0&&cont.length>0){
+    contHistorial=[JSON.parse(JSON.stringify(cont))];
+    contHistIdx=0;
+  }
+  contActualizarBotones();
   var q=((g('cont-buscar')||{value:''}).value||'').toLowerCase().trim();
   if(q)contPage=1;
 
@@ -3178,7 +3231,15 @@ function renderContable(){
   sorted=sorted.map(function(m){return Object.assign({},m,{fecha:normFecha(m.fecha)});});
 
   // Filter
-  var filtered=sorted.map(function(m,i){return{m:m,i:cont.indexOf(m)};}).filter(function(x){
+  // Map original indices BEFORE sorting so indexOf works correctly
+  var withIdx=cont.map(function(m,i){return{m:Object.assign({},m,{fecha:normFechaGlobal(m.fecha)||m.fecha}),i:i};});
+  // Sort by date desc
+  withIdx.sort(function(a,b){
+    var da=fechaToMs(a.m.fecha);var db=fechaToMs(b.m.fecha);
+    if(da!==db)return db-da;
+    return (b.m.ts||0)-(a.m.ts||0);
+  });
+  var filtered=withIdx.filter(function(x){
     if(!q)return true;
     return x.m.desc.toLowerCase().indexOf(q)>=0||x.m.fecha.indexOf(q)>=0;
   });
