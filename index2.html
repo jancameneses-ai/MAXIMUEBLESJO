@@ -2151,9 +2151,13 @@ function quitarDelCarrito(i){
 }
 function regVenta(){
   var pago=g('sp').value;
+  var isSEF=pago==='SISTECREDITO+EFECTIVO';
+  // Read SEF values immediately before anything else
+  var _sefSc=isSEF?(+(g('sef-sc')||{value:0}).value||0):0;
+  var _sefEf=isSEF?(+(g('sef-ef')||{value:0}).value||0):0;
   var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
-  var ef=pago==='EFECTIVO';
+  var ef=pago==='EFECTIVO'||isSEF;
   // Verificar carrito
   if(!carrito.length){toast('Agrega al menos un articulo al carrito',1);return;}
   var total=carrito.reduce(function(s,it){return s+it.subtotal;},0);
@@ -2198,6 +2202,18 @@ function regVenta(){
     comprador:{nombre:nom,apellido:ap,cedula:ced,tel:tel,barrio:bar},
     vend:vend,pago:pago,cuotas:cuotas,cp:cp,refs:refs,fecha:fecha,ci:ci};
   ven.unshift(v);lv=v;
+  // Libro contable automatico
+  var pagoV2=pago;
+  var fechaVenta2=new Date().toLocaleDateString('es-CO');
+  var artNombreV=artNombre;
+  var cNom=[nom,ap].filter(Boolean).join(' ');
+  if(pagoV2==='EFECTIVO'){
+    addContableAuto(fechaVenta2,'Venta efectivo: '+artNombreV+(cNom?' — '+cNom:''),total,0,'auto');
+  }else if(pagoV2==='CREDICONTADO'){
+    if(ccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado: '+artNombreV+(cNom?' — '+cNom:''),ccIni,0,'auto');
+  }else if(pagoV2==='SISTECREDITO+EFECTIVO'){
+    if(_sefEf>0)addContableAuto(fechaVenta2,'Efectivo complementario Sistecredito: '+artNombreV+(cNom?' — '+cNom:''),_sefEf,0,'auto');
+  }
   // Limpiar carrito
   carrito=[];renderCarrito();
   save();renderAll();showFac(v);
@@ -3049,16 +3065,17 @@ function abrirDetalleRes(tipo){
     filtradas=venMes.filter(function(v){return v.pago==='ADDI';});
     tituloStr='Ventas Addi — '+MESES[mes]+' '+anio;
   }else if(tipo==='GASTOS'){
-    // Show gastos from contable
+    // Gastos siempre del mes actual
+    var mesGas=hoy.getMonth();var anioGas=hoy.getFullYear();
     var gastosRows=cont.filter(function(c){
       if(!c.egr||c.egr<=0)return false;
-      var p=(c.fecha||'').split('/');
-      return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
+      var p=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
+      return p.length===3&&(+p[1]-1)===mesGas&&+p[2]===anioGas;
     });
     var titulo2=g('res-detalle-titulo');
     var subview=g('res-subview');var main=g('res-main');
     var tb2=g('res-detalle-tb');
-    if(titulo2)titulo2.textContent='Gastos del mes — '+MESES[mes]+' '+anio+' ('+gastosRows.length+')';
+    if(titulo2)titulo2.textContent='Gastos de '+MESES[mesGas]+' '+anioGas+' ('+gastosRows.length+')';
     var totalGas=gastosRows.reduce(function(s,c){return s+(c.egr||0);},0);
     if(tb2){
       if(!gastosRows.length){
@@ -3178,11 +3195,11 @@ function renderRes(){
   var sc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+v.total;},0);
   var ad=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
   var sca=sc+ad;
-  // Gastos del mes desde libro contable
+  // Gastos del MES ACTUAL siempre (no cambia con el selector)
   var gas=cont.filter(function(c){
     if(!c.egr||c.egr<=0)return false;
-    var p=(c.fecha||'').split('/');
-    return p.length===3&&(+p[1]-1)===mesActual&&+p[2]===anioActual;
+    var p=(normFechaGlobal(c.fecha)||'').split('/');
+    return p.length===3&&(+p[1]-1)===hoy.getMonth()&&+p[2]===hoy.getFullYear();
   }).reduce(function(s,c){return s+(c.egr||0);},0);
 
   // Ganancias por tipo de pago
@@ -3371,6 +3388,12 @@ function sincronizarContable(){
           cont.push({fecha:normFechaGlobal(fPago)||fPago,desc:'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),ing:p.monto,egr:0,tipo:'auto',ts:parseTS(fPago,ci+2)});
         }
       });
+    }
+    // Sistecredito + Efectivo - registrar el efectivo complementario
+    if(v.pago==='SISTECREDITO+EFECTIVO'&&v.sefEf>0){
+      var cvSef=v.comprador||{};
+      var clSef=[cvSef.nombre,cvSef.apellido].filter(Boolean).join(' ');
+      cont.push({fecha:normFechaGlobal(v.fecha)||v.fecha,desc:'Efectivo complementario Sistecredito: '+v.art+(clSef?' — '+clSef:''),ing:v.sefEf,egr:0,tipo:'auto',ts:parseTS(v.fecha,3),ventaArt:v.art,ventaPago:v.pago});
     }
   });
 
