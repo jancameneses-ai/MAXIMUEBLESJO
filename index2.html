@@ -725,10 +725,7 @@ tr:hover td{background:#f8f9ff}
       <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
       <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
-      <button class="btn bg" onclick="exportContableExcel()" style="font-size:11px;padding:8px 16px;background:#1e8449;border-color:#1e8449">⬇ Exportar Excel</button>
-    </div>
+    <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
   </div>
   <div class="card" style="margin-bottom:14px">
     <h2>Registrar movimiento manual</h2>
@@ -1739,14 +1736,14 @@ function calcSef(campo){
   // Auto-completar el otro campo
   if(campo==='sc'){
     ef=Math.max(0,tot-sc);
-    efEl.value=ef||'';
+    efEl.value=ef>0?ef:'';
   }else if(campo==='ef'){
     sc=Math.max(0,tot-ef);
-    scEl.value=sc||'';
+    scEl.value=sc>0?sc:'';
   }
   var st=g('sef-total');
   if(st){
-    var ok=Math.abs(sc+ef-tot)<1;
+    var ok=sc>0&&ef>=0&&Math.abs(sc+ef-tot)<1;
     st.style.color=ok?'#27ae60':'#e74c3c';
     st.innerHTML='Sistecredito: <b>'+fmt(sc)+'</b> + Efectivo: <b>'+fmt(ef)+'</b> = <b>'+fmt(sc+ef)+'</b>'+(ok?' ✓':' ≠ Total: <b>'+fmt(tot)+'</b>');
   }
@@ -2166,6 +2163,10 @@ function guardarEdicionVenta(){
       // Credicontado inicial: usar fecha de la venta
       if(desc.indexOf('Cuota inicial Credicontado:')>=0&&desc.indexOf(v2.art)>=0){
         c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,1);
+      }
+      // SEF efectivo complementario: actualizar fecha también
+      if(desc.indexOf('Efectivo complementario Sistecredito:')>=0&&desc.indexOf(v2.art)>=0){
+        c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,0);
       }
       // Abonos: NO cambian, conservan fecha real del pago
     });
@@ -3184,17 +3185,16 @@ function abrirDetalleRes(tipo){
     filtradas=venMes.filter(function(v){return v.pago==='ADDI';});
     tituloStr='Ventas Addi — '+MESES[mes]+' '+anio;
   }else if(tipo==='GASTOS'){
-    // Gastos siempre del mes actual
-    var mesGas=hoy.getMonth();var anioGas=hoy.getFullYear();
+    // Gastos del mes seleccionado en el selector
     var gastosRows=cont.filter(function(c){
       if(!c.egr||c.egr<=0)return false;
       var p=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
-      return p.length===3&&(+p[1]-1)===mesGas&&+p[2]===anioGas;
+      return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
     });
     var titulo2=g('res-detalle-titulo');
     var subview=g('res-subview');var main=g('res-main');
     var tb2=g('res-detalle-tb');
-    if(titulo2)titulo2.textContent='Gastos de '+MESES[mesGas]+' '+anioGas+' ('+gastosRows.length+')';
+    if(titulo2)titulo2.textContent='Gastos de '+MESES[mes]+' '+anio+' ('+gastosRows.length+')';
     var totalGas=gastosRows.reduce(function(s,c){return s+(c.egr||0);},0);
     if(tb2){
       if(!gastosRows.length){
@@ -3349,11 +3349,11 @@ function renderRes(){
   },0);
   var ad=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
   var sca=sc+ad;
-  // Gastos del MES ACTUAL siempre (no cambia con el selector)
+  // Gastos del mes seleccionado
   var gas=cont.filter(function(c){
     if(!c.egr||c.egr<=0)return false;
     var p=(normFechaGlobal(c.fecha)||'').split('/');
-    return p.length===3&&(+p[1]-1)===hoy.getMonth()&&+p[2]===hoy.getFullYear();
+    return p.length===3&&(+p[1]-1)===mesActual&&+p[2]===anioActual;
   }).reduce(function(s,c){return s+(c.egr||0);},0);
 
   // Ganancias por tipo de pago
@@ -3365,9 +3365,28 @@ function renderRes(){
     },0);
     return v.total-costo;
   }
-  var ganEf=venMes.filter(function(v){return v.pago==='EFECTIVO'||v.pago==='SISTECREDITO+EFECTIVO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO'||v.pago==='SISTECREDITO+EFECTIVO'||v.pago==='SISTECREDITO+CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
+  // Para ventas mixtas, la ganancia se distribuye proporcionalmente entre los canales
+  function ganProporcional(v,parte){
+    if(!v.total)return 0;
+    var ganTotal=ganancia(v);
+    return ganTotal*(parte/v.total);
+  }
+  var ganEf=venMes.reduce(function(s,v){
+    if(v.pago==='EFECTIVO')return s+ganancia(v);
+    if(v.pago==='SISTECREDITO+EFECTIVO')return s+ganProporcional(v,v.sefEf||0);
+    return s;
+  },0);
+  var ganCc=venMes.reduce(function(s,v){
+    if(v.pago==='CREDICONTADO')return s+ganancia(v);
+    if(v.pago==='SISTECREDITO+CREDICONTADO')return s+ganProporcional(v,v.total-(v.scSistecredito||0));
+    return s;
+  },0);
+  var ganSc=venMes.reduce(function(s,v){
+    if(v.pago==='SISTECREDITO')return s+ganancia(v);
+    if(v.pago==='SISTECREDITO+EFECTIVO')return s+ganProporcional(v,v.sefSc||0);
+    if(v.pago==='SISTECREDITO+CREDICONTADO')return s+ganProporcional(v,v.scSistecredito||0);
+    return s;
+  },0);
   var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganSca=ganSc+ganAd;
   var ganTot=ganEf+ganCc+ganSca;
@@ -3732,64 +3751,6 @@ function renderContable(){
 }
 
 function setContPage(p){contPage=p;renderContable();}
-
-function exportContableExcel(){
-  if(!cont||cont.length===0){toast('No hay movimientos para exportar',1);return;}
-  function normFechaExp(f){
-    if(!f)return '';
-    if(/^\d{4}-\d{2}-\d{2}$/.test(f)){var p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
-    return f;
-  }
-  function fechaToMsExp(f){
-    var fn=normFechaExp(f);
-    var p=fn.split('/');
-    if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime();
-    return 0;
-  }
-  var sorted=cont.slice().sort(function(a,b){
-    var da=fechaToMsExp(a.fecha);var db=fechaToMsExp(b.fecha);
-    if(da!==db)return da-db;
-    return (a.ts||0)-(b.ts||0);
-  });
-  var acum=0;
-  var filas=sorted.map(function(m){
-    acum+=(m.ing||0)-(m.egr||0);
-    return {
-      fecha:normFechaExp(m.fecha),
-      desc:(m.desc||'').replace(/"/g,'""'),
-      tipo:m.tipo==='auto'?'Automatico':'Manual',
-      ing:m.ing||0,egr:m.egr||0,acum:acum
-    };
-  });
-  var totIng=filas.reduce(function(s,r){return s+r.ing;},0);
-  var totEgr=filas.reduce(function(s,r){return s+r.egr;},0);
-  var saldoFinal=totIng-totEgr;
-  var bom='\uFEFF';var sep=';';var lines=[];
-  lines.push('LIBRO CONTABLE - MAXIMUEBLES JO');
-  lines.push('Orito Putumayo - Exportado: '+new Date().toLocaleDateString('es-CO'));
-  lines.push('');
-  lines.push(['Fecha','Descripcion','Tipo','Ingreso ($)','Egreso ($)','Saldo acumulado ($)'].join(sep));
-  filas.forEach(function(r){
-    lines.push([
-      '"'+r.fecha+'"','"'+r.desc+'"','"'+r.tipo+'"',
-      r.ing>0?r.ing.toFixed(0):'',
-      r.egr>0?r.egr.toFixed(0):'',
-      r.acum.toFixed(0)
-    ].join(sep));
-  });
-  lines.push('');
-  lines.push(['"TOTALES"','','',totIng.toFixed(0),totEgr.toFixed(0),saldoFinal.toFixed(0)].join(sep));
-  var csv=bom+lines.join('\r\n');
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  var hoy=new Date();
-  var fn='ContableMaximuebles_'+hoy.getFullYear()+(''+(hoy.getMonth()+1)).padStart(2,'0')+(''+(hoy.getDate())).padStart(2,'0')+'.csv';
-  a.href=url;a.download=fn;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('Excel exportado: '+fn);
-}
 
 
 function dlReciboCuota(vi,ci){
