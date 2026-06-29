@@ -672,6 +672,10 @@ tr:hover td{background:#f8f9ff}
       <div class="dc-info"><div class="dc-val" id="rgas">$0</div><div class="dc-lbl">Gastos del mes</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
     </div>
+    <div class="dash-card" style="background:linear-gradient(135deg,#1e8449,#145a32);cursor:pointer" onclick="abrirDetalleRes('GANANCIAS')">
+      <div class="dc-info"><div class="dc-val" id="rg-det">$0</div><div class="dc-lbl">Detalle ganancias por venta</div></div>
+      <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+    </div>
     <div class="dash-card dc-orange">
       <div class="dc-info"><div class="dc-val" id="rar">0</div><div class="dc-lbl">Articulos en catalogo</div></div>
       <div class="dc-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>
@@ -3208,7 +3212,49 @@ function abrirDetalleRes(tipo){
     if(subview)subview.style.display='block';
     window.scrollTo({top:0,behavior:'smooth'});
     return;
-  }else if(tipo==='EFECTIVO'){
+  }else if(tipo==='GANANCIAS'){
+    if(titulo)titulo.textContent='Detalle de ganancias por venta — '+MESES[mes]+' '+anio+' ('+venMes.length+')';
+    var theadG=tb?tb.closest('table').querySelector('thead'):null;
+    if(theadG)theadG.innerHTML='<tr><th>Fecha</th><th>Artículo</th><th>Cliente</th><th style="text-align:right">Precio venta</th><th style="text-align:right">Costo</th><th style="text-align:right;color:#1e8449">Ganancia</th></tr>';
+    var totalVentas=0,totalCosto=0,totalGan=0;
+    var filas=venMes.slice().sort(function(a,b){
+      function fms(f){var p=(f||'').split('/');return p.length===3?new Date(+p[2],+p[1]-1,+p[0]).getTime():0;}
+      return fms(b.fecha)-fms(a.fecha);
+    }).map(function(v){
+      var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
+      var costo=it.reduce(function(s,item){
+        var a=inv.find(function(x){return x.art===item.art;});
+        return s+(a?a.costo*(item.qty||1):0);
+      },0);
+      var gan=v.total-costo;
+      totalVentas+=v.total;totalCosto+=costo;totalGan+=gan;
+      var cl=v.comprador?([v.comprador.nombre,v.comprador.apellido].filter(Boolean).join(' '))||'—':'—';
+      var ganColor=gan>=0?'#1e8449':'#e74c3c';
+      return '<tr>'+
+        '<td style="font-size:11px;color:#888">'+v.fecha+'</td>'+
+        '<td style="font-weight:500;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+v.art+'</td>'+
+        '<td style="font-size:11px">'+cl+'</td>'+
+        '<td style="text-align:right">'+fmt(v.total)+'</td>'+
+        '<td style="text-align:right;color:#c0392b">'+fmt(costo)+'</td>'+
+        '<td style="text-align:right;font-weight:700;color:'+ganColor+'">'+fmt(gan)+'</td>'+
+      '</tr>';
+    });
+    if(!venMes.length){
+      tb.innerHTML='<tr><td colspan="6" class="empty">Sin ventas este mes</td></tr>';
+    }else{
+      tb.innerHTML=filas.join('')+
+        '<tr style="background:#f0fff4;font-weight:700;border-top:2px solid #a9dfbf">'+
+        '<td colspan="2" style="text-align:right">TOTALES</td>'+
+        '<td></td>'+
+        '<td style="text-align:right">'+fmt(totalVentas)+'</td>'+
+        '<td style="text-align:right;color:#c0392b">'+fmt(totalCosto)+'</td>'+
+        '<td style="text-align:right;color:#1e8449;font-size:14px">'+fmt(totalGan)+'</td>'+
+        '</tr>';
+    }
+    if(main)main.style.display='none';
+    if(subview)subview.style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
     filtradas=venMes.filter(function(v){return v.pago==='EFECTIVO';});
     tituloStr='Ventas en Efectivo — '+MESES[mes]+' '+anio;
   }
@@ -3412,6 +3458,7 @@ function renderRes(){
   if(g('rg-sc'))g('rg-sc').textContent=fmt(Math.max(0,ganSc));
   if(g('rg-ad'))g('rg-ad').textContent=fmt(Math.max(0,ganAd));
   if(g('rg'))g('rg').textContent=fmt(Math.max(0,ganTot));
+  if(g('rg-det'))g('rg-det').textContent=fmt(Math.max(0,ganTot));
 
   // Por vendedor
   var vs={};
