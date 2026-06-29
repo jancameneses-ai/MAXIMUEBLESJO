@@ -725,7 +725,10 @@ tr:hover td{background:#f8f9ff}
       <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
       <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
     </div>
-    <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
+      <button class="btn bg" onclick="exportContableExcel()" style="font-size:11px;padding:8px 16px;background:#1e8449;border-color:#1e8449">⬇ Exportar Excel</button>
+    </div>
   </div>
   <div class="card" style="margin-bottom:14px">
     <h2>Registrar movimiento manual</h2>
@@ -3729,6 +3732,64 @@ function renderContable(){
 }
 
 function setContPage(p){contPage=p;renderContable();}
+
+function exportContableExcel(){
+  if(!cont||cont.length===0){toast('No hay movimientos para exportar',1);return;}
+  function normFechaExp(f){
+    if(!f)return '';
+    if(/^\d{4}-\d{2}-\d{2}$/.test(f)){var p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+    return f;
+  }
+  function fechaToMsExp(f){
+    var fn=normFechaExp(f);
+    var p=fn.split('/');
+    if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime();
+    return 0;
+  }
+  var sorted=cont.slice().sort(function(a,b){
+    var da=fechaToMsExp(a.fecha);var db=fechaToMsExp(b.fecha);
+    if(da!==db)return da-db;
+    return (a.ts||0)-(b.ts||0);
+  });
+  var acum=0;
+  var filas=sorted.map(function(m){
+    acum+=(m.ing||0)-(m.egr||0);
+    return {
+      fecha:normFechaExp(m.fecha),
+      desc:(m.desc||'').replace(/"/g,'""'),
+      tipo:m.tipo==='auto'?'Automatico':'Manual',
+      ing:m.ing||0,egr:m.egr||0,acum:acum
+    };
+  });
+  var totIng=filas.reduce(function(s,r){return s+r.ing;},0);
+  var totEgr=filas.reduce(function(s,r){return s+r.egr;},0);
+  var saldoFinal=totIng-totEgr;
+  var bom='\uFEFF';var sep=';';var lines=[];
+  lines.push('LIBRO CONTABLE - MAXIMUEBLES JO');
+  lines.push('Orito Putumayo - Exportado: '+new Date().toLocaleDateString('es-CO'));
+  lines.push('');
+  lines.push(['Fecha','Descripcion','Tipo','Ingreso ($)','Egreso ($)','Saldo acumulado ($)'].join(sep));
+  filas.forEach(function(r){
+    lines.push([
+      '"'+r.fecha+'"','"'+r.desc+'"','"'+r.tipo+'"',
+      r.ing>0?r.ing.toFixed(0):'',
+      r.egr>0?r.egr.toFixed(0):'',
+      r.acum.toFixed(0)
+    ].join(sep));
+  });
+  lines.push('');
+  lines.push(['"TOTALES"','','',totIng.toFixed(0),totEgr.toFixed(0),saldoFinal.toFixed(0)].join(sep));
+  var csv=bom+lines.join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var hoy=new Date();
+  var fn='ContableMaximuebles_'+hoy.getFullYear()+(''+(hoy.getMonth()+1)).padStart(2,'0')+(''+(hoy.getDate())).padStart(2,'0')+'.csv';
+  a.href=url;a.download=fn;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Excel exportado: '+fn);
+}
 
 
 function dlReciboCuota(vi,ci){
