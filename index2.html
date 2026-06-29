@@ -3185,26 +3185,24 @@ function abrirDetalleRes(tipo){
     filtradas=venMes.filter(function(v){return v.pago==='ADDI';});
     tituloStr='Ventas Addi — '+MESES[mes]+' '+anio;
   }else if(tipo==='GASTOS'){
-    // Gastos del mes seleccionado en el selector
     var gastosRows=cont.filter(function(c){
       if(!c.egr||c.egr<=0)return false;
       var p=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
       return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
     });
-    var titulo2=g('res-detalle-titulo');
-    var subview=g('res-subview');var main=g('res-main');
-    var tb2=g('res-detalle-tb');
-    if(titulo2)titulo2.textContent='Gastos de '+MESES[mes]+' '+anio+' ('+gastosRows.length+')';
+    if(titulo)titulo.textContent='Gastos de '+MESES[mes]+' '+anio+' ('+gastosRows.length+')';
+    // Cambiar thead a 3 columnas para gastos
+    var thead=tb?tb.closest('table').querySelector('thead'):null;
+    if(thead)thead.innerHTML='<tr><th>Fecha</th><th>Descripcion</th><th style="text-align:right">Egreso</th></tr>';
     var totalGas=gastosRows.reduce(function(s,c){return s+(c.egr||0);},0);
-    if(tb2){
-      if(!gastosRows.length){
-        tb2.innerHTML='<tr><td colspan="3" class="empty">Sin gastos registrados este mes</td></tr>';
-      }else{
-        tb2.innerHTML=gastosRows.sort(function(a,b){return fechaToMs(b.fecha)-fechaToMs(a.fecha);}).map(function(c){
-          return '<tr><td style="font-size:11px;color:#888">'+c.fecha+'</td><td style="font-weight:500">'+c.desc+'</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(c.egr)+'</td></tr>';
-        }).join('')+
-        '<tr style="background:#fff5f5"><td colspan="2" style="text-align:right;font-weight:700">Total gastos:</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(totalGas)+'</td></tr>';
-      }
+    if(!gastosRows.length){
+      tb.innerHTML='<tr><td colspan="3" class="empty">Sin gastos registrados este mes</td></tr>';
+    }else{
+      function _fms(f){var fn=(normFechaGlobal(f)||f||'');var p=fn.split('/');return p.length===3?new Date(+p[2],+p[1]-1,+p[0]).getTime():0;}
+      tb.innerHTML=gastosRows.slice().sort(function(a,b){return _fms(b.fecha)-_fms(a.fecha);}).map(function(c){
+        return '<tr><td style="font-size:11px;color:#888">'+(c.fecha||'')+'</td><td style="font-weight:500">'+(c.desc||'')+'</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(c.egr)+'</td></tr>';
+      }).join('')+
+      '<tr style="background:#fff5f5"><td colspan="2" style="text-align:right;font-weight:700">Total gastos:</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(totalGas)+'</td></tr>';
     }
     if(main)main.style.display='none';
     if(subview)subview.style.display='block';
@@ -3216,6 +3214,9 @@ function abrirDetalleRes(tipo){
   }
 
   if(titulo)titulo.textContent=tituloStr+' ('+filtradas.length+')';
+  // Restaurar thead de ventas (6 columnas)
+  var theadV=tb?tb.closest('table').querySelector('thead'):null;
+  if(theadV)theadV.innerHTML='<tr><th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th><th style="text-align:right">Total</th><th>Vendedor</th></tr>';
 
   if(!filtradas.length){
     tb.innerHTML='<tr><td colspan="6" class="empty">Sin ventas este periodo</td></tr>';
