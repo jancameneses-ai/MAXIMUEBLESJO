@@ -2273,7 +2273,7 @@ function guardarEdicionVenta(){
     });
     try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   }
-  save();cm('medit-venta');renderHist();renderCart();renderContable();toast('Venta actualizada');
+  save();cm('medit-venta');renderHist();renderCart();renderContable();renderRes();toast('Venta actualizada');
 }
 function delVenta(i,artIdx,qty){
   if(!confirm('Eliminar esta venta?'))return;
