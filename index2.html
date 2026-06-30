@@ -729,7 +729,9 @@ tr:hover td{background:#f8f9ff}
       <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
       <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
     </div>
-    <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn bg" onclick="exportContableExcel()" style="font-size:11px;padding:8px 16px;background:#1e8449;border-color:#1e8449">⬇ Exportar Excel</button>
+    </div>
   </div>
   <div class="card" style="margin-bottom:14px">
     <h2>Registrar movimiento manual</h2>
@@ -768,6 +770,7 @@ tr:hover td{background:#f8f9ff}
         <th style="text-align:right;background:#f0fff4;color:#1e8449">Ingreso</th>
         <th style="text-align:right;background:#fff5f5;color:#c0392b">Egreso</th>
         <th style="text-align:right;background:#eaf4ff;color:#1a5276">Total acumulado</th>
+        <th style="text-align:left;color:#888">Registrado por</th>
         <th></th>
       </tr></thead>
       <tbody id="cont-tb"></tbody>
@@ -2006,8 +2009,25 @@ function togCuota(vi,ci){
   save();gestCuot(vi);renderCart();toast('Cuota marcada como pagada');
 }
 function desPagar(vi,ci){
+  var v=ven[vi];
+  if(v&&v.cp&&v.cp[ci]){
+    // Eliminar del contable la entrada auto de este abono
+    var c2=v.comprador||{};
+    var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
+    var descAbono=v.pago==='SISTECREDITO+CREDICONTADO'?
+      'Abono SC+Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1):
+      'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1);
+    var montoAbono=v.cp[ci].monto||0;
+    cont=cont.filter(function(c){
+      if(c.tipo!=='auto')return true;
+      var mismaDesc=(c.desc||'').indexOf(descAbono)>=0||(c.desc||'').indexOf(cl2)>=0&&(c.desc||'').indexOf('Cuota '+(ci+1))>=0&&(c.desc||'').indexOf(v.art)>=0;
+      var mismoMonto=c.ing===montoAbono;
+      return !(mismaDesc&&mismoMonto);
+    });
+    try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  }
   ven[vi].cp[ci]={pagado:false,monto:0,fecha:null};
-  save();gestCuot(vi);renderCart();toast('Cuota desmarcada');
+  save();gestCuot(vi);renderCart();renderContable();toast('Cuota desmarcada y eliminada del contable');
 }
 
 function updStk(i,val){
@@ -2187,16 +2207,18 @@ function delVenta(i,artIdx,qty){
   // Restaurar stock
   if(artIdx>=0&&artIdx<inv.length)inv[artIdx].stk+=qty;
   ven.splice(i,1);
-  // Eliminar entradas auto del libro contable relacionadas
+  // Eliminar TODAS las entradas auto del contable relacionadas con este artículo
+  // (venta efectivo, cuota inicial, efectivo complementario SEF, abonos)
   cont=cont.filter(function(c){
     if(c.tipo!=='auto')return true;
     var d=c.desc||'';
-    if(art&&d.indexOf(art)>=0)return false;
-    if(cl2&&d.indexOf(cl2)>=0&&art&&d.indexOf(art)>=0)return false;
+    if(!art)return true;
+    // Si la descripción menciona el artículo → eliminar
+    if(d.indexOf(art)>=0)return false;
     return true;
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
-  save();renderAll();renderContable();toast('Venta eliminada');
+  save();renderAll();renderContable();toast('Venta eliminada y contable actualizado');
 }
 
 function agregarAlCarrito(){
@@ -2324,6 +2346,7 @@ function regVenta(){
   // Limpiar carrito
   carrito=[];renderCarrito();
   save();renderAll();showFac(v);
+  sincronizarContableSilencioso();
   g('btnpdf').style.display='block';
   toast('Venta registrada y guardada');
   g('iq').value=1;g('id').value=0;
@@ -3565,9 +3588,11 @@ function addContable(){
   if(!fecha){toast('Selecciona una fecha',1);return;}
   if(!desc){toast('Escribe una descripcion',1);return;}
   if(!ing&&!egr){toast('Ingresa un valor de ingreso o egreso',1);return;}
-  // Convert fecha to DD/MM/YYYY
   var fp=fecha.split('-');
   var fechaFmt=fp[2]+'/'+fp[1]+'/'+fp[0];
+  var ahora=new Date();
+  var hora=ahora.getHours().toString().padStart(2,'0')+':'+ahora.getMinutes().toString().padStart(2,'0');
+  var quien=(currentUser&&(currentUser.nombre||currentUser.uname))||'Sistema';
   contGuardarEstado();
   cont.push({
     fecha:fechaFmt,
@@ -3575,7 +3600,9 @@ function addContable(){
     ing:ing,
     egr:egr,
     tipo:'manual',
-    ts:Date.now()
+    ts:Date.now(),
+    hora:hora,
+    quien:quien
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
@@ -3583,6 +3610,39 @@ function addContable(){
   g('cont-ing').value='';g('cont-egr').value='';
   renderContable();
   toast('Movimiento registrado');
+}
+
+function sincronizarContableSilencioso(){
+  // Igual que sincronizarContable pero sin confirm ni toast
+  function claveEntry(desc,fecha){return (desc||'').trim().toLowerCase()+'|'+(fecha||'');}
+  var existentes={};
+  cont.forEach(function(c){existentes[claveEntry(c.desc,c.fecha)]=true;});
+  function tryAdd(desc,ing,egr,tipo,ts){
+    var k=claveEntry(desc,'');
+    // buscar por descripción sin importar fecha
+    var yaExiste=cont.some(function(c){return (c.desc||'').trim().toLowerCase()===(desc||'').trim().toLowerCase();});
+    if(yaExiste)return;
+    var ahora=new Date();
+    var hora=ahora.getHours().toString().padStart(2,'0')+':'+ahora.getMinutes().toString().padStart(2,'0');
+    cont.push({fecha:new Date().toLocaleDateString('es-CO'),desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:ts||Date.now(),hora:hora,quien:'Sistema (auto)'});
+  }
+  ven.forEach(function(v){
+    var c2=v.comprador||{};
+    var cl=(c2.nombre&&c2.apellido)?(c2.nombre+' '+c2.apellido):(c2.nombre||'');
+    var fecha=v.fecha||new Date().toLocaleDateString('es-CO');
+    if(v.pago==='EFECTIVO'){
+      var desc='Venta efectivo: '+v.art+(cl?' — '+cl:'');
+      if(!existentes[claveEntry(desc,fecha)])tryAdd(desc,v.total,0,'auto',parseTS(fecha,0));
+    }else if(v.pago==='CREDICONTADO'&&v.ci>0){
+      var desc2='Cuota inicial Credicontado: '+v.art+(cl?' — '+cl:'');
+      if(!existentes[claveEntry(desc2,fecha)])tryAdd(desc2,v.ci,0,'auto',parseTS(fecha,1));
+    }else if(v.pago==='SISTECREDITO+EFECTIVO'&&v.sefEf>0){
+      var desc3='Efectivo complementario Sistecredito: '+v.art+(cl?' — '+cl:'');
+      if(!existentes[claveEntry(desc3,fecha)])tryAdd(desc3,v.sefEf,0,'auto',parseTS(fecha,0));
+    }
+  });
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+  renderContable();
 }
 
 function sincronizarContable(){
@@ -3684,7 +3744,10 @@ function normFechaGlobal(f){
 }
 
 function addContableAuto(fecha,desc,ing,egr,tipo){
-  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now()});
+  var ahora=new Date();
+  var hora=ahora.getHours().toString().padStart(2,'0')+':'+ahora.getMinutes().toString().padStart(2,'0');
+  var quien=(currentUser&&(currentUser.nombre||currentUser.uname))||'Sistema';
+  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now(),hora:hora,quien:quien});
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
   renderContable();
@@ -3787,12 +3850,15 @@ function renderContable(){
   tb.innerHTML=paginada.map(function(x){
     var m=x.m;var idx=x.i;var acum=x.acum;
     var autoLabel=m.tipo==='auto'?'<span style="font-size:9px;background:#ebf5fb;color:#1a5276;padding:1px 5px;border-radius:3px;margin-left:4px">auto</span>':'';
+    var quienTxt=m.quien||'Sistema';
+    var horaTxt=m.hora||'—';
     return '<tr>'+
       '<td style="font-size:11px;color:#888">'+m.fecha+'</td>'+
       '<td style="font-weight:500">'+m.desc+autoLabel+'</td>'+
       '<td style="text-align:right;background:#f0fff4;font-weight:600;color:#1e8449">'+(m.ing>0?fmt(m.ing):'—')+'</td>'+
       '<td style="text-align:right;background:#fff5f5;font-weight:600;color:#c0392b">'+(m.egr>0?fmt(m.egr):'—')+'</td>'+
       '<td style="text-align:right;background:#eaf4ff;font-weight:700;color:'+(acum>=0?'#1a5276':'#e74c3c')+'">'+fmt(acum)+'</td>'+
+      '<td style="font-size:10px;color:#888;white-space:nowrap">'+quienTxt+'<br><span style="color:#bbb">'+horaTxt+'</span></td>'+
       '<td><button class="btn bred" onclick="delContable('+idx+')" style="font-size:10px;padding:3px 8px">✕</button></td>'+
     '</tr>';
   }).join('');
