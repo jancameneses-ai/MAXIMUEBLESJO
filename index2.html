@@ -3176,7 +3176,10 @@ function renderCart(){
   }).join('');
 }
 
-function abrirDetalleRes(tipo){
+function abrirDetalleVendedor(nombreVendedor){
+  abrirDetalleRes('todas',nombreVendedor);
+}
+function abrirDetalleRes(tipo,vendedorFiltro){
   var subview=g('res-subview');
   var main=g('res-main');
   var tb=g('res-detalle-tb');
@@ -3198,10 +3201,11 @@ function abrirDetalleRes(tipo){
   }
 
   var venMes=ven.filter(function(v){return esMes(v.fecha,mes,anio);});
+  if(vendedorFiltro)venMes=venMes.filter(function(v){return v.vend===vendedorFiltro;});
 
   // Filter by tipo
   var filtradas=venMes;
-  var tituloStr='Todas las ventas — '+MESES[mes]+' '+anio;
+  var tituloStr=vendedorFiltro?('Ventas de '+vendedorFiltro+' — '+MESES[mes]+' '+anio):('Todas las ventas — '+MESES[mes]+' '+anio);
   if(tipo==='CREDICONTADO'){
     filtradas=venMes.filter(function(v){return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';});
     tituloStr='Ventas Credicontado — '+MESES[mes]+' '+anio;
@@ -3488,7 +3492,8 @@ function renderRes(){
   venMes.forEach(function(v){if(!vs[v.vend])vs[v.vend]={n:0,t:0};vs[v.vend].n++;vs[v.vend].t+=v.total;});
   var ve=Object.entries(vs).sort(function(a,b){return b[1].t-a[1].t;});
   if(g('rvb'))g('rvb').innerHTML=ve.length?ve.map(function(e){
-    return '<tr><td style="font-weight:600">'+e[0]+'</td><td style="text-align:center">'+e[1].n+'</td><td style="text-align:right;font-weight:600;color:#1e8449">'+fmt(e[1].t)+'</td></tr>';
+    var nombreEsc=(e[0]||'').replace(/'/g,"\\'");
+    return '<tr style="cursor:pointer" onclick="abrirDetalleVendedor(\''+nombreEsc+'\')"><td style="font-weight:600;color:#1a5276">'+e[0]+'</td><td style="text-align:center">'+e[1].n+'</td><td style="text-align:right;font-weight:600;color:#1e8449">'+fmt(e[1].t)+'</td></tr>';
   }).join(''):'<tr><td colspan="3" class="empty">Sin ventas este mes</td></tr>';
 
   // Historial meses anteriores
