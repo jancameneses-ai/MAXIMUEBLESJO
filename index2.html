@@ -2298,24 +2298,19 @@ function guardarEdicionVenta(){
     var c2=v2.comprador||{};
     var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
     // Actualizar entradas auto relacionadas con esta venta
-    // IMPORTANTE: debe coincidir tanto el articulo COMO el cliente,
-    // para no mezclar entradas de otras ventas con el mismo articulo.
     cont.forEach(function(c){
       if(c.tipo!=='auto')return;
       var desc=c.desc||'';
-      var matchArt=desc.indexOf(v2.art)>=0;
-      var matchCliente=cl2==='Cliente'||desc.indexOf(cl2)>=0;
-      if(!matchArt||!matchCliente)return;
       // Efectivo: buscar por articulo
-      if(desc.indexOf('Venta efectivo:')>=0){
+      if(desc.indexOf('Venta efectivo:')>=0&&desc.indexOf(v2.art)>=0){
         c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,0);
       }
       // Credicontado inicial: usar fecha de la venta
-      if(desc.indexOf('Cuota inicial Credicontado:')>=0){
+      if(desc.indexOf('Cuota inicial Credicontado:')>=0&&desc.indexOf(v2.art)>=0){
         c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,1);
       }
       // SEF efectivo complementario: actualizar fecha también
-      if(desc.indexOf('Efectivo complementario Sistecredito:')>=0){
+      if(desc.indexOf('Efectivo complementario Sistecredito:')>=0&&desc.indexOf(v2.art)>=0){
         c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,0);
       }
       // Abonos: NO cambian, conservan fecha real del pago
