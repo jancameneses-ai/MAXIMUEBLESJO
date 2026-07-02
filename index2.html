@@ -735,6 +735,7 @@ tr:hover td{background:#f8f9ff}
         <th style="text-align:right;background:#f0fff4;color:#1e8449">Ingreso</th>
         <th style="text-align:right;background:#fff5f5;color:#c0392b">Egreso</th>
         <th style="text-align:right;background:#eaf4ff;color:#1a5276">Total acumulado</th>
+        <th>Registrado por</th>
         <th></th>
       </tr></thead>
       <tbody id="cont-tb"></tbody>
@@ -2111,14 +2112,24 @@ function delVenta(i,artIdx,qty){
   var c2=v&&v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'';
   // Restaurar stock
-  if(artIdx>=0&&artIdx<inv.length)inv[artIdx].stk+=qty;
+  // Restore stock by article name (safer than using stored index)
+  if(v&&v.items){
+    v.items.forEach(function(it){
+      var artFound=inv.find(function(a){return a.art===it.art;});
+      if(artFound)artFound.stk+=it.qty||1;
+    });
+  }else if(artIdx>=0&&artIdx<inv.length){
+    inv[artIdx].stk+=qty;
+  }
   ven.splice(i,1);
-  // Eliminar entradas auto del libro contable relacionadas
+  // Eliminar entradas auto del libro contable - debe coincidir articulo Y cliente
   cont=cont.filter(function(c){
     if(c.tipo!=='auto')return true;
     var d=c.desc||'';
-    if(art&&d.indexOf(art)>=0)return false;
-    if(cl2&&d.indexOf(cl2)>=0&&art&&d.indexOf(art)>=0)return false;
+    var matchArt=art&&d.indexOf(art)>=0;
+    var matchCli=cl2?d.indexOf(cl2)>=0:true;
+    // Solo eliminar si coinciden AMBOS (articulo y cliente)
+    if(matchArt&&matchCli)return false;
     return true;
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
@@ -3361,13 +3372,18 @@ function addContable(){
   var fp=fecha.split('-');
   var fechaFmt=fp[2]+'/'+fp[1]+'/'+fp[0];
   contGuardarEstado();
+  var _ahora=new Date();
+  var _hora=_ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var _quien=currentUser?(currentUser.nombre||currentUser.uname):'Sistema';
   cont.push({
     fecha:fechaFmt,
     desc:desc,
     ing:ing,
     egr:egr,
     tipo:'manual',
-    ts:Date.now()
+    ts:Date.now(),
+    quien:_quien,
+    hora:_hora
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
@@ -3400,7 +3416,7 @@ function sincronizarContable(){
       var clave=claveEntry(desc,fecha);
       if(existentes[clave])return; // ya existe, no duplicar
       existentes[clave]=true;
-      cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:ts||parseTS(fecha,0)});
+      cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:ts||parseTS(fecha,0),ventaArt:v.art,quien:'Sistema',hora:''});
       agregados++;
     }
 
@@ -3459,7 +3475,10 @@ function normFechaGlobal(f){
 }
 
 function addContableAuto(fecha,desc,ing,egr,tipo){
-  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now()});
+  var ahora=new Date();
+  var hora=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var quien=currentUser?(currentUser.nombre||currentUser.uname):'Sistema';
+  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now(),quien:quien,hora:hora});
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
   renderContable();
@@ -3597,16 +3616,22 @@ function renderContable(){
   tb.innerHTML=paginada.map(function(x){
     var m=x.m;var idx=x.i;var acum=x.acum;
     var autoLabel=m.tipo==='auto'?'<span style="font-size:9px;background:#ebf5fb;color:#1a5276;padding:1px 5px;border-radius:3px;margin-left:4px">auto</span>':'';
+    var quienLabel=m.quien||'Sistema';
+    var horaLabel=m.hora||'';
     return '<tr>'+
       '<td style="font-size:11px;color:#888">'+m.fecha+'</td>'+
       '<td style="font-weight:500">'+m.desc+autoLabel+'</td>'+
       '<td style="text-align:right;background:#f0fff4;font-weight:600;color:#1e8449">'+(m.ing>0?fmt(m.ing):'—')+'</td>'+
       '<td style="text-align:right;background:#fff5f5;font-weight:600;color:#c0392b">'+(m.egr>0?fmt(m.egr):'—')+'</td>'+
       '<td style="text-align:right;background:#eaf4ff;font-weight:700;color:'+(acum>=0?'#1a5276':'#e74c3c')+'">'+fmt(acum)+'</td>'+
+      '<td style="font-size:10px;color:#888;white-space:nowrap">'+
+        '<div>'+quienLabel+'</div>'+
+        (horaLabel?'<div style="color:#bbb">'+horaLabel+'</div>':'')+
+      '</td>'+
       '<td style="white-space:nowrap">'+
-      '<button class="btn bgold" onclick="editContable('+idx+')" style="font-size:10px;padding:3px 8px;margin-right:3px">✎</button>'+
-      '<button class="btn bred" onclick="delContable('+idx+')" style="font-size:10px;padding:3px 8px">✕</button>'+
-    '</td>'+
+        '<button class="btn bgold" onclick="editContable('+idx+')" style="font-size:10px;padding:3px 8px;margin-right:3px">✎</button>'+
+        '<button class="btn bred" onclick="delContable('+idx+')" style="font-size:10px;padding:3px 8px">✕</button>'+
+      '</td>'+
     '</tr>';
   }).join('');
 }
