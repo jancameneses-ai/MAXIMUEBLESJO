@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="Maximuebles">
 <title>Maximuebles Jo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-database.js";
@@ -390,6 +391,7 @@ tr:hover td{background:#f8f9ff}
               <option value="SISTECREDITO">Sistecredito</option>
               <option value="ADDI">Addi</option>
               <option value="SISTECREDITO+EFECTIVO">Sistecredito + Efectivo</option>
+              <option value="SISTECREDITO+CREDICONTADO">Sistecredito + Credicontado</option>
               <option value="CREDICONTADO">Credicontado</option>
             </select>
           </div>
@@ -408,6 +410,41 @@ tr:hover td{background:#f8f9ff}
                 </div>
               </div>
               <div id="sef-total" style="margin-top:8px;font-size:11px;color:#555;text-align:right"></div>
+            </div>
+          </div>
+
+          <!-- SISTECREDITO+CREDICONTADO wrap -->
+          <div id="sccbox" style="display:none;margin-top:10px">
+            <div style="background:#f0f7ff;border:1.5px solid #aed6f1;border-radius:10px;padding:12px;margin-bottom:8px">
+              <div style="font-size:11px;font-weight:700;color:#1a5276;margin-bottom:10px;text-transform:uppercase">Desglose del pago</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label style="color:#3498db;font-weight:600">Valor Sistecredito $</label>
+                  <input type="number" id="scc-sc" class="noup" placeholder="0" oninput="calcSCC('sc')">
+                </div>
+                <div>
+                  <label style="color:#9b59b6;font-weight:600">Valor Credicontado $</label>
+                  <input type="number" id="scc-cc" class="noup" placeholder="0" oninput="calcSCC('cc')">
+                </div>
+              </div>
+              <div id="scc-total" style="margin-top:8px;font-size:11px;color:#555;text-align:right"></div>
+            </div>
+            <div class="ccbox" style="display:block">
+              <h4>Detalles Credicontado (sobre la parte Credicontado)</h4>
+              <div class="g2" style="margin-bottom:8px">
+                <div><label>Cuotas (1-5)</label>
+                  <select id="scc-cuotas" onchange="calcSCC()">
+                    <option value="1">1 cuota</option><option value="2">2 cuotas</option>
+                    <option value="3" selected>3 cuotas</option><option value="4">4 cuotas</option><option value="5">5 cuotas</option>
+                  </select>
+                </div>
+                <div><label>Inicial pagado $</label><input type="number" id="scc-ini" value="0" oninput="calcSCC()" class="noup"></div>
+              </div>
+              <div class="g2" style="margin-bottom:8px">
+                <div><label>Saldo a cuotas $</label><input type="text" id="scc-saldo" readonly></div>
+                <div><label>Valor por cuota $</label><input type="text" id="scc-cval" readonly style="color:#1e8449;font-weight:700"></div>
+              </div>
+              <div><label>Fecha primer pago</label><input type="date" id="scc-fecha" class="noup"></div>
             </div>
           </div>
 
@@ -696,7 +733,10 @@ tr:hover td{background:#f8f9ff}
       <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
       <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
     </div>
-    <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn bgreen" onclick="exportarExcelContable()" style="font-size:11px;padding:8px 16px">&#128190; Exportar Excel</button>
+      <button class="btn bblue" onclick="sincronizarContable()" style="font-size:11px;padding:8px 16px">↺ Sincronizar con ventas</button>
+    </div>
   </div>
   <div class="card" style="margin-bottom:14px">
     <h2>Registrar movimiento manual</h2>
@@ -961,6 +1001,7 @@ tr:hover td{background:#f8f9ff}
               <option value="SISTECREDITO">Sistecredito</option>
               <option value="ADDI">Addi</option>
               <option value="SISTECREDITO+EFECTIVO">Sistecredito + Efectivo</option>
+              <option value="SISTECREDITO+CREDICONTADO">Sistecredito + Credicontado</option>
               <option value="CREDICONTADO">Credicontado</option>
             </select>
           </div>
@@ -1478,7 +1519,7 @@ function tpw(inp,btn){
 function renderCreditos(){
   var tb=g('credtb');
   if(!tb)return;
-  var creds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
+  var creds=ven.filter(function(v){return esCredicontado(v)&&v.cuotas>0;});
   if(!creds.length){
     tb.innerHTML='<tr><td colspan="6" class="empty">Sin creditos Credicontado registrados</td></tr>';
     return;
@@ -1547,8 +1588,11 @@ function renderCreditos(){
       '<td>'+
         '<div style="font-size:11px;font-weight:600">'+v.art+'</div>'+
         '<div style="font-size:10px;color:#888">'+v.fecha+'</div>'+
+        (v.pago==='SISTECREDITO+CREDICONTADO'?'<div style="font-size:9px;color:#9b59b6;font-weight:700">Sist+Credicontado</div>':'')+
       '</td>'+
-      '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+fmt(creditoTotal(v))+
+        (v.pago==='SISTECREDITO+CREDICONTADO'?'<div style="font-size:9px;color:#888;font-weight:400">venta total: '+fmt(v.total)+'</div>':'')+
+      '</td>'+
       '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
       '<td style="text-align:center">'+diasStr+'</td>'+
       '<td>'+est+'</td>'+
@@ -1591,7 +1635,7 @@ function verRefsCred(vi){
   }
   var totalPagado=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
-  var saldo=Math.max(0,v.total-ini-totalPagado);
+  var saldo=Math.max(0,creditoTotal(v)-ini-totalPagado);
   var h=diasInfo+
     '<div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px">'+
     '<div style="font-weight:700;color:#2c3e50;margin-bottom:6px">'+cl+'</div>'+
@@ -1646,12 +1690,13 @@ function renderSV(){
 function onPago(){
   var pago=g('sp').value;
   var isSEF=pago==='SISTECREDITO+EFECTIVO';
-  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+EFECTIVO'].indexOf(pago)>=0;
+  var isSCC=pago==='SISTECREDITO+CREDICONTADO';
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+EFECTIVO','SISTECREDITO+CREDICONTADO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
   var ef=pago==='EFECTIVO';
   g('ccbox').style.display=cc?'block':'none';
-  g('cred-wrap').style.display=(cr&&!cc&&!isSEF)?'block':'none';
-  g('crefs').style.display=cc?'block':'none';
+  g('cred-wrap').style.display=(cr&&!cc&&!isSEF&&!isSCC)?'block':'none';
+  g('crefs').style.display=(cc||isSCC)?'block':'none';
   var sefb=g('sefbox');
   if(sefb)sefb.style.display=isSEF?'block':'none';
   if(isSEF){
@@ -1659,6 +1704,14 @@ function onPago(){
     var sefSc=g('sef-sc');if(sefSc){sefSc.value=tot;}
     var sefEf=g('sef-ef');if(sefEf){sefEf.value=0;}
     calcSef('sc');
+  }
+  var sccb=g('sccbox');
+  if(sccb)sccb.style.display=isSCC?'block':'none';
+  if(isSCC){
+    var tot2=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+    var sccSc=g('scc-sc');if(sccSc){sccSc.value=tot2;}
+    var sccCc=g('scc-cc');if(sccCc){sccCc.value=0;}
+    calcSCC('sc');
   }
   var req='<span style="color:#e74c3c">*</span>';
   // Efectivo: nombre, tel, barrio obligatorios. Cedula y apellido opcionales
@@ -1680,7 +1733,7 @@ function onPago(){
     g('lopc').style.color='#aaa';
     ['rn1','ra1','rc1','rt1','rb1'].forEach(function(id){g(id).innerHTML='';});
   }
-  if(cc)calcCC();calc();
+  if(cc)calcCC();if(isSCC)calcSCC();calc();
 }
 // ── CARRITO ──
 var carrito=[];
@@ -1706,6 +1759,33 @@ function calcSef(campo){
     st.innerHTML='Sistecredito: <b>'+fmt(sc)+'</b> + Efectivo: <b>'+fmt(ef)+'</b> = <b>'+fmt(sc+ef)+'</b>'+(ok?' ✓':' ≠ Total: <b>'+fmt(tot)+'</b>');
   }
 }
+function calcSCC(campo){
+  var tot=carrito.reduce(function(s,it){return s+it.subtotal;},0);
+  var scEl=g('scc-sc');var ccEl=g('scc-cc');
+  if(!scEl||!ccEl)return;
+  var sc=+scEl.value||0;
+  var cc=+ccEl.value||0;
+  // Auto-completar el otro campo
+  if(campo==='sc'){
+    cc=Math.max(0,tot-sc);
+    ccEl.value=cc||'';
+  }else if(campo==='cc'){
+    sc=Math.max(0,tot-cc);
+    scEl.value=sc||'';
+  }
+  var st=g('scc-total');
+  if(st){
+    var ok=Math.abs(sc+cc-tot)<1;
+    st.style.color=ok?'#27ae60':'#e74c3c';
+    st.innerHTML='Sistecredito: <b>'+fmt(sc)+'</b> + Credicontado: <b>'+fmt(cc)+'</b> = <b>'+fmt(sc+cc)+'</b>'+(ok?' ✓':' ≠ Total: <b>'+fmt(tot)+'</b>');
+  }
+  // Recalcular cuotas sobre la parte Credicontado
+  var ini=+g('scc-ini').value||0;
+  var cuotas=+g('scc-cuotas').value||3;
+  var saldo=Math.max(0,cc-ini);
+  var sSaldo=g('scc-saldo');if(sSaldo)sSaldo.value=fmt(saldo);
+  var sCval=g('scc-cval');if(sCval)sCval.value=fmt(cuotas>0?saldo/cuotas:0);
+}
 function calcCC(){
   var totalCarrito=carrito.reduce(function(s,it){return s+it.subtotal;},0);
   var base=totalCarrito>0?totalCarrito:((+g('ipr').value||0)*(+g('iq').value||1)*(1-(+g('id').value||0)/100));
@@ -1725,6 +1805,8 @@ function calc(){
   var i=+g('sa').value;
   if(inv[i])g('ast').style.display=(q>inv[i].stk)?'block':'none';
   if(g('sp').value==='CREDICONTADO')calcCC();
+  if(g('sp').value==='SISTECREDITO+CREDICONTADO')calcSCC();
+  if(g('sp').value==='SISTECREDITO+EFECTIVO')calcSef('sc');
 }
 function filtrarArts(){
   var q=(g('buscar-art').value||'').toUpperCase().trim();
@@ -1787,6 +1869,7 @@ function validarTelRef(input,errId){
 }
 function gestCuot(vi){
   var v=ven[vi];
+  var montoCredito=creditoTotal(v);
   if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null,pendiente:0};});
   // cuotaBase: use ci.cval if available, otherwise calculate
   // Safety: if value looks like it was stored in thousands (< 10000 but total > 100000), recalculate
@@ -1794,11 +1877,11 @@ function gestCuot(vi){
   if(v.ci&&v.ci.cval){
     cuotaBase=Math.round(v.ci.cval);
     // If cuotaBase seems wrong (total much larger), recalculate
-    if(v.total>0&&cuotaBase>0&&cuotaBase<v.total/100){
-      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(v.total-(v.ci.inicial||0))/v.cuotas);
+    if(montoCredito>0&&cuotaBase>0&&cuotaBase<montoCredito/100){
+      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(montoCredito-(v.ci.inicial||0))/v.cuotas);
     }
   }else{
-    cuotaBase=Math.round(v.total/v.cuotas);
+    cuotaBase=Math.round(montoCredito/v.cuotas);
   }
   var cl=[v.comprador&&v.comprador.nombre,v.comprador&&v.comprador.apellido].filter(Boolean).join(' ')||'Sin nombre';
 
@@ -1825,13 +1908,18 @@ function gestCuot(vi){
   // saldo = total - inicial - todo lo abonado en cuotas (sea mas o menos de la cuota referencia)
   var totalAbonado=(v.cp||[]).reduce(function(s,c){return s+(c.pagado?c.monto||0:0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
-  var saldoPendiente=Math.max(0,v.total-ini-totalAbonado);
+  var saldoPendiente=Math.max(0,montoCredito-ini-totalAbonado);
 
   var h='<div style="background:#1a3a1a;border-radius:10px;padding:12px 14px;margin-bottom:12px;color:#fff">';
-  h+='<div style="font-size:11px;color:#c9a227;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">'+v.art+'</div>';
+  h+='<div style="font-size:11px;color:#c9a227;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">'+v.art+(v.pago==='SISTECREDITO+CREDICONTADO'?' — Sistecredito+Credicontado':'')+'</div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">VALOR TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
-  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">CUOTA REFERENCIA</div><div style="font-size:15px;font-weight:700;color:#c9a227">'+fmt(cuotaBase)+'/mes</div></div>';
+  if(v.pago==='SISTECREDITO+CREDICONTADO'){
+    h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">VALOR TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
+    h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">MONTO A CUOTAS (Credicontado)</div><div style="font-size:15px;font-weight:700;color:#9b59b6">'+fmt(montoCredito)+'</div></div>';
+  }else{
+    h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">VALOR TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
+    h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">CUOTA REFERENCIA</div><div style="font-size:15px;font-weight:700;color:#c9a227">'+fmt(cuotaBase)+'/mes</div></div>';
+  }
   h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">INICIAL PAGADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(ini)+'</div></div>';
   h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">ABONADO EN CUOTAS</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(totalAbonado)+'</div></div>';
   h+='<div style="grid-column:span 2;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;margin-top:2px">';
@@ -1932,8 +2020,21 @@ function togCuota(vi,ci){
   save();gestCuot(vi);renderCart();toast('Cuota marcada como pagada');
 }
 function desPagar(vi,ci){
+  var v=ven[vi];
+  var old=(v.cp&&v.cp[ci])?v.cp[ci]:null;
+  var c2=v.comprador||{};
+  var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
+  var descBuscar='Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1);
+  // Eliminar la entrada correspondiente del libro contable (busca por descripcion y fecha del pago)
+  contGuardarEstado();
+  cont=cont.filter(function(c){
+    if(c.tipo!=='auto')return true;
+    if(c.desc===descBuscar&&(!old||c.fecha===old.fecha))return false;
+    return true;
+  });
+  try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   ven[vi].cp[ci]={pagado:false,monto:0,fecha:null};
-  save();gestCuot(vi);renderCart();toast('Cuota desmarcada');
+  save();gestCuot(vi);renderCart();renderContable();toast('Cuota desmarcada y eliminada del libro contable');
 }
 
 function updStk(i,val){
@@ -1993,6 +2094,10 @@ function doReset(){
   var sefb2=g('sefbox');if(sefb2)sefb2.style.display='none';
   var ssc=g('sef-sc');if(ssc)ssc.value='';
   var sef=g('sef-ef');if(sef)sef.value='';
+  var sccb2=g('sccbox');if(sccb2)sccb2.style.display='none';
+  var sccSc2=g('scc-sc');if(sccSc2)sccSc2.value='';
+  var sccCc2=g('scc-cc');if(sccCc2)sccCc2.value='';
+  var sccIni2=g('scc-ini');if(sccIni2)sccIni2.value=0;
   var ba=g('buscar-art');if(ba)ba.value='';
   var br=g('buscar-results');if(br)br.style.display='none';
   toast('Carrito limpiado');
@@ -2000,7 +2105,7 @@ function doReset(){
 function evTogglePago(){
   var pago=g('ev-pago')&&g('ev-pago').value;
   var ccw=g('ev-cred-wrap');
-  if(ccw)ccw.style.display=(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI')?'block':'none';
+  if(ccw)ccw.style.display=(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'||pago==='SISTECREDITO+CREDICONTADO')?'block':'none';
 }
 function filtrarArtsEdit(){
   var q=((g('ev-search-art')||g('ev-buscar')||{value:''}).value||'').toUpperCase().trim();
@@ -2073,7 +2178,7 @@ function guardarEdicionVenta(){
   if(rawFecha){var fp=rawFecha.split('-');ven[i].fecha=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;}
   var pago=g('ev-pago').value;
   ven[i].pago=pago;
-  if(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'){
+  if(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'||pago==='SISTECREDITO+CREDICONTADO'){
     ven[i].cuotas=+g('ev-cuotas').value||0;
   }
   // Actualizar fecha en libro contable - buscar por articulo Y cliente para ser exacto
@@ -2157,7 +2262,7 @@ function agregarAlCarrito(){
   renderCarrito();
   // Limpiar cantidad para siguiente item
   g('iq').value=1;g('id').value=0;
-  calcCC();
+  calcCC();calcSCC();
   toast('Articulo agregado al carrito');
 }
 function renderCarrito(){
@@ -2183,27 +2288,31 @@ function renderCarrito(){
 function quitarDelCarrito(i){
   carrito.splice(i,1);
   renderCarrito();
-  calcCC();
+  calcCC();calcSCC();
 }
 function regVenta(){
   var pago=g('sp').value;
   var isSEF=pago==='SISTECREDITO+EFECTIVO';
-  // Read SEF values immediately before anything else
+  var isSCC=pago==='SISTECREDITO+CREDICONTADO';
+  // Read mixed-payment values immediately before anything else
   var _sefSc=isSEF?(+(g('sef-sc')||{value:0}).value||0):0;
   var _sefEf=isSEF?(+(g('sef-ef')||{value:0}).value||0):0;
-  var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(pago)>=0;
+  var _sccSc=isSCC?(+(g('scc-sc')||{value:0}).value||0):0;
+  var _sccCc=isSCC?(+(g('scc-cc')||{value:0}).value||0):0;
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+CREDICONTADO'].indexOf(pago)>=0;
   var cc=pago==='CREDICONTADO';
   var ef=pago==='EFECTIVO'||isSEF;
   // Verificar carrito
   if(!carrito.length){toast('Agrega al menos un articulo al carrito',1);return;}
   var total=carrito.reduce(function(s,it){return s+it.subtotal;},0);
-  var cuotas=cc?(+g('cc-cuotas').value||3):(cr?(+g('ic').value||3):0);
+  var cuotas=cc?(+g('cc-cuotas').value||3):(isSCC?(+g('scc-cuotas').value||3):(cr?(+g('ic').value||3):0));
   var nom=uv('inm'),ap=uv('iap'),ced=g('icc').value.trim(),tel=g('itel').value.trim(),bar=uv('ibar');
   var vend=g('sv').value||'Admin';
   if(ef&&(!nom||!tel||!bar)){toast('Nombre, telefono y barrio son obligatorios',1);return;}
   if(cr&&(!nom||!ap||!tel||!bar)){toast('Completa todos los datos del comprador',1);return;}
   if(tel&&(tel.length!==10||tel.charAt(0)!=='3')){toast('El telefono debe tener 10 digitos y empezar por 3',1);return;}
-  if(cc){
+  if(isSCC&&Math.abs(_sccSc+_sccCc-total)>1){toast('La suma de Sistecredito + Credicontado debe ser igual al total',1);return;}
+  if(cc||isSCC){
     if(!uv('r1n')||!g('r1t').value.trim()||!uv('r1b')){toast('Completa la referencia 1',1);return;}
     if(!uv('r2n')||!g('r2t').value.trim()||!uv('r2b')){toast('Completa la referencia 2',1);return;}
     var t1=g('r1t').value.trim(),t2=g('r2t').value.trim(),t3=g('r3t').value.trim();
@@ -2217,16 +2326,23 @@ function regVenta(){
     if(cit.qty>inv[cit.idx].stk){toast('Stock insuficiente para '+cit.art,1);return;}
   }
   carrito.forEach(function(cit){inv[cit.idx].stk-=cit.qty;});
-  var refs=cc?[
+  var refs=(cc||isSCC)?[
     {nom:uv('r1n'),tel:g('r1t').value.trim(),bar:uv('r1b')},
     {nom:uv('r2n'),tel:g('r2t').value.trim(),bar:uv('r2b')},
     {nom:uv('r3n'),tel:g('r3t').value.trim(),bar:uv('r3b')},
   ]:[];
-  var ccIni=+g('cc-ini').value||0;
-  var ccCuotas=+g('cc-cuotas').value||3;
-  var ccSaldo=Math.max(0,total-ccIni);
-  var ccCval=ccCuotas>0?ccSaldo/ccCuotas:0;
-  var fechaHoy=new Date().toLocaleDateString('es-CO');var ci=cc?{cuotas:ccCuotas,inicial:ccIni,saldo:ccSaldo,cval:ccCval,fecha:g('cc-fecha').value}:null;
+  var ccIni=cc?(+g('cc-ini').value||0):0;
+  var ccCuotas=cc?(+g('cc-cuotas').value||3):0;
+  var ccSaldo=cc?Math.max(0,total-ccIni):0;
+  var ccCval=(cc&&ccCuotas>0)?ccSaldo/ccCuotas:0;
+  var sccIni=isSCC?(+g('scc-ini').value||0):0;
+  var sccCuotasN=isSCC?(+g('scc-cuotas').value||3):0;
+  var sccSaldo=isSCC?Math.max(0,_sccCc-sccIni):0;
+  var sccCval=(isSCC&&sccCuotasN>0)?sccSaldo/sccCuotasN:0;
+  var fechaHoy=new Date().toLocaleDateString('es-CO');
+  var ci=cc?{cuotas:ccCuotas,inicial:ccIni,saldo:ccSaldo,cval:ccCval,fecha:g('cc-fecha').value}
+    :isSCC?{cuotas:sccCuotasN,inicial:sccIni,saldo:sccSaldo,cval:sccCval,fecha:g('scc-fecha').value}
+    :null;
   var fecha=new Date().toLocaleDateString('es-CO');
   var cp=cr?Array.from({length:cuotas},function(){return{pagado:false,monto:0,fecha:null};}):[];
   // Nombre del articulo: si hay varios, listarlos
@@ -2236,7 +2352,9 @@ function regVenta(){
     qty:carrito.reduce(function(s,it){return s+it.qty;},0),
     precio:total,desc:0,total:total,
     comprador:{nombre:nom,apellido:ap,cedula:ced,tel:tel,barrio:bar},
-    vend:vend,pago:pago,cuotas:cuotas,cp:cp,refs:refs,fecha:fecha,ci:ci};
+    vend:vend,pago:pago,cuotas:cuotas,cp:cp,refs:refs,fecha:fecha,ci:ci,
+    sefSc:isSEF?_sefSc:0,sefEf:isSEF?_sefEf:0,
+    sccSc:isSCC?_sccSc:0,sccCc:isSCC?_sccCc:0};
   ven.unshift(v);lv=v;
   // Libro contable automatico
   var pagoV2=pago;
@@ -2249,6 +2367,8 @@ function regVenta(){
     if(ccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado: '+artNombreV+(cNom?' — '+cNom:''),ccIni,0,'auto');
   }else if(pagoV2==='SISTECREDITO+EFECTIVO'){
     if(_sefEf>0)addContableAuto(fechaVenta2,'Efectivo complementario Sistecredito: '+artNombreV+(cNom?' — '+cNom:''),_sefEf,0,'auto');
+  }else if(pagoV2==='SISTECREDITO+CREDICONTADO'){
+    if(sccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado (Sistecredito+Credicontado): '+artNombreV+(cNom?' — '+cNom:''),sccIni,0,'auto');
   }
   // Limpiar carrito
   carrito=[];renderCarrito();
@@ -2257,14 +2377,17 @@ function regVenta(){
   toast('Venta registrada y guardada');
   g('iq').value=1;g('id').value=0;
   if(g('cc-ini'))g('cc-ini').value=0;
+  if(g('scc-ini'))g('scc-ini').value=0;
+  if(g('scc-sc'))g('scc-sc').value='';
+  if(g('scc-cc'))g('scc-cc').value='';
   ['inm','iap','icc','itel','ibar','r1n','r1t','r1b','r2n','r2t','r2b','r3n','r3t','r3b'].forEach(function(id){var el=g(id);if(el)el.value='';});
-  calc();calcCC();
+  calc();calcCC();calcSCC();
 }
 
 function showFac(v){
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
-  var cc=v.pago==='CREDICONTADO';
+  var cc=v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';
   var cv=v.ci?Math.round(v.ci.cval):v.cuotas>0?Math.round(v.total/v.cuotas):0;
   var h='<div class="fac-wrap">';
   h+='<div class="fac-hbar">';
@@ -2288,6 +2411,14 @@ function showFac(v){
     if(v.desc>0)h+='<div class="fac-row"><span>Descuento</span><span style="color:#e74c3c">-'+v.desc+'%</span></div>';
   }
   h+='<div class="fac-row"><span>Forma de pago</span><span style="color:#7d6010;font-weight:700">'+v.pago+'</span></div>';
+  if(v.pago==='SISTECREDITO+EFECTIVO'){
+    h+='<div class="fac-row"><span>&nbsp;&nbsp;Sistecredito</span><span>'+fmt(v.sefSc||0)+'</span></div>';
+    h+='<div class="fac-row"><span>&nbsp;&nbsp;Efectivo</span><span>'+fmt(v.sefEf||0)+'</span></div>';
+  }
+  if(v.pago==='SISTECREDITO+CREDICONTADO'){
+    h+='<div class="fac-row"><span>&nbsp;&nbsp;Sistecredito</span><span>'+fmt(v.sccSc||0)+'</span></div>';
+    h+='<div class="fac-row"><span>&nbsp;&nbsp;Credicontado</span><span>'+fmt(v.sccCc||0)+'</span></div>';
+  }
   h+='<div class="fac-tot"><span>TOTAL</span><span>'+fmt(v.total)+'</span></div>';
   if(cc&&v.ci){
     h+='<div style="background:#f0ead6;border-radius:8px;padding:11px 13px;margin-top:10px;border-left:3px solid #c9a227">';
@@ -2322,8 +2453,8 @@ function dlPDF(){
   var v=lv;
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
-  var cc=v.pago==='CREDICONTADO';
-  var cr=['SISTECREDITO','ADDI','CREDICONTADO'].indexOf(v.pago)>=0;
+  var cc=v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';
+  var cr=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+CREDICONTADO'].indexOf(v.pago)>=0;
   var items=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({unit:'mm',format:'a4'});
@@ -2483,7 +2614,7 @@ function dlPDF(){
   y+=4;
 
   // ── FORMA DE PAGO ──────────────────────────────────
-  var pagoBoxH=cc?52:20;
+  var pagoBoxH=cc?58:20;
   doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);
   doc.rect(8,y,colW,7,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
@@ -2510,6 +2641,17 @@ function dlPDF(){
     xi+=colW/4;
   });
   yp+=7;
+
+  if(v.pago==='SISTECREDITO+EFECTIVO'||v.pago==='SISTECREDITO+CREDICONTADO'){
+    doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);doc.setFontSize(7.5);
+    if(v.pago==='SISTECREDITO+EFECTIVO'){
+      doc.text('Sistecredito: '+fmt(v.sefSc||0)+'  +  Efectivo: '+fmt(v.sefEf||0),10,yp);
+    }else{
+      doc.text('Sistecredito: '+fmt(v.sccSc||0)+'  +  Credicontado: '+fmt(v.sccCc||0),10,yp);
+    }
+    doc.setFontSize(8);
+    yp+=6;
+  }
 
   if(cc&&v.ci){
     function pagoRow(label,val,rojo){
@@ -2950,15 +3092,23 @@ function proxNP(v){
   for(var i=0;i<v.cp.length;i++){if(!v.cp[i].pagado)return i;}
   return null;
 }
+// Monto realmente financiado a cuotas: para ventas mixtas Sistecredito+Credicontado
+// solo la parte Credicontado esta a cuotas, no el total de la venta
+function creditoTotal(v){
+  return v.pago==='SISTECREDITO+CREDICONTADO'?(v.sccCc||0):v.total;
+}
+function esCredicontado(v){
+  return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';
+}
 function renderCart(){
   var th=g('carth'),tb=g('cartb');
   if(!tb)return;
   var q=((g('cart-buscar')||{value:''}).value||'').toLowerCase().trim();
   // Calcular metricas
-  var allCreds=ven.filter(function(v){return v.pago==='CREDICONTADO'&&v.cuotas>0;});
+  var allCreds=ven.filter(function(v){return esCredicontado(v)&&v.cuotas>0;});
   var tot=0,cob=0;
   allCreds.forEach(function(v){
-    tot+=v.total;
+    tot+=creditoTotal(v);
     (v.cp||[]).forEach(function(c){if(c.pagado)cob+=c.monto||0;});
   });
   if(g('cn'))g('cn').textContent=allCreds.length;
@@ -3011,7 +3161,7 @@ function renderCart(){
       case 'cliente':va=[(a.comprador||{}).nombre,(a.comprador||{}).apellido].filter(Boolean).join(' ');vb=[(b.comprador||{}).nombre,(b.comprador||{}).apellido].filter(Boolean).join(' ');break;
       case 'art':va=a.art;vb=b.art;break;
       case 'pago':va=a.pago||'';vb=b.pago||'';break;
-      case 'total':va=a.total||0;vb=b.total||0;break;
+      case 'total':va=creditoTotal(a)||0;vb=creditoTotal(b)||0;break;
       case 'cuotas':va=(a.cp||[]).filter(function(x){return x.pagado;}).length;vb=(b.cp||[]).filter(function(x){return x.pagado;}).length;break;
       case 'estado':
         var eoa=(function(v){var pi=proxNP(v);if(pi===null)return 4;var d=diasPP(v,pi);if(d===null)return 4;if(d<=0)return 0;if(d<=3)return 1;if(d<=8)return 2;return 3;})(a);
@@ -3056,7 +3206,7 @@ function renderCart(){
       '<td style="font-weight:700">'+cl+'</td>'+
       '<td>'+v.art+'</td>'+
       '<td class="vcr">'+v.pago+'</td>'+
-      '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+fmt(creditoTotal(v))+'</td>'+
       '<td style="text-align:center">'+pg+'/'+v.cuotas+'</td>'+
       '<td style="text-align:center">'+diasStr+'</td>'+
       '<td>'+est+'</td>'+
@@ -3088,17 +3238,28 @@ function abrirDetalleRes(tipo){
 
   var venMes=ven.filter(function(v){return esMes(v.fecha,mes,anio);});
 
-  // Filter by tipo
-  var filtradas=venMes;
+  // Filter by tipo — todo se normaliza como {v,montoMostrar,label}
+  var filtradas=venMes.map(function(v){return{v:v,montoMostrar:v.total,label:v.pago};});
   var tituloStr='Todas las ventas — '+MESES[mes]+' '+anio;
   if(tipo==='CREDICONTADO'){
-    filtradas=venMes.filter(function(v){return v.pago==='CREDICONTADO';});
+    filtradas=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).map(function(v){return{v:v,montoMostrar:v.total,label:v.pago};});
+    // Incluir la porcion Credicontado de ventas mixtas Sistecredito+Credicontado
+    venMes.filter(function(v){return v.pago==='SISTECREDITO+CREDICONTADO'&&(v.sccCc||0)>0;}).forEach(function(v){
+      filtradas.push({v:v,montoMostrar:v.sccCc,label:'SIST+CREDICONT (parte Credicontado)'});
+    });
     tituloStr='Ventas Credicontado — '+MESES[mes]+' '+anio;
   }else if(tipo==='SISTECREDITO'){
-    filtradas=venMes.filter(function(v){return v.pago==='SISTECREDITO';});
+    filtradas=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).map(function(v){return{v:v,montoMostrar:v.total,label:v.pago};});
+    // Incluir la porcion de Sistecredito de ventas mixtas
+    venMes.filter(function(v){return v.pago==='SISTECREDITO+EFECTIVO'&&(v.sefSc||0)>0;}).forEach(function(v){
+      filtradas.push({v:v,montoMostrar:v.sefSc,label:'SIST+EFECT (parte Sistecredito)'});
+    });
+    venMes.filter(function(v){return v.pago==='SISTECREDITO+CREDICONTADO'&&(v.sccSc||0)>0;}).forEach(function(v){
+      filtradas.push({v:v,montoMostrar:v.sccSc,label:'SIST+CREDICONT (parte Sistecredito)'});
+    });
     tituloStr='Ventas Sistecredito — '+MESES[mes]+' '+anio;
   }else if(tipo==='ADDI'){
-    filtradas=venMes.filter(function(v){return v.pago==='ADDI';});
+    filtradas=venMes.filter(function(v){return v.pago==='ADDI';}).map(function(v){return{v:v,montoMostrar:v.total,label:v.pago};});
     tituloStr='Ventas Addi — '+MESES[mes]+' '+anio;
   }else if(tipo==='GASTOS'){
     // Gastos siempre del mes actual
@@ -3128,7 +3289,11 @@ function abrirDetalleRes(tipo){
     window.scrollTo({top:0,behavior:'smooth'});
     return;
   }else if(tipo==='EFECTIVO'){
-    filtradas=venMes.filter(function(v){return v.pago==='EFECTIVO';});
+    filtradas=venMes.filter(function(v){return v.pago==='EFECTIVO';}).map(function(v){return{v:v,montoMostrar:v.total,label:v.pago};});
+    // Incluir la porcion de Efectivo de ventas mixtas
+    venMes.filter(function(v){return v.pago==='SISTECREDITO+EFECTIVO'&&(v.sefEf||0)>0;}).forEach(function(v){
+      filtradas.push({v:v,montoMostrar:v.sefEf,label:'SIST+EFECT (parte Efectivo)'});
+    });
     tituloStr='Ventas en Efectivo — '+MESES[mes]+' '+anio;
   }
 
@@ -3139,22 +3304,24 @@ function abrirDetalleRes(tipo){
   }else{
     // Sort by date desc
     filtradas=filtradas.slice().sort(function(a,b){
-      var ap=a.fecha.split('/');var bp=b.fecha.split('/');
+      var ap=a.v.fecha.split('/');var bp=b.v.fecha.split('/');
       var ad=new Date(+ap[2],+ap[1]-1,+ap[0]);
       var bd=new Date(+bp[2],+bp[1]-1,+bp[0]);
       return bd-ad;
     });
-    var totalFil=filtradas.reduce(function(s,v){return s+v.total;},0);
-    tb.innerHTML=filtradas.map(function(v){
+    var totalFil=filtradas.reduce(function(s,x){return s+x.montoMostrar;},0);
+    tb.innerHTML=filtradas.map(function(x){
+      var v=x.v;
       var c=v.comprador||{};
       var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
-      var pagoColor=v.pago==='EFECTIVO'?'color:#1e8449':v.pago==='CREDICONTADO'?'color:#9b59b6':'color:#3498db';
+      var esMixto=x.label!==v.pago;
+      var pagoColor=v.pago==='EFECTIVO'?'color:#1e8449':v.pago==='CREDICONTADO'?'color:#9b59b6':esMixto?'color:#e67e22':'color:#3498db';
       return '<tr>'+
         '<td style="font-size:11px;color:#888">'+v.fecha+'</td>'+
         '<td style="font-weight:600">'+v.art+'</td>'+
         '<td>'+cl+'</td>'+
-        '<td style="'+pagoColor+';font-weight:600;font-size:11px">'+v.pago+'</td>'+
-        '<td style="text-align:right;font-weight:700">'+fmt(v.total)+'</td>'+
+        '<td style="'+pagoColor+';font-weight:600;font-size:11px">'+x.label+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+fmt(x.montoMostrar)+'</td>'+
         '<td style="font-size:11px;color:#888">'+( v.vend||'-')+'</td>'+
       '</tr>';
     }).join('')+
@@ -3226,9 +3393,15 @@ function renderRes(){
 
   // Calcular metricas
   var tot=venMes.reduce(function(s,v){return s+v.total;},0);
-  var ef=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+v.total;},0);
-  var cc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+v.total;},0);
-  var sc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+v.total;},0);
+  var mixedSef=venMes.filter(function(v){return v.pago==='SISTECREDITO+EFECTIVO';});
+  var mixedEfSum=mixedSef.reduce(function(s,v){return s+(v.sefEf||0);},0);
+  var mixedScSum=mixedSef.reduce(function(s,v){return s+(v.sefSc||0);},0);
+  var mixedScc=venMes.filter(function(v){return v.pago==='SISTECREDITO+CREDICONTADO';});
+  var mixedSccScSum=mixedScc.reduce(function(s,v){return s+(v.sccSc||0);},0);
+  var mixedSccCcSum=mixedScc.reduce(function(s,v){return s+(v.sccCc||0);},0);
+  var ef=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+v.total;},0)+mixedEfSum;
+  var cc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+v.total;},0)+mixedSccCcSum;
+  var sc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+v.total;},0)+mixedScSum+mixedSccScSum;
   var ad=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
   var sca=sc+ad;
   // Gastos del MES ACTUAL siempre (no cambia con el selector)
@@ -3251,8 +3424,25 @@ function renderRes(){
   var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v);},0);
+  // Repartir proporcionalmente la ganancia de ventas mixtas Sistecredito+Efectivo
+  mixedSef.forEach(function(v){
+    var gTotal=ganancia(v);
+    var ratioEf=v.total>0?(v.sefEf||0)/v.total:0;
+    var ratioSc=v.total>0?(v.sefSc||0)/v.total:0;
+    ganEf+=gTotal*ratioEf;
+    ganSc+=gTotal*ratioSc;
+  });
+  // Repartir proporcionalmente la ganancia de ventas mixtas Sistecredito+Credicontado
+  mixedScc.forEach(function(v){
+    var gTotal=ganancia(v);
+    var ratioSc=v.total>0?(v.sccSc||0)/v.total:0;
+    var ratioCc=v.total>0?(v.sccCc||0)/v.total:0;
+    ganSc+=gTotal*ratioSc;
+    ganCc+=gTotal*ratioCc;
+  });
   var ganSca=ganSc+ganAd;
   var ganTot=ganEf+ganCc+ganSca;
+
 
   // Actualizar tarjetas
   if(g('rn'))g('rn').textContent=venMes.length;
@@ -3298,6 +3488,8 @@ function renderRes(){
       if(v.pago==='EFECTIVO')porMes[key].ef+=v.total;
       else if(v.pago==='CREDICONTADO')porMes[key].cc+=v.total;
       else if(v.pago==='SISTECREDITO'||v.pago==='ADDI')porMes[key].sca+=v.total;
+      else if(v.pago==='SISTECREDITO+EFECTIVO'){porMes[key].sca+=(v.sefSc||0);porMes[key].ef+=(v.sefEf||0);}
+      else if(v.pago==='SISTECREDITO+CREDICONTADO'){porMes[key].sca+=(v.sccSc||0);porMes[key].cc+=(v.sccCc||0);}
     });
     var mesesList=Object.entries(porMes).sort(function(a,b){
       if(b[1].anio!==a[1].anio)return b[1].anio-a[1].anio;
@@ -3393,6 +3585,61 @@ function addContable(){
   toast('Movimiento registrado');
 }
 
+function exportarExcelContable(){
+  if(typeof XLSX==='undefined'){toast('La libreria de Excel aun esta cargando, intenta de nuevo en un momento',1);return;}
+  try{
+    // Ordenar igual que se ve en pantalla: mas reciente primero, con saldo acumulado
+    function normFecha(f){
+      if(!f)return '';
+      if(/^\d{4}-\d{2}-\d{2}$/.test(f)){var p=f.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+      return f;
+    }
+    function fechaToMs(f){
+      var p=normFecha(f).split('/');
+      if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime();
+      return 0;
+    }
+    var ordenado=cont.map(function(c){return Object.assign({},c,{fecha:normFecha(c.fecha)});})
+      .sort(function(a,b){
+        var da=fechaToMs(a.fecha),db=fechaToMs(b.fecha);
+        if(da!==db)return da-db; // mas antiguo primero para acumular bien
+        return (a.ts||0)-(b.ts||0);
+      });
+    var acum=0;
+    var rows=ordenado.map(function(c){
+      acum+=(c.ing||0)-(c.egr||0);
+      return{
+        'Fecha':c.fecha,
+        'Descripcion':c.desc,
+        'Ingreso':c.ing||0,
+        'Egreso':c.egr||0,
+        'Total acumulado':acum,
+        'Registrado por':c.quien||'-',
+        'Hora':c.hora||'-',
+        'Tipo':c.tipo==='auto'?'Automatico':'Manual'
+      };
+    });
+    var totalIng=cont.reduce(function(s,c){return s+(c.ing||0);},0);
+    var totalEgr=cont.reduce(function(s,c){return s+(c.egr||0);},0);
+    rows.push({});
+    rows.push({'Fecha':'','Descripcion':'TOTAL INGRESOS','Ingreso':totalIng});
+    rows.push({'Fecha':'','Descripcion':'TOTAL EGRESOS','Egreso':totalEgr});
+    rows.push({'Fecha':'','Descripcion':'SALDO ACTUAL','Total acumulado':totalIng-totalEgr});
+
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.json_to_sheet(rows.length?rows:[{Info:'Sin movimientos registrados'}]);
+    ws['!cols']=[{wch:12},{wch:45},{wch:14},{wch:14},{wch:16},{wch:16},{wch:8},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,'Libro Contable');
+
+    var fechaArchivo=new Date().toLocaleDateString('es-CO').split('/').join('-');
+    XLSX.writeFile(wb,'Maximuebles_Jo_Libro_Contable_'+fechaArchivo+'.xlsx');
+    toast('Excel del libro contable descargado');
+  }catch(e){
+    console.error('Error exportando Excel:',e);
+    toast('Error al generar el Excel',1);
+  }
+}
+
 function sincronizarContable(){
   if(!confirm('Sincronizar revisará las ventas y agregará entradas faltantes sin borrar nada. ¿Continuar?'))return;
   contGuardarEstado();
@@ -3428,8 +3675,12 @@ function sincronizarContable(){
     if(v.pago==='CREDICONTADO'&&v.ci&&v.ci.inicial>0){
       tryAdd('Cuota inicial Credicontado: '+v.art+(cl?' — '+cl:''),v.ci.inicial,0,'auto',parseTS(v.fecha,1));
     }
+    // Sistecredito+Credicontado - cuota inicial de la parte Credicontado
+    if(v.pago==='SISTECREDITO+CREDICONTADO'&&v.ci&&v.ci.inicial>0){
+      tryAdd('Cuota inicial Credicontado (Sistecredito+Credicontado): '+v.art+(cl?' — '+cl:''),v.ci.inicial,0,'auto',parseTS(v.fecha,1));
+    }
     // Credicontado - cuotas pagadas
-    if(v.pago==='CREDICONTADO'&&v.cp){
+    if((v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO')&&v.cp){
       v.cp.forEach(function(p,ci){
         if(p.pagado&&p.monto>0){
           var fPago=normFechaGlobal(p.fecha||v.fecha)||v.fecha;
@@ -3641,16 +3892,17 @@ function setContPage(p){contPage=p;renderContable();}
 
 function dlReciboCuota(vi,ci){
   var v=ven[vi];
+  var montoCredito=creditoTotal(v);
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
   var asesor=v.vend||currentUser&&(currentUser.nombre||currentUser.uname)||'Admin';
   var cuotaBase;
   if(v.ci&&v.ci.cval){
     cuotaBase=Math.round(v.ci.cval);
-    if(v.total>0&&cuotaBase>0&&cuotaBase<v.total/100){
-      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(v.total-(v.ci.inicial||0))/v.cuotas);
+    if(montoCredito>0&&cuotaBase>0&&cuotaBase<montoCredito/100){
+      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(montoCredito-(v.ci.inicial||0))/v.cuotas);
     }
-  }else{cuotaBase=Math.round(v.total/v.cuotas);}
+  }else{cuotaBase=Math.round(montoCredito/v.cuotas);}
   var diaPago='';
   if(v.ci&&v.ci.fecha){var fp0=parseDate(v.ci.fecha);if(fp0&&!isNaN(fp0.getTime()))diaPago=fp0.getDate()+' de cada mes';}
   var cuotasVal=[];var acum=0;
@@ -3663,7 +3915,7 @@ function dlReciboCuota(vi,ci){
   var totalCuotas=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
   var totalDado=totalCuotas+ini;
-  var saldo=Math.max(0,v.total-totalDado);
+  var saldo=Math.max(0,montoCredito-totalDado);
   var esteCp=(v.cp||[])[ci]||{};
   var estePago=esteCp.monto||0;
   var fechaPago=esteCp.fecha||v.fecha||'';
@@ -3697,7 +3949,8 @@ function dlReciboCuota(vi,ci){
   }
   fila('Cliente:',cl);
   fila('Articulo:',v.art.length>38?v.art.substring(0,38)+'...':v.art);
-  fila('Total del credito:',fmt(v.total));
+  fila('Total del credito:',fmt(montoCredito));
+  if(v.pago==='SISTECREDITO+CREDICONTADO')fila('Valor total de la venta:',fmt(v.total));
   fila('Cuotas pactadas:',v.cuotas+' cuotas de '+fmt(cuotaBase));
   fila('Dias de pago:',diaPago||'-');y+=3;
   doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(6,y-3,W-12,7,'F');
@@ -3746,9 +3999,9 @@ function dlReciboCuota(vi,ci){
   doc.setFillColor(250,250,250);doc.rect(6,y-3,W-12,8,'F');
   doc.setDrawColor(220,220,220);doc.line(6,y+5,W-6,y+5);
   doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
-  doc.text('Valor total de la venta',8,y+2);
+  doc.text(v.pago==='SISTECREDITO+CREDICONTADO'?'Valor total a credito (Credicontado)':'Valor total de la venta',8,y+2);
   doc.setFont('helvetica','bold');doc.setTextColor(BL[0],BL[1],BL[2]);
-  doc.text(fmt(v.total),W-8,y+2,{align:'right'});y+=9;
+  doc.text(fmt(montoCredito),W-8,y+2,{align:'right'});y+=9;
   doc.setFillColor(250,250,250);doc.rect(6,y-3,W-12,8,'F');
   doc.setDrawColor(220,220,220);doc.line(6,y+5,W-6,y+5);
   doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
