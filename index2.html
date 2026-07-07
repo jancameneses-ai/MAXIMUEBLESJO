@@ -56,6 +56,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{max-width:100%;overflow-x:hidden}
 body{font-family:'Poppins',Arial,sans-serif;background:#f0f2f5;color:#333;font-size:13px}
 
 /* ── SIDEBAR ── */
@@ -116,6 +117,38 @@ header{background:#2c3e50;color:#fff;padding:0 20px;display:flex;justify-content
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 @media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}.app-layout{flex-direction:column}.sidebar{width:100%!important;min-width:unset;flex-direction:row;flex-wrap:wrap}.sitem{flex:1;justify-content:center;padding:8px}.slbl{display:none!important}.sidebar.collapsed{width:100%!important}}
+
+/* ── MOVIL (celulares) ── */
+@media(max-width:480px){
+  body{font-size:12px}
+  header{height:auto;min-height:52px;padding:8px 10px;flex-wrap:wrap;gap:6px;row-gap:6px}
+  .header-logo{height:26px}
+  .hdr{gap:5px;flex-wrap:wrap;justify-content:flex-end;row-gap:5px}
+  .ub{padding:3px 9px;font-size:9px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rb{padding:2px 7px;font-size:9px}
+  #sbadge{font-size:9px!important;padding:2px 7px!important}
+  .logout-btn{padding:4px 9px;font-size:9px}
+  .sec{padding:10px}
+  .card{padding:12px}
+  .card h2{font-size:11px;margin-bottom:10px;padding-bottom:8px}
+  .dash-grid{grid-template-columns:1fr;gap:9px}
+  .dash-card{padding:12px 14px;min-height:64px}
+  .dash-card .dc-info .dc-val{font-size:17px}
+  .dash-card .dc-info .dc-lbl{font-size:9px}
+  .dash-card .dc-icon svg{width:28px;height:28px}
+  .g3,.g4{grid-template-columns:1fr 1fr}
+  .met .mv{font-size:16px}
+  .md{padding:16px;width:94%}
+  .md h3{font-size:12px}
+  table{font-size:10px}
+  th{padding:7px 6px;font-size:9px}
+  td{padding:7px 6px}
+  .btn{padding:7px 11px;font-size:10px}
+  .bg{padding:11px;font-size:12px}
+  .login-box{padding:24px 18px}
+  .login-logo{width:100px}
+  .fac-wrap{max-width:100%}
+}
 
 /* ── FORMS ── */
 label{display:block;font-size:11px;color:#666;margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.2px}
