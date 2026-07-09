@@ -798,7 +798,9 @@ tr:hover td{background:#f8f9ff}
       <div class="met" onclick="abrirDetalleRes('CREDICONTADO')" style="cursor:pointer"><div class="ml">Ganancia Credicontado</div><div class="mv" id="rg-cc">$0</div></div>
       <div class="met" onclick="abrirDetalleRes('SISTECREDITO')" style="cursor:pointer"><div class="ml">Ganancia Sistecredito</div><div class="mv" id="rg-sc">$0</div></div>
       <div class="met" onclick="abrirDetalleRes('ADDI')" style="cursor:pointer"><div class="ml">Ganancia Addi</div><div class="mv" id="rg-ad">$0</div></div>
-      <div class="met" onclick="abrirDetalleRes('todas')" style="background:#f0f7ff;cursor:pointer"><div class="ml">Total ganancia mes</div><div class="mv" id="rg" style="color:#1a3a1a">$0</div></div>
+      <div class="met" onclick="abrirDetalleRes('todas')" style="background:#f0f7ff;cursor:pointer"><div class="ml">Ganancia bruta (ventas - costo)</div><div class="mv" id="rg" style="color:#1a3a1a">$0</div></div>
+      <div class="met" id="rg-op-card" style="background:#fff5f5"><div class="ml">Gastos operativos del mes</div><div class="mv" id="rg-op" style="color:#c0392b">$0</div></div>
+      <div class="met" style="background:#eafaf1;grid-column:span 2"><div class="ml">Ganancia neta real (bruta - gastos operativos)</div><div class="mv" id="rg-neta" style="color:#1a3a1a;font-size:22px">$0</div></div>
     </div>
   </div>
 
@@ -842,20 +844,42 @@ tr:hover td{background:#f8f9ff}
       <div><label style="color:#c0392b">Egreso $</label><input type="number" id="cont-egr" class="noup" placeholder="0" style="border-color:#f5b7b1;background:#fff5f5;color:#c0392b;font-weight:600"></div>
       <div><button class="btn bg" onclick="addContable()" style="margin-top:0;padding:10px 18px;white-space:nowrap">Agregar</button></div>
     </div>
+    <div style="margin-top:10px;max-width:320px">
+      <label>Categoria <span style="color:#e74c3c;font-weight:400;text-transform:none">(obligatoria si es un gasto)</span></label>
+      <select id="cont-cat">
+        <option value="">-- Sin categoria --</option>
+        <option value="Acarreos">Acarreos</option>
+        <option value="Internet">Internet</option>
+        <option value="Arriendo">Arriendo</option>
+        <option value="Salarios o Bonificacion">Salarios o Bonificacion</option>
+        <option value="Restaurante o Refrigerio">Restaurante o Refrigerio</option>
+        <option value="Combustible">Combustible</option>
+        <option value="Recargas">Recargas</option>
+        <option value="Aseo">Aseo</option>
+        <option value="Servicio Energia">Servicio Energia</option>
+        <option value="Acueducto">Acueducto</option>
+        <option value="Otras compras">Otras compras</option>
+        <option value="Otros servicios">Otros servicios</option>
+      </select>
+    </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
     <div style="background:#f0fff4;border:1.5px solid #a9dfbf;border-radius:10px;padding:14px;text-align:center">
-      <div style="font-size:10px;color:#1e8449;font-weight:600;text-transform:uppercase;margin-bottom:4px">Total ingresos</div>
+      <div style="font-size:10px;color:#1e8449;font-weight:600;text-transform:uppercase;margin-bottom:4px">Ingresos (mes actual)</div>
       <div style="font-size:20px;font-weight:700;color:#1e8449" id="cont-tot-ing">$0</div>
     </div>
     <div style="background:#fff5f5;border:1.5px solid #f5b7b1;border-radius:10px;padding:14px;text-align:center">
-      <div style="font-size:10px;color:#c0392b;font-weight:600;text-transform:uppercase;margin-bottom:4px">Total egresos</div>
+      <div style="font-size:10px;color:#c0392b;font-weight:600;text-transform:uppercase;margin-bottom:4px">Egresos (mes actual)</div>
       <div style="font-size:20px;font-weight:700;color:#c0392b" id="cont-tot-egr">$0</div>
     </div>
     <div style="background:#eaf4ff;border:1.5px solid #aed6f1;border-radius:10px;padding:14px;text-align:center">
-      <div style="font-size:10px;color:#1a5276;font-weight:600;text-transform:uppercase;margin-bottom:4px">Saldo actual</div>
+      <div style="font-size:10px;color:#1a5276;font-weight:600;text-transform:uppercase;margin-bottom:4px">Saldo actual (historico)</div>
       <div style="font-size:20px;font-weight:700;color:#1a5276" id="cont-tot-sal">$0</div>
     </div>
+  </div>
+  <div class="card">
+    <h2>Gastos por categoria (todo el historial)</h2>
+    <div id="cont-cat-resumen" style="overflow-x:auto"></div>
   </div>
   <div class="card">
     <h2>Movimientos</h2>
@@ -866,7 +890,7 @@ tr:hover td{background:#f8f9ff}
     </div>
     <div style="overflow-x:auto"><table>
       <thead><tr>
-        <th>Fecha</th><th>Descripcion</th>
+        <th>Fecha</th><th>Descripcion</th><th>Categoria</th>
         <th style="text-align:right;background:#f0fff4;color:#1e8449">Ingreso</th>
         <th style="text-align:right;background:#fff5f5;color:#c0392b">Egreso</th>
         <th style="text-align:right;background:#eaf4ff;color:#1a5276">Total acumulado</th>
@@ -1144,6 +1168,26 @@ tr:hover td{background:#f8f9ff}
         <div><label style="color:#1e8449">Ingreso $</label><input type="number" id="ec-ing" class="noup" placeholder="0" style="border-color:#a9dfbf"></div>
         <div><label style="color:#c0392b">Egreso $</label><input type="number" id="ec-egr" class="noup" placeholder="0" style="border-color:#f5b7b1"></div>
       </div>
+      <div>
+        <label>Categoria <span style="color:#e74c3c;font-weight:400;text-transform:none">(obligatoria si es un gasto)</span></label>
+        <select id="ec-cat">
+          <option value="">-- Sin categoria --</option>
+          <option value="Acarreos">Acarreos</option>
+          <option value="Internet">Internet</option>
+          <option value="Arriendo">Arriendo</option>
+          <option value="Salarios o Bonificacion">Salarios o Bonificacion</option>
+          <option value="Restaurante o Refrigerio">Restaurante o Refrigerio</option>
+          <option value="Combustible">Combustible</option>
+          <option value="Recargas">Recargas</option>
+          <option value="Aseo">Aseo</option>
+          <option value="Servicio Energia">Servicio Energia</option>
+          <option value="Acueducto">Acueducto</option>
+          <option value="Compra de mercancia">Compra de mercancia</option>
+          <option value="Otras compras">Otras compras</option>
+          <option value="Otros servicios">Otros servicios</option>
+          <option value="Ingreso por ventas">Ingreso por ventas</option>
+        </select>
+      </div>
     </div>
     <div class="mdf">
       <button class="btn bgray" onclick="cm('m-edit-cont')">Cancelar</button>
@@ -1380,6 +1424,7 @@ function doLogin(){
   }
   renderAll();
   renderSV();
+  var cfLogin=g('cont-fecha');if(cfLogin&&!cfLogin.value)cfLogin.value=fechaHoyISO();
   toast('Bienvenido, '+(user.nombre||user.uname));
 }
 
@@ -2306,7 +2351,7 @@ function registrarEntrada(){
   });
   // Registro automatico en el libro contable como egreso
   if(g('ent-egreso').checked){
-    addContableAuto(fechaFmt,'Entrada de inventario: '+artNombre+(prov?' — Proveedor: '+prov:''),0,total,'auto');
+    addContableAuto(fechaFmt,'Entrada de inventario: '+artNombre+(prov?' — Proveedor: '+prov:''),0,total,'auto','Compra de mercancia');
   }
   save();
   renderInv();renderEntradas();
@@ -3550,10 +3595,11 @@ function exportarDetalleResExcel(){
     toast('Error al generar el Excel',1);
   }
 }
-function mostrarGastosDetalle(mesGas,anioGas){
+function mostrarGastosDetalle(mesGas,anioGas,soloOperativos){
   var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var gastosRows=cont.filter(function(c){
     if(!c.egr||c.egr<=0)return false;
+    if(soloOperativos&&c.categoria==='Compra de mercancia')return false;
     var p=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
     return p.length===3&&(+p[1]-1)===mesGas&&+p[2]===anioGas;
   });
@@ -3561,12 +3607,12 @@ function mostrarGastosDetalle(mesGas,anioGas){
   var subview=g('res-subview');var main=g('res-main');
   var tb2=g('res-detalle-tb');
   var thRowGas=g('res-detalle-thead-row');
-  if(thRowGas)thRowGas.innerHTML='<th>Fecha</th><th>Descripcion</th><th style="text-align:right">Valor</th>';
-  if(titulo2)titulo2.textContent='Gastos de '+MESES[mesGas]+' '+anioGas+' ('+gastosRows.length+')';
+  if(thRowGas)thRowGas.innerHTML='<th>Fecha</th><th>Descripcion</th><th>Categoria</th><th style="text-align:right">Valor</th>';
+  if(titulo2)titulo2.textContent=(soloOperativos?'Gastos operativos (sin compra de mercancia) de ':'Gastos de ')+MESES[mesGas]+' '+anioGas+' ('+gastosRows.length+')';
   var totalGas=gastosRows.reduce(function(s,c){return s+(c.egr||0);},0);
   if(tb2){
     if(!gastosRows.length){
-      tb2.innerHTML='<tr><td colspan="3" class="empty">Sin gastos registrados este mes</td></tr>';
+      tb2.innerHTML='<tr><td colspan="4" class="empty">Sin gastos registrados este mes</td></tr>';
     }else{
       tb2.innerHTML=gastosRows.sort(function(a,b){
         var fa=parseDate(normFechaGlobal(a.fecha)||a.fecha),fb=parseDate(normFechaGlobal(b.fecha)||b.fecha);
@@ -3574,9 +3620,11 @@ function mostrarGastosDetalle(mesGas,anioGas){
         var tb=(fb&&!isNaN(fb.getTime()))?fb.getTime():0;
         return tb-ta;
       }).map(function(c){
-        return '<tr><td style="font-size:11px;color:#888">'+c.fecha+'</td><td style="font-weight:500">'+c.desc+'</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(c.egr)+'</td></tr>';
+        return '<tr><td style="font-size:11px;color:#888">'+c.fecha+'</td><td style="font-weight:500">'+c.desc+'</td>'+
+               '<td style="font-size:11px;color:'+(c.categoria?'#555':'#ccc')+'">'+(c.categoria||'-')+'</td>'+
+               '<td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(c.egr)+'</td></tr>';
       }).join('')+
-      '<tr class="total-row" style="background:#fff5f5"><td colspan="2" style="text-align:right;font-weight:700">Total gastos:</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(totalGas)+'</td></tr>';
+      '<tr class="total-row" style="background:#fff5f5"><td colspan="3" style="text-align:right;font-weight:700">Total gastos:</td><td style="text-align:right;font-weight:700;color:#e74c3c">'+fmt(totalGas)+'</td></tr>';
     }
   }
   if(main)main.style.display='none';
@@ -3801,11 +3849,14 @@ function renderRes(){
   var ad=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+v.total;},0);
   var sca=sc+ad;
   // Gastos del mes seleccionado en el desplegable
-  var gas=cont.filter(function(c){
+  var gastosMesRows=cont.filter(function(c){
     if(!c.egr||c.egr<=0)return false;
     var p=(normFechaGlobal(c.fecha)||'').split('/');
     return p.length===3&&(+p[1]-1)===mesActual&&+p[2]===anioActual;
-  }).reduce(function(s,c){return s+(c.egr||0);},0);
+  });
+  var gas=gastosMesRows.reduce(function(s,c){return s+(c.egr||0);},0);
+  // Gastos operativos = gastos del mes SIN contar compra de mercancia (esa ya esta descontada en la ganancia bruta via el costo del articulo)
+  var gastosOperativos=gastosMesRows.filter(function(c){return c.categoria!=='Compra de mercancia';}).reduce(function(s,c){return s+(c.egr||0);},0);
 
   // Ganancias por tipo de pago
   function ganancia(v){
@@ -3838,6 +3889,7 @@ function renderRes(){
   });
   var ganSca=ganSc+ganAd;
   var ganTot=ganEf+ganCc+ganSca;
+  var ganNeta=ganTot-gastosOperativos;
 
 
   // Actualizar tarjetas
@@ -3860,6 +3912,16 @@ function renderRes(){
   if(g('rg-sc'))g('rg-sc').textContent=fmt(Math.max(0,ganSc));
   if(g('rg-ad'))g('rg-ad').textContent=fmt(Math.max(0,ganAd));
   if(g('rg'))g('rg').textContent=fmt(Math.max(0,ganTot));
+  if(g('rg-op'))g('rg-op').textContent=fmt(gastosOperativos);
+  var opCard=g('rg-op-card');
+  if(opCard){
+    opCard.style.cursor='pointer';
+    opCard.onclick=function(){mostrarGastosDetalle(mesActual,anioActual,true);};
+  }
+  if(g('rg-neta')){
+    g('rg-neta').textContent=fmt(ganNeta);
+    g('rg-neta').style.color=ganNeta>=0?'#1a3a1a':'#e74c3c';
+  }
 
   // Por vendedor
   var vs={};
@@ -3960,14 +4022,20 @@ function contActualizarBotones(){
   if(btnR)btnR.style.opacity=contHistIdx<contHistorial.length-1?'1':'0.35';
 }
 
+function fechaHoyISO(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function addContable(){
   var fecha=g('cont-fecha').value;
   var desc=g('cont-desc').value.trim();
   var ing=parseFloat(g('cont-ing').value)||0;
   var egr=parseFloat(g('cont-egr').value)||0;
+  var cat=g('cont-cat')?g('cont-cat').value:'';
   if(!fecha){toast('Selecciona una fecha',1);return;}
   if(!desc){toast('Escribe una descripcion',1);return;}
   if(!ing&&!egr){toast('Ingresa un valor de ingreso o egreso',1);return;}
+  if(egr>0&&!cat){toast('Selecciona la categoria del gasto',1);return;}
   // Convert fecha to DD/MM/YYYY
   var fp=fecha.split('-');
   var fechaFmt=fp[2]+'/'+fp[1]+'/'+fp[0];
@@ -3980,6 +4048,7 @@ function addContable(){
     desc:desc,
     ing:ing,
     egr:egr,
+    categoria:cat||'',
     tipo:'manual',
     ts:Date.now(),
     quien:_quien,
@@ -3987,7 +4056,8 @@ function addContable(){
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
-  g('cont-fecha').value='';g('cont-desc').value='';
+  g('cont-fecha').value=fechaHoyISO();g('cont-desc').value='';
+  if(g('cont-cat'))g('cont-cat').value='';
   g('cont-ing').value='';g('cont-egr').value='';
   renderContable();
   toast('Movimiento registrado');
@@ -4019,6 +4089,7 @@ function exportarExcelContable(){
       return{
         'Fecha':c.fecha,
         'Descripcion':c.desc,
+        'Categoria':c.categoria||'',
         'Ingreso':c.ing||0,
         'Egreso':c.egr||0,
         'Total acumulado':acum,
@@ -4036,7 +4107,7 @@ function exportarExcelContable(){
 
     var wb=XLSX.utils.book_new();
     var ws=XLSX.utils.json_to_sheet(rows.length?rows:[{Info:'Sin movimientos registrados'}]);
-    ws['!cols']=[{wch:12},{wch:45},{wch:14},{wch:14},{wch:16},{wch:16},{wch:8},{wch:12}];
+    ws['!cols']=[{wch:12},{wch:45},{wch:22},{wch:14},{wch:14},{wch:16},{wch:16},{wch:8},{wch:12}];
     XLSX.utils.book_append_sheet(wb,ws,'Libro Contable');
 
     var fechaArchivo=new Date().toLocaleDateString('es-CO').split('/').join('-');
@@ -4133,11 +4204,11 @@ function normFechaGlobal(f){
   return f;
 }
 
-function addContableAuto(fecha,desc,ing,egr,tipo){
+function addContableAuto(fecha,desc,ing,egr,tipo,categoria){
   var ahora=new Date();
   var hora=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   var quien=currentUser?(currentUser.nombre||currentUser.uname):'Sistema';
-  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,tipo:tipo||'auto',ts:Date.now(),quien:quien,hora:hora});
+  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,categoria:categoria||(ing>0?'Ingreso por ventas':''),tipo:tipo||'auto',ts:Date.now(),quien:quien,hora:hora});
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
   renderContable();
@@ -4150,6 +4221,7 @@ function editContable(i){
   sv('ec-desc',c.desc||'');
   sv('ec-ing',c.ing||'');
   sv('ec-egr',c.egr||'');
+  if(g('ec-cat'))g('ec-cat').value=c.categoria||'';
   // Convert fecha DD/MM/YYYY to YYYY-MM-DD for date input
   var fp=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
   sv('ec-fecha',fp.length===3?fp[2]+'-'+fp[1]+'-'+fp[0]:'');
@@ -4162,8 +4234,10 @@ function guardarEditContable(){
   var desc=(document.getElementById('ec-desc')||{value:''}).value.trim();
   var ing=parseFloat(document.getElementById('ec-ing').value)||0;
   var egr=parseFloat(document.getElementById('ec-egr').value)||0;
+  var cat=g('ec-cat')?g('ec-cat').value:'';
   if(!rawFecha){toast('Selecciona una fecha',1);return;}
   if(!desc){toast('Escribe una descripcion',1);return;}
+  if(egr>0&&!cat){toast('Selecciona la categoria del gasto',1);return;}
   contGuardarEstado();
   var fp=rawFecha.split('-');
   var fechaFmt=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;
@@ -4171,6 +4245,7 @@ function guardarEditContable(){
   cont[i].desc=desc;
   cont[i].ing=ing;
   cont[i].egr=egr;
+  cont[i].categoria=cat||'';
   cont[i].ts=parseTS(fechaFmt,0);
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
@@ -4266,7 +4341,7 @@ function renderContable(){
   });
   var filtered=withIdx.filter(function(x){
     if(!q)return true;
-    return x.m.desc.toLowerCase().indexOf(q)>=0||x.m.fecha.indexOf(q)>=0;
+    return x.m.desc.toLowerCase().indexOf(q)>=0||x.m.fecha.indexOf(q)>=0||(x.m.categoria||'').toLowerCase().indexOf(q)>=0;
   });
 
   // Calculate totals first
@@ -4285,13 +4360,26 @@ function renderContable(){
     return{m:x.m,i:x.i,acum:acumEsta};
   });
 
+  // Totales del MES ACTUAL (solo para las tarjetas de Ingresos/Egresos, el saldo sigue siendo historico completo)
+  var hoyCont=new Date();
+  var mesCont=hoyCont.getMonth(),anioCont=hoyCont.getFullYear();
+  var totalIngMes=0,totalEgrMes=0;
+  cont.forEach(function(c){
+    var p=(normFecha(c.fecha)||'').split('/');
+    if(p.length===3&&(+p[1]-1)===mesCont&&+p[2]===anioCont){
+      totalIngMes+=c.ing||0;
+      totalEgrMes+=c.egr||0;
+    }
+  });
+
   // Update summary cards
-  var ti=g('cont-tot-ing');if(ti)ti.textContent=fmt(totalIng);
-  var te=g('cont-tot-egr');if(te)te.textContent=fmt(totalEgr);
+  var ti=g('cont-tot-ing');if(ti)ti.textContent=fmt(totalIngMes);
+  var te=g('cont-tot-egr');if(te)te.textContent=fmt(totalEgrMes);
   var ts2=g('cont-tot-sal');if(ts2){
     ts2.textContent=fmt(totalIng-totalEgr);
     ts2.style.color=(totalIng-totalEgr)>=0?'#1a5276':'#e74c3c';
   }
+  renderContableCategorias();
 
   // Pagination
   var total=withTotal.length;
@@ -4303,7 +4391,7 @@ function renderContable(){
   if(cpw)cpw.innerHTML=pagWidget('cont',contPage,total,CONT_PER_PAGE,'setContPage');
 
   if(!paginada.length){
-    tb.innerHTML='<tr><td colspan="6" class="empty">'+(q?'Sin resultados':'Sin movimientos registrados')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="7" class="empty">'+(q?'Sin resultados':'Sin movimientos registrados')+'</td></tr>';
     return;
   }
 
@@ -4315,6 +4403,7 @@ function renderContable(){
     return '<tr>'+
       '<td style="font-size:11px;color:#888">'+m.fecha+'</td>'+
       '<td style="font-weight:500">'+m.desc+autoLabel+'</td>'+
+      '<td style="font-size:11px;color:'+(m.categoria?'#555':'#ccc')+'">'+(m.categoria||'-')+'</td>'+
       '<td style="text-align:right;background:#f0fff4;font-weight:600;color:#1e8449">'+(m.ing>0?fmt(m.ing):'—')+'</td>'+
       '<td style="text-align:right;background:#fff5f5;font-weight:600;color:#c0392b">'+(m.egr>0?fmt(m.egr):'—')+'</td>'+
       '<td style="text-align:right;background:#eaf4ff;font-weight:700;color:'+(acum>=0?'#1a5276':'#e74c3c')+'">'+fmt(acum)+'</td>'+
@@ -4331,6 +4420,43 @@ function renderContable(){
 }
 
 function setContPage(p){contPage=p;renderContable();}
+
+function renderContableCategorias(){
+  var wrap=g('cont-cat-resumen');
+  if(!wrap)return;
+  var porCat={};
+  var sinCategoria=0;
+  cont.forEach(function(c){
+    if(!c.egr||c.egr<=0)return;
+    if(c.categoria==='Ingreso por ventas')return; // por seguridad, no deberia tener egr
+    var cat=c.categoria&&c.categoria.trim()?c.categoria:null;
+    if(!cat){sinCategoria+=c.egr;return;}
+    porCat[cat]=(porCat[cat]||0)+c.egr;
+  });
+  var entradas2=Object.entries(porCat).sort(function(a,b){return b[1]-a[1];});
+  var totalCat=entradas2.reduce(function(s,e){return s+e[1];},0)+sinCategoria;
+  if(!entradas2.length&&!sinCategoria){
+    wrap.innerHTML='<div class="empty" style="padding:20px 0">Sin gastos categorizados todavia</div>';
+    return;
+  }
+  var colores=['#e74c3c','#e67e22','#f39c12','#9b59b6','#3498db','#1abc9c','#2ecc71','#34495e','#c0392b','#8e44ad','#16a085','#d35400'];
+  var h='<table style="font-size:12px"><thead><tr><th>Categoria</th><th style="text-align:right">Total</th><th style="text-align:right">% del gasto</th></tr></thead><tbody>';
+  entradas2.forEach(function(e,i){
+    var pct=totalCat>0?(e[1]/totalCat*100):0;
+    h+='<tr><td style="font-weight:600"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+colores[i%colores.length]+';margin-right:7px"></span>'+e[0]+'</td>'+
+       '<td style="text-align:right;font-weight:700;color:#c0392b">'+fmt(e[1])+'</td>'+
+       '<td style="text-align:right;color:#888">'+pct.toFixed(1)+'%</td></tr>';
+  });
+  if(sinCategoria>0){
+    var pctSin=totalCat>0?(sinCategoria/totalCat*100):0;
+    h+='<tr><td style="color:#aaa"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ccc;margin-right:7px"></span>Sin categoria</td>'+
+       '<td style="text-align:right;font-weight:700;color:#aaa">'+fmt(sinCategoria)+'</td>'+
+       '<td style="text-align:right;color:#ccc">'+pctSin.toFixed(1)+'%</td></tr>';
+  }
+  h+='<tr style="background:#fff5f5;font-weight:700"><td>Total gastos</td><td style="text-align:right;color:#c0392b">'+fmt(totalCat)+'</td><td></td></tr>';
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
 
 
 function dlReciboCuota(vi,ci){
@@ -4505,7 +4631,7 @@ function goTab(id,el){
   if(id==='cartera')renderCart();
   if(id==='creditos')renderCreditos();
   if(id==='usuarios')renderUsuarios();
-  if(id==='contable')renderContable();
+  if(id==='contable'){renderContable();var cfTab=g('cont-fecha');if(cfTab&&!cfTab.value)cfTab.value=fechaHoyISO();}
   if(id==='inventario'){switchInvView('stock');}
   if(id==='historial')renderHist();
 }
@@ -4572,7 +4698,7 @@ window.addEventListener('load',function(){
       if(lo)lo.classList.add('hidden');
       renderAll();renderSV();
       var cf=g('cont-fecha');
-      if(cf){var d=new Date();cf.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+      if(cf)cf.value=fechaHoyISO();
     },800);
   }else{
     // Sesion vencida o no existe - ir directo al login SIN barra
