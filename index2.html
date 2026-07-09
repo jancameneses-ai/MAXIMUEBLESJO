@@ -620,10 +620,11 @@ tr:hover td{background:#f8f9ff}
           <div><label>Nombre del articulo</label><input type="text" id="ent-art"></div>
         </div>
       </div>
-      <div class="g3" style="margin-top:10px">
+      <div class="g4" style="margin-top:10px">
         <div><label>Cantidad que entro</label><input type="number" id="ent-cant" min="1" value="1" class="noup" oninput="calcEntrada()"></div>
         <div><label>Costo unitario $</label><input type="number" id="ent-costo" min="0" class="noup" oninput="calcEntrada()"></div>
-        <div><label>Total $</label><input type="text" id="ent-total" readonly></div>
+        <div><label>Precio de venta $</label><input type="number" id="ent-venta" min="0" class="noup"></div>
+        <div><label>Total $ <span style="color:#aaa;font-weight:400;text-transform:none">(automatico)</span></label><input type="text" id="ent-total" readonly style="background:#f0f0f0"></div>
       </div>
       <div class="g2" style="margin-top:10px">
         <div><label>Proveedor <span style="color:#aaa;font-weight:400;text-transform:none">(opcional)</span></label><input type="text" id="ent-prov" placeholder="NOMBRE DEL PROVEEDOR"></div>
@@ -2239,6 +2240,7 @@ function seleccionarArtEntrada(i){
   sv('ent-buscar',inv[i].art);
   var res=g('ent-results');if(res)res.style.display='none';
   sv('ent-costo',inv[i].costo||0);
+  sv('ent-venta',inv[i].venta||0);
   calcEntrada();
 }
 function calcEntrada(){
@@ -2250,6 +2252,7 @@ function registrarEntrada(){
   var esNuevo=g('ent-nuevo').checked;
   var cant=+g('ent-cant').value||0;
   var costo=+g('ent-costo').value||0;
+  var venta=+g('ent-venta').value||0;
   var prov=(g('ent-prov').value||'').trim().toUpperCase();
   var rawFecha=g('ent-fecha').value;
   var idxSel=+g('ent-idx').value;
@@ -2267,6 +2270,7 @@ function registrarEntrada(){
   }
   if(!cant||cant<1)faltan.push('la cantidad (debe ser mayor a 0)');
   if(!costo||costo<=0)faltan.push('el costo unitario');
+  if(!venta||venta<=0)faltan.push('el precio de venta');
   if(faltan.length){
     toast('Falta agregar: '+faltan.join(', ')+'.',1);
     return;
@@ -2281,12 +2285,13 @@ function registrarEntrada(){
   var artNombre,artCod,idx;
   if(esNuevo){
     artCod=artCodNuevo;artNombre=artNombreNuevo;
-    inv.push({cod:artCod,art:artNombre,costo:costo,venta:0,stk:cant});
+    inv.push({cod:artCod,art:artNombre,costo:costo,venta:venta,stk:cant});
     idx=inv.length-1;
   }else{
     idx=idxSel;
     inv[idx].stk=(inv[idx].stk||0)+cant;
     inv[idx].costo=costo;
+    if(venta>0)inv[idx].venta=venta;
     artNombre=inv[idx].art;
     artCod=inv[idx].cod;
   }
@@ -2306,7 +2311,7 @@ function registrarEntrada(){
   save();
   renderInv();renderEntradas();
   // Limpiar formulario
-  sv('ent-cant',1);sv('ent-costo','');sv('ent-total','');sv('ent-prov','');
+  sv('ent-cant',1);sv('ent-costo','');sv('ent-venta','');sv('ent-total','');sv('ent-prov','');
   sv('ent-cod','');sv('ent-art','');sv('ent-buscar','');sv('ent-idx',-1);
   g('ent-nuevo').checked=false;
   toggleEntNuevo();
