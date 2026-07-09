@@ -840,12 +840,12 @@ tr:hover td{background:#f8f9ff}
     <div style="display:grid;grid-template-columns:140px 1fr 140px 140px auto;gap:10px;align-items:end">
       <div><label>Fecha</label><input type="date" id="cont-fecha" class="noup"></div>
       <div><label>Descripcion</label><input type="text" id="cont-desc" placeholder="Ej: Compra mercancia, pago servicios..."></div>
-      <div><label style="color:#1e8449">Ingreso $</label><input type="number" id="cont-ing" class="noup" placeholder="0" style="border-color:#a9dfbf;background:#f0fff4;color:#1e8449;font-weight:600"></div>
-      <div><label style="color:#c0392b">Egreso $</label><input type="number" id="cont-egr" class="noup" placeholder="0" style="border-color:#f5b7b1;background:#fff5f5;color:#c0392b;font-weight:600"></div>
+      <div><label style="color:#1e8449">Ingreso $</label><input type="number" id="cont-ing" class="noup" placeholder="0" style="border-color:#a9dfbf;background:#f0fff4;color:#1e8449;font-weight:600" oninput="toggleContCat()"></div>
+      <div><label style="color:#c0392b">Egreso $</label><input type="number" id="cont-egr" class="noup" placeholder="0" style="border-color:#f5b7b1;background:#fff5f5;color:#c0392b;font-weight:600" oninput="toggleContCat()"></div>
       <div><button class="btn bg" onclick="addContable()" style="margin-top:0;padding:10px 18px;white-space:nowrap">Agregar</button></div>
     </div>
-    <div style="margin-top:10px;max-width:320px">
-      <label>Categoria <span style="color:#e74c3c;font-weight:400;text-transform:none">(obligatoria si es un gasto)</span></label>
+    <div id="cont-cat-wrap" style="display:none;margin-top:10px;max-width:320px">
+      <label>Categoria <span style="color:#e74c3c;font-weight:400;text-transform:none">(obligatoria en gastos)</span></label>
       <select id="cont-cat">
         <option value="">-- Sin categoria --</option>
         <option value="Acarreos">Acarreos</option>
@@ -1165,11 +1165,11 @@ tr:hover td{background:#f8f9ff}
       <div><label>Fecha</label><input type="date" id="ec-fecha" class="noup"></div>
       <div><label>Descripcion</label><input type="text" id="ec-desc" style="text-transform:none" placeholder="Descripcion del movimiento"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label style="color:#1e8449">Ingreso $</label><input type="number" id="ec-ing" class="noup" placeholder="0" style="border-color:#a9dfbf"></div>
-        <div><label style="color:#c0392b">Egreso $</label><input type="number" id="ec-egr" class="noup" placeholder="0" style="border-color:#f5b7b1"></div>
+        <div><label style="color:#1e8449">Ingreso $</label><input type="number" id="ec-ing" class="noup" placeholder="0" style="border-color:#a9dfbf" oninput="toggleEcCat()"></div>
+        <div><label style="color:#c0392b">Egreso $</label><input type="number" id="ec-egr" class="noup" placeholder="0" style="border-color:#f5b7b1" oninput="toggleEcCat()"></div>
       </div>
-      <div>
-        <label>Categoria <span style="color:#e74c3c;font-weight:400;text-transform:none">(obligatoria si es un gasto)</span></label>
+      <div id="ec-cat-wrap" style="display:none">
+        <label>Categoria <span style="color:#e74c3c;font-weight:400;text-transform:none">(obligatoria en gastos)</span></label>
         <select id="ec-cat">
           <option value="">-- Sin categoria --</option>
           <option value="Acarreos">Acarreos</option>
@@ -4022,6 +4022,23 @@ function contActualizarBotones(){
   if(btnR)btnR.style.opacity=contHistIdx<contHistorial.length-1?'1':'0.35';
 }
 
+function toggleContCat(){
+  var egr=parseFloat(g('cont-egr').value)||0;
+  var wrap=g('cont-cat-wrap');
+  if(!wrap)return;
+  if(egr>0){
+    wrap.style.display='block';
+  }else{
+    wrap.style.display='none';
+    if(g('cont-cat'))g('cont-cat').value='';
+  }
+}
+function toggleEcCat(){
+  var egr=parseFloat(g('ec-egr').value)||0;
+  var wrap=g('ec-cat-wrap');
+  if(!wrap)return;
+  wrap.style.display=egr>0?'block':'none';
+}
 function fechaHoyISO(){
   var d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -4059,6 +4076,7 @@ function addContable(){
   g('cont-fecha').value=fechaHoyISO();g('cont-desc').value='';
   if(g('cont-cat'))g('cont-cat').value='';
   g('cont-ing').value='';g('cont-egr').value='';
+  toggleContCat();
   renderContable();
   toast('Movimiento registrado');
 }
@@ -4222,6 +4240,7 @@ function editContable(i){
   sv('ec-ing',c.ing||'');
   sv('ec-egr',c.egr||'');
   if(g('ec-cat'))g('ec-cat').value=c.categoria||'';
+  toggleEcCat();
   // Convert fecha DD/MM/YYYY to YYYY-MM-DD for date input
   var fp=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
   sv('ec-fecha',fp.length===3?fp[2]+'-'+fp[1]+'-'+fp[0]:'');
