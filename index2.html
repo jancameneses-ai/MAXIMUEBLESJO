@@ -18,6 +18,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-database.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyARotxjV4m7EgtaBKeuguI6FhzHq0f25DQ",
@@ -31,6 +32,7 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const auth = getAuth(app);
 
   // Exponer funciones al scope global para que el resto del JS las use
   window.fbSet = function(data, callback){
@@ -47,11 +49,17 @@
     });
   };
 
-  window.firebaseReady = true;
-  console.log('Firebase conectado OK');
-
-  // Notificar a la app que Firebase esta listo
-  window.dispatchEvent(new Event('firebaseReady'));
+  // Autenticacion anonima: necesaria para que las reglas de seguridad puedan exigir
+  // "auth != null" en vez de dejar la base de datos abierta a cualquiera en internet.
+  signInAnonymously(auth).then(function(){
+    window.firebaseReady = true;
+    console.log('Firebase conectado OK (autenticado)');
+    window.dispatchEvent(new Event('firebaseReady'));
+  }).catch(function(err){
+    console.error('Error de autenticacion Firebase:', err);
+    window.firebaseReady = true;
+    window.dispatchEvent(new Event('firebaseReady'));
+  });
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
