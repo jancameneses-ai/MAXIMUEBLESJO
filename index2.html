@@ -858,6 +858,7 @@ tr:hover td{background:#f8f9ff}
         <option value="Aseo">Aseo</option>
         <option value="Servicio Energia">Servicio Energia</option>
         <option value="Acueducto">Acueducto</option>
+        <option value="Compra de mercancia">Compra de mercancia</option>
         <option value="Otras compras">Otras compras</option>
         <option value="Otros servicios">Otros servicios</option>
       </select>
@@ -1776,7 +1777,7 @@ function verRefsCred(vi){
       '<div style="color:#27ae60;font-weight:700">✓ Credito cancelado en su totalidad</div>'+
     '</div>';
   }
-  var totalPagado=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
+  var totalPagado=(v.cp||[]).reduce(function(s,p){return s+(p.monto||0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
   var saldo=Math.max(0,creditoTotal(v)-ini-totalPagado);
   var h=diasInfo+
@@ -2012,44 +2013,16 @@ function validarTelRef(input,errId){
 }
 function gestCuot(vi){
   var v=ven[vi];
-  var montoCredito=creditoTotal(v);
-  if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null,pendiente:0};});
-  // cuotaBase: use ci.cval if available, otherwise calculate
-  // Safety: if value looks like it was stored in thousands (< 10000 but total > 100000), recalculate
-  var cuotaBase;
-  if(v.ci&&v.ci.cval){
-    cuotaBase=Math.round(v.ci.cval);
-    // If cuotaBase seems wrong (total much larger), recalculate
-    if(montoCredito>0&&cuotaBase>0&&cuotaBase<montoCredito/100){
-      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(montoCredito-(v.ci.inicial||0))/v.cuotas);
-    }
-  }else{
-    cuotaBase=Math.round(montoCredito/v.cuotas);
-  }
+  if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null};});
+  var plan=calcularPlanCuotas(v);
+  var cuotaBase=plan.cuotaBase;
+  var cuotasVal=plan.cuotasVal;
+  var montoCredito=plan.montoCredito;
   var cl=[v.comprador&&v.comprador.nombre,v.comprador&&v.comprador.apellido].filter(Boolean).join(' ')||'Sin nombre';
 
-  // Calcular cuanto debe cada cuota con acumulado de saldo o exceso
-  // Si pago menos: el faltante se suma a la siguiente cuota
-  // Si pago mas: el exceso se resta de la siguiente cuota
-  var cuotasVal=[];
-  var acum=0; // positivo = deuda acumulada, negativo = exceso a favor
-  for(var i=0;i<v.cuotas;i++){
-    var cp=v.cp[i];
-    var debeEsta=Math.max(0, cuotaBase+acum);
-    if(cp.pagado){
-      var faltante=debeEsta-(cp.monto||0); // negativo si pago de mas
-      acum=faltante; // se acumula al siguiente (suma o resta)
-    }else{
-      acum=0;
-    }
-    cuotasVal.push(debeEsta);
-  }
-  // totalAbonado y saldoPendiente ya calculados arriba
-
   // Resumen financiero arriba
-  // Calcular saldo correctamente:
-  // saldo = total - inicial - todo lo abonado en cuotas (sea mas o menos de la cuota referencia)
-  var totalAbonado=(v.cp||[]).reduce(function(s,c){return s+(c.pagado?c.monto||0:0);},0);
+  // saldo = total a cuotas - inicial - todo lo abonado en cuotas (completo o parcial, sea lo que sea)
+  var totalAbonado=(v.cp||[]).reduce(function(s,c){return s+(c.monto||0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
   var saldoPendiente=Math.max(0,montoCredito-ini-totalAbonado);
 
@@ -2078,6 +2051,9 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
   for(var i=0;i<v.cuotas;i++){
     var cp=v.cp[i];
     var debeEsta=cuotasVal[i];
+    var yaAbonado=cp.monto||0;
+    var faltaEsta=Math.max(0,debeEsta-yaAbonado);
+    var esParcial=!cp.pagado&&yaAbonado>0;
     var dias=diasPP(v,i);
     var border='1px solid #eee';
     if(!cp.pagado&&dias!==null){
@@ -2093,9 +2069,11 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
         fechaV=fp.toLocaleDateString('es-CO');
       }
     }
-    var bgc=cp.pagado?'#eafaf1':dias!==null&&dias<=0?'#fff5f5':dias!==null&&dias<=3?'#fff8f0':'#fefdf5';
+    var bgc=cp.pagado?'#eafaf1':esParcial?'#fff8f0':dias!==null&&dias<=0?'#fff5f5':dias!==null&&dias<=3?'#fff8f0':'#fefdf5';
     var alertTxt='';
-    if(!cp.pagado&&dias!==null){
+    if(esParcial){
+      alertTxt='<span style="font-size:10px;font-weight:700;color:#e67e22">ABONO PARCIAL</span>';
+    }else if(!cp.pagado&&dias!==null){
       var ac2=dias<=0?'color:#e74c3c':dias<=3?'color:#e67e22':'color:#9a7d0a';
       alertTxt='<span style="font-size:10px;font-weight:700;'+ac2+'">'+(dias<=0?'VENCIDA':dias+' dias')+'</span>';
     }else if(cp.pagado){
@@ -2118,28 +2096,44 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
     h+=alertTxt+'</div>';
 
     // Valor que debe pagar en esta cuota
-    h+='<div style="background:rgba(0,0,0,.04);border-radius:6px;padding:6px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">';
-    h+='<span style="font-size:11px;color:#555">Valor a pagar esta cuota</span>';
+    h+='<div style="background:rgba(0,0,0,.04);border-radius:6px;padding:6px 10px;margin-bottom:8px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+    h+='<span style="font-size:11px;color:#555">Valor total de esta cuota</span>';
     h+='<span style="font-size:14px;font-weight:700;color:#1a3a1a">'+fmt(debeEsta)+'</span>';
+    h+='</div>';
+    if(esParcial){
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px dashed #ddd">';
+      h+='<span style="font-size:11px;color:#2ecc71">Ya abonado a esta cuota</span>';
+      h+='<span style="font-size:13px;font-weight:700;color:#2ecc71">'+fmt(yaAbonado)+'</span>';
+      h+='</div>';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">';
+      h+='<span style="font-size:11px;color:#e74c3c;font-weight:700">Falta para completarla</span>';
+      h+='<span style="font-size:13px;font-weight:700;color:#e74c3c">'+fmt(faltaEsta)+'</span>';
+      h+='</div>';
+    }
     h+='</div>';
 
     h+='<div class="g2" style="gap:8px;margin-bottom:8px">';
-    h+='<div><label style="font-size:10px">Monto recibido $</label>';
-    h+='<input type="number" id="cm'+vi+'_'+i+'" value="'+(cp.pagado?cp.monto||0:debeEsta)+'" style="font-size:12px;padding:5px 7px;text-transform:none"'+(cp.pagado?' readonly':'')+'></div>';
+    h+='<div><label style="font-size:10px">Monto recibido ahora $</label>';
+    h+='<input type="number" id="cm'+vi+'_'+i+'" value="'+(cp.pagado?cp.monto||0:faltaEsta)+'" style="font-size:12px;padding:5px 7px;text-transform:none"'+(cp.pagado?' readonly':'')+'></div>';
     h+='<div><label style="font-size:10px">Fecha de pago</label>';
     h+='<input type="date" id="cf'+vi+'_'+i+'" value="'+(cp.fecha||'')+'" style="font-size:12px;padding:5px 7px"'+(cp.pagado?' readonly':'')+'></div>';
     h+='</div>';
 
     if(!cp.pagado){
-      h+='<button class="btn bgreen" onclick="togCuota('+vi+','+i+')" style="width:100%;padding:8px;font-size:11px">Marcar como pagada</button>';
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      h+='<button class="btn bgreen" onclick="togCuota('+vi+','+i+')" style="flex:1;min-width:120px;padding:8px;font-size:11px">'+(esParcial?'Registrar nuevo abono':'Registrar pago')+'</button>';
+      if(esParcial){
+        h+='<button class="btn bpdf" onclick="dlReciboCuota('+vi+','+i+')" style="font-size:10px;padding:8px 10px">Recibo del abono</button>';
+        h+='<button class="btn bgray" onclick="desPagar('+vi+','+i+')" style="font-size:10px;padding:8px 10px">Deshacer</button>';
+      }
+      h+='</div>';
     }else{
       h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
       h+='<span style="color:#1e8449;font-weight:700;font-size:11px">Pagado: '+fmt(cp.monto)+'</span>';
       var diff2=cp.monto-(debeEsta);
-      if(diff2<0){
-        h+='<span style="color:#e67e22;font-size:10px;font-weight:700">Faltan: '+fmt(Math.abs(diff2))+' (se suman a siguiente cuota)</span>';
-      }else if(diff2>0){
-        h+='<span style="color:#2ecc71;font-size:10px;font-weight:700">Exceso: '+fmt(diff2)+' (se restan de siguiente cuota)</span>';
+      if(diff2>0){
+        h+='<span style="color:#2ecc71;font-size:10px;font-weight:700">Exceso: '+fmt(diff2)+' (se resta de siguiente cuota)</span>';
       }
       h+='<button class="btn bpdf" onclick="dlReciboCuota('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Recibo PDF</button>';
       h+='<button class="btn bgray" onclick="desPagar('+vi+','+i+')" style="font-size:10px;padding:3px 9px">Deshacer</button></div>';
@@ -2153,31 +2147,42 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
 function togCuota(vi,ci){
   var v=ven[vi];
   if(!v.cp)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null};});
-  var monto=parseFloat(g('cm'+vi+'_'+ci).value)||0;
+  var montoNuevo=parseFloat(g('cm'+vi+'_'+ci).value)||0;
   var fecha=g('cf'+vi+'_'+ci).value||new Date().toISOString().split('T')[0];
-  v.cp[ci]={pagado:true,monto:monto,fecha:fecha};
-  // Auto-registro contable abono Credicontado
+  if(montoNuevo<=0){toast('Ingresa un monto valido',1);return;}
+  var plan=calcularPlanCuotas(v);
+  var debeEsta=plan.cuotasVal[ci];
+  var yaAbonado=(!v.cp[ci].pagado)?(v.cp[ci].monto||0):0;
+  var montoAcumulado=yaAbonado+montoNuevo;
+  var completo=montoAcumulado>=(debeEsta-1); // tolerancia por redondeo
+  v.cp[ci]={pagado:completo,monto:montoAcumulado,fecha:fecha};
+  // Auto-registro contable abono Credicontado (solo por el monto recibido en este momento)
   var c2=v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
-  addContableAuto(fecha||new Date().toLocaleDateString('es-CO'),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),monto,0,'auto');
-  save();gestCuot(vi);renderCart();toast('Cuota marcada como pagada');
+  addContableAuto(fecha||new Date().toLocaleDateString('es-CO'),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),montoNuevo,0,'auto');
+  save();gestCuot(vi);renderCart();renderCreditos();
+  if(completo){
+    toast('Cuota marcada como pagada');
+  }else{
+    toast('Abono parcial registrado. Faltan '+fmt(debeEsta-montoAcumulado)+' para completar esta cuota');
+  }
 }
 function desPagar(vi,ci){
   var v=ven[vi];
-  var old=(v.cp&&v.cp[ci])?v.cp[ci]:null;
   var c2=v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
   var descBuscar='Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1);
-  // Eliminar la entrada correspondiente del libro contable (busca por descripcion y fecha del pago)
+  if(!confirm('Deshacer todos los abonos registrados para esta cuota? Esto tambien los eliminara del libro contable.'))return;
+  // Eliminar TODAS las entradas del libro contable de esta cuota (puede haber varias si hubo abonos parciales en distintas fechas)
   contGuardarEstado();
   cont=cont.filter(function(c){
     if(c.tipo!=='auto')return true;
-    if(c.desc===descBuscar&&(!old||c.fecha===old.fecha))return false;
+    if(c.desc===descBuscar)return false;
     return true;
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   ven[vi].cp[ci]={pagado:false,monto:0,fecha:null};
-  save();gestCuot(vi);renderCart();renderContable();toast('Cuota desmarcada y eliminada del libro contable');
+  save();gestCuot(vi);renderCart();renderCreditos();renderContable();toast('Abonos de esta cuota deshechos y eliminados del libro contable');
 }
 
 function updStk(i,val){
@@ -3455,6 +3460,33 @@ function creditoTotal(v){
 function esCredicontado(v){
   return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';
 }
+// Calcula cuanto debe cada cuota (cuotaBase + arrastre de cuotas anteriores no cubiertas del todo)
+function calcularPlanCuotas(v){
+  var montoCredito=creditoTotal(v);
+  var cuotaBase;
+  if(v.ci&&v.ci.cval){
+    cuotaBase=Math.round(v.ci.cval);
+    if(montoCredito>0&&cuotaBase>0&&cuotaBase<montoCredito/100){
+      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(montoCredito-(v.ci.inicial||0))/v.cuotas);
+    }
+  }else{
+    cuotaBase=Math.round(montoCredito/v.cuotas);
+  }
+  var cuotasVal=[];
+  var acum=0;
+  for(var i=0;i<v.cuotas;i++){
+    var cp=(v.cp&&v.cp[i])?v.cp[i]:{pagado:false,monto:0};
+    var debeEsta=Math.max(0,cuotaBase+acum);
+    cuotasVal.push(debeEsta);
+    // El arrastre a la siguiente cuota solo aplica cuando esta quedo completamente pagada (con exceso o defecto minimo por redondeo)
+    if(cp.pagado){
+      acum=debeEsta-(cp.monto||0);
+    }else{
+      acum=0;
+    }
+  }
+  return{cuotaBase:cuotaBase,cuotasVal:cuotasVal,montoCredito:montoCredito};
+}
 function renderCart(){
   var th=g('carth'),tb=g('cartb');
   if(!tb)return;
@@ -3464,7 +3496,7 @@ function renderCart(){
   var tot=0,cob=0;
   allCreds.forEach(function(v){
     tot+=creditoTotal(v);
-    (v.cp||[]).forEach(function(c){if(c.pagado)cob+=c.monto||0;});
+    (v.cp||[]).forEach(function(c){cob+=c.monto||0;});
   });
   if(g('cn'))g('cn').textContent=allCreds.length;
   if(g('ct'))g('ct').textContent=fmt(tot);
@@ -4283,14 +4315,25 @@ function delContable(i){
     if(mAbono){
       var clienteBuscado=mAbono[1],artBuscado=mAbono[2],cuotaNum=+mAbono[3]-1;
       var ventaAbono=ven.find(function(v){
-        if(v.art!==artBuscado||!v.cp||!v.cp[cuotaNum]||!v.cp[cuotaNum].pagado)return false;
+        if(v.art!==artBuscado||!v.cp||!v.cp[cuotaNum])return false;
         var c=v.comprador||{};
         var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
         return cl===clienteBuscado;
       });
       if(ventaAbono){
-        ventaAbono.cp[cuotaNum]={pagado:false,monto:0,fecha:null};
-        extra=' La cuota '+(cuotaNum+1)+' de '+clienteBuscado+' quedo desmarcada.';
+        var cpEntry=ventaAbono.cp[cuotaNum];
+        var montoRestar=mov.ing||0;
+        var nuevoMonto=Math.max(0,(cpEntry.monto||0)-montoRestar);
+        if(nuevoMonto<=0){
+          ventaAbono.cp[cuotaNum]={pagado:false,monto:0,fecha:null};
+          extra=' La cuota '+(cuotaNum+1)+' de '+clienteBuscado+' quedo sin abonos.';
+        }else{
+          var planRev=calcularPlanCuotas(ventaAbono);
+          var debeRev=planRev.cuotasVal[cuotaNum];
+          var completoRev=nuevoMonto>=(debeRev-1);
+          ventaAbono.cp[cuotaNum]={pagado:completoRev,monto:nuevoMonto,fecha:cpEntry.fecha};
+          extra=' La cuota '+(cuotaNum+1)+' de '+clienteBuscado+' quedo con '+fmt(nuevoMonto)+' abonado'+(completoRev?' (queda completa).':', faltan '+fmt(debeRev-nuevoMonto)+'.');
+        }
       }
     }
     // Reversar entrada de inventario
@@ -4484,23 +4527,12 @@ function dlReciboCuota(vi,ci){
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
   var asesor=v.vend||currentUser&&(currentUser.nombre||currentUser.uname)||'Admin';
-  var cuotaBase;
-  if(v.ci&&v.ci.cval){
-    cuotaBase=Math.round(v.ci.cval);
-    if(montoCredito>0&&cuotaBase>0&&cuotaBase<montoCredito/100){
-      cuotaBase=Math.round(v.ci.saldo>0?v.ci.saldo/v.cuotas:(montoCredito-(v.ci.inicial||0))/v.cuotas);
-    }
-  }else{cuotaBase=Math.round(montoCredito/v.cuotas);}
+  var plan=calcularPlanCuotas(v);
+  var cuotaBase=plan.cuotaBase;
+  var cuotasVal=plan.cuotasVal;
   var diaPago='';
   if(v.ci&&v.ci.fecha){var fp0=parseDate(v.ci.fecha);if(fp0&&!isNaN(fp0.getTime()))diaPago=fp0.getDate()+' de cada mes';}
-  var cuotasVal=[];var acum=0;
-  for(var i=0;i<v.cuotas;i++){
-    var cp2=v.cp&&v.cp[i]?v.cp[i]:{pagado:false};
-    var debe=Math.max(0,cuotaBase+acum);
-    if(cp2.pagado){acum=debe-(cp2.monto||0);}else{acum=0;}
-    cuotasVal.push(debe);
-  }
-  var totalCuotas=(v.cp||[]).reduce(function(s,p){return s+(p.pagado?p.monto||0:0);},0);
+  var totalCuotas=(v.cp||[]).reduce(function(s,p){return s+(p.monto||0);},0);
   var ini=v.ci?v.ci.inicial||0:0;
   var totalDado=totalCuotas+ini;
   var saldo=Math.max(0,montoCredito-totalDado);
@@ -4558,17 +4590,24 @@ function dlReciboCuota(vi,ci){
     doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-0.5,W-6,y-0.5);
     doc.setFillColor(245,245,245);doc.rect(6,y-0.5,W-12,3,'F');y+=3;
   }
-  var pagadas=(v.cp||[]).map(function(p,i){return{idx:i,p:p};}).filter(function(x){return x.p.pagado;});
+  var pagadas=(v.cp||[]).map(function(p,i){return{idx:i,p:p};}).filter(function(x){return(x.p.monto||0)>0;});
   pagadas.forEach(function(x,ri){
     var bg=ri%2===0?[255,255,255]:[250,250,255];
     doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(6,y-3,W-12,7,'F');
     doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
-    var debe=cuotasVal[x.idx]||cuotaBase;var falta=debe-(x.p.monto||0);
-    var lbl='Cuota '+(x.idx+1)+(Math.abs(falta)>0?' *':'');
+    var debe=cuotasVal[x.idx]||cuotaBase;
+    var falta=debe-(x.p.monto||0);
+    var esParcialHist=!x.p.pagado&&falta>0;
+    var lbl='Cuota '+(x.idx+1)+(esParcialHist?' (abono parcial)':(Math.abs(falta)>0?' *':''));
     doc.text(lbl,9,y+1);doc.text(x.p.fecha||'-',W/2,y+1,{align:'center'});
     doc.setFont('helvetica','bold');doc.text(fmt(x.p.monto||0),W-9,y+1,{align:'right'});
     doc.setTextColor(BL[0],BL[1],BL[2]);y+=7;
-    if(Math.abs(falta)>0){
+    if(esParcialHist){
+      doc.setFontSize(6.5);doc.setFont('helvetica','italic');
+      doc.setTextColor(200,80,0);
+      doc.text('* Cuota aun no completa — faltan '+fmt(falta)+' de esta misma cuota',9,y-3);
+      doc.setTextColor(BL[0],BL[1],BL[2]);doc.setFontSize(9);doc.setFont('helvetica','normal');
+    }else if(x.p.pagado&&Math.abs(falta)>0){
       doc.setFontSize(6.5);doc.setFont('helvetica','italic');
       doc.setTextColor(falta>0?180:30,falta>0?60:130,0);
       doc.text(falta>0?'* Faltaron '+fmt(falta)+' sumados a cuota sig.':'* Exceso '+fmt(Math.abs(falta))+' restados de cuota sig.',9,y-3);
@@ -4603,6 +4642,15 @@ function dlReciboCuota(vi,ci){
   doc.text('Cuota '+(ci+1)+(fechaPago?' — '+fechaPago:''),8,y+7);
   doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
   doc.text(fmt(estePago),W-8,y+7,{align:'right'});y+=14;
+  var estaCpAhora=(v.cp||[])[ci]||{};
+  var faltaEstaCuota=Math.max(0,(cuotasVal[ci]||cuotaBase)-(estaCpAhora.monto||0));
+  if(!estaCpAhora.pagado&&faltaEstaCuota>0){
+    doc.setFillColor(255,245,235);doc.rect(6,y-4,W-12,9,'F');
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(200,80,0);
+    doc.text('ABONO PARCIAL — Faltan '+fmt(faltaEstaCuota)+' para completar la cuota '+(ci+1),W/2,y+1.5,{align:'center'});
+    doc.setTextColor(BL[0],BL[1],BL[2]);
+    y+=11;
+  }
   doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-2,W-6,y-2);
   doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
   doc.text('Asesor: '+asesor,W/2,y+2,{align:'center'});y+=8;
@@ -4613,7 +4661,10 @@ function dlReciboCuota(vi,ci){
       var fp2=parseDate(v.ci.fecha);
       if(fp2&&!isNaN(fp2.getTime())){
         fp2.setMonth(fp2.getMonth()+proxIdx);
-        doc.setFontSize(8);doc.text('Proxima cuota: '+fp2.toLocaleDateString('es-CO')+' — '+fmt(cuotasVal[proxIdx]||cuotaBase),W/2,y+1,{align:'center'});
+        var yaAbonadoProx=(v.cp[proxIdx]&&v.cp[proxIdx].monto)||0;
+        var faltaProx=Math.max(0,(cuotasVal[proxIdx]||cuotaBase)-yaAbonadoProx);
+        var lblProx=yaAbonadoProx>0?('Falta de la cuota '+(proxIdx+1)+': '):('Proxima cuota: '+fp2.toLocaleDateString('es-CO')+' — ');
+        doc.setFontSize(8);doc.text(lblProx+fmt(faltaProx),W/2,y+1,{align:'center'});
         y+=8;
       }
     }
