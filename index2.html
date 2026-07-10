@@ -378,7 +378,9 @@ tr:hover td{background:#f8f9ff}
     <div class="sitem admin-only" onclick="goTab('contable',this)" style="display:none">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
       <span class="slbl">Contable</span></div>
-
+    <div class="sitem" onclick="goTab('ajustes',this)">
+      <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+      <span class="slbl">Ajustes</span></div>
 
   </div>
   <div class="main-content">
@@ -835,7 +837,7 @@ tr:hover td{background:#f8f9ff}
       <button class="btn bgreen" onclick="exportarExcelContable()" style="font-size:11px;padding:8px 16px">Exportar Excel</button>
     </div>
   </div>
-  <div class="card" style="margin-bottom:14px">
+  <div class="card" style="margin-bottom:14px" id="cont-registrar-card">
     <h2>Registrar movimiento manual</h2>
     <div style="display:grid;grid-template-columns:140px 1fr 140px 140px auto;gap:10px;align-items:end">
       <div><label>Fecha</label><input type="date" id="cont-fecha" class="noup"></div>
@@ -950,9 +952,10 @@ tr:hover td{background:#f8f9ff}
         <input type="text" id="nu-respuesta" placeholder="Respuesta secreta" style="text-transform:none">
       </div>
     </div>
-    <!-- Panel de permisos (solo para vendedor) -->
+    <!-- Panel de permisos (aplica tanto a Vendedor como a Administrador) -->
     <div id="nu-perms-panel" style="margin-top:10px;padding:14px;background:#f0f7ff;border-radius:10px;border:1px solid #aed6f1;display:block">
-      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Permisos del vendedor</div>
+      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Permisos de acceso</div>
+      <div style="font-size:10px;color:#888;margin-bottom:10px">El rol define una configuracion automatica de partida (Vendedor = accesos limitados, Administrador = accesos amplios), pero puedes marcar o desmarcar lo que necesites.</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-inv-ver" checked style="width:18px;height:18px"> Ver inventario</label>
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-inv-stock" style="width:18px;height:18px"> Editar stock</label>
@@ -966,9 +969,75 @@ tr:hover td{background:#f8f9ff}
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-cred-ver" checked style="width:18px;height:18px"> Ver credicontados</label>
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-res-ver" style="width:18px;height:18px"> Ver resumen</label>
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-pdf" checked style="width:18px;height:18px"> Descargar PDFs</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-contable-ver" style="width:18px;height:18px"> Ver libro contable (solo lectura)</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-contable-edit" style="width:18px;height:18px"> Agregar/editar/eliminar movimientos contables</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#fff;border-radius:6px"><input type="checkbox" id="p-usuarios" style="width:18px;height:18px"> Gestionar usuarios</label>
       </div>
     </div>
     <button class="btn bblue" onclick="crearUsuario()" style="padding:10px 24px;margin-top:10px">Crear usuario</button>
+  </div>
+</div>
+
+<!-- TAB AJUSTES -->
+<div id="tab-ajustes" class="sec">
+  <div class="card">
+    <h2>Mi cuenta</h2>
+    <div class="g2" style="gap:10px;margin-bottom:12px">
+      <div><label>Nombre completo</label><input type="text" id="aj-nombre" placeholder="TU NOMBRE"></div>
+      <div><label>Usuario (para iniciar sesion)</label><input type="text" id="aj-user" style="text-transform:none" placeholder="usuario"></div>
+    </div>
+    <button class="btn bblue" onclick="guardarPerfilAjustes()" style="padding:9px 20px">Guardar cambios</button>
+  </div>
+
+  <div class="card">
+    <h2>Cambiar contrasena</h2>
+    <div class="g3" style="gap:10px;margin-bottom:12px">
+      <div>
+        <label>Contrasena actual</label>
+        <div style="position:relative">
+          <input type="password" id="aj-pass-actual" style="text-transform:none;padding-right:60px">
+          <button onclick="tpwGen('aj-pass-actual','aj-eye1')" id="aj-eye1" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
+        </div>
+      </div>
+      <div>
+        <label>Nueva contrasena</label>
+        <div style="position:relative">
+          <input type="password" id="aj-pass-nueva" style="text-transform:none;padding-right:60px">
+          <button onclick="tpwGen('aj-pass-nueva','aj-eye2')" id="aj-eye2" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
+        </div>
+      </div>
+      <div>
+        <label>Confirmar nueva contrasena</label>
+        <div style="position:relative">
+          <input type="password" id="aj-pass-confirmar" style="text-transform:none;padding-right:60px">
+          <button onclick="tpwGen('aj-pass-confirmar','aj-eye3')" id="aj-eye3" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn bgold" onclick="cambiarContrasenaAjustes()" style="padding:9px 20px">Cambiar contrasena</button>
+  </div>
+
+  <div class="card">
+    <h2>Pregunta de seguridad</h2>
+    <div class="g2" style="gap:10px;margin-bottom:12px">
+      <div>
+        <label>Pregunta</label>
+        <select id="aj-pregunta">
+          <option value="Nombre de tu mascota">Nombre de tu mascota</option>
+          <option value="Ciudad donde naciste">Ciudad donde naciste</option>
+          <option value="Nombre de tu madre">Nombre de tu madre</option>
+          <option value="Colegio donde estudiaste">Colegio donde estudiaste</option>
+        </select>
+      </div>
+      <div><label>Respuesta</label><input type="text" id="aj-respuesta" style="text-transform:none" placeholder="Tu respuesta"></div>
+    </div>
+    <button class="btn bgray" onclick="guardarPreguntaAjustes()" style="padding:9px 20px">Guardar pregunta de seguridad</button>
+  </div>
+
+  <div class="card">
+    <h2>Apariencia — Color de fondo</h2>
+    <div style="font-size:11px;color:#888;margin-bottom:12px">Elige el color de fondo con el que quieres ver la aplicacion. Se guarda para tu usuario y se aplica cada vez que inicias sesion.</div>
+    <div id="aj-fondos" style="display:flex;gap:12px;flex-wrap:wrap"></div>
   </div>
 </div>
 
@@ -989,11 +1058,18 @@ tr:hover td{background:#f8f9ff}
           <button onclick="tpwGen('eu-pass','eu-eye')" id="eu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
-      <div><label>Rol</label>
+      <div><label>Rol <span id="eu-rol-lock-note" style="display:none;color:#c9a227;font-weight:400;text-transform:none">(perfil de Admin Soporte — solo el/ella puede cambiar su propio rol)</span></label>
         <select id="eu-rol" onchange="togglePermsPanel('eu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
+      </div>
+      <div id="eu-dueno-flag" style="display:none;background:#fdf3d9;color:#9a7d0a;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:600">Este es el perfil de Admin Soporte</div>
+      <div id="eu-dueno-toggle-wrap" style="display:none;padding:8px 12px;background:#f8f9fa;border-radius:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-weight:400;font-size:12px">
+          <input type="checkbox" id="eu-dueno" style="width:16px;height:16px">
+          Hacer a este usuario el Admin Soporte (transfiere la proteccion, solo puede hacerlo el Admin Soporte actual)
+        </label>
       </div>
       <div><label>Pregunta de seguridad</label>
         <select id="eu-pregunta">
@@ -1008,7 +1084,8 @@ tr:hover td{background:#f8f9ff}
       </div>
     </div>
     <div id="eu-perms-panel" style="display:none;margin-top:10px;padding:14px;background:#f0f7ff;border-radius:10px;border:1px solid #aed6f1">
-      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Permisos del vendedor</div>
+      <div style="font-size:11px;font-weight:700;color:#1a5276;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Permisos de acceso</div>
+      <div style="font-size:10px;color:#888;margin-bottom:10px">El rol define una configuracion automatica de partida, pero puedes marcar o desmarcar lo que necesites.</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-inv-ver" style="width:18px;height:18px"> Ver inventario</label>
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-inv-stock" style="width:18px;height:18px"> Editar stock</label>
@@ -1022,6 +1099,9 @@ tr:hover td{background:#f8f9ff}
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-cred-ver" style="width:18px;height:18px"> Ver credicontados</label>
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-res-ver" style="width:18px;height:18px"> Ver resumen</label>
         <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-pdf" style="width:18px;height:18px"> Descargar PDFs</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-contable-ver" style="width:18px;height:18px"> Ver libro contable (solo lectura)</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-contable-edit" style="width:18px;height:18px"> Agregar/editar/eliminar movimientos contables</label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:400;text-transform:none;cursor:pointer;padding:6px 8px;background:#f8f9fa;border-radius:6px"><input type="checkbox" id="ep-usuarios" style="width:18px;height:18px"> Gestionar usuarios</label>
       </div>
     </div>
     <div class="mdf">
@@ -1244,14 +1324,27 @@ function procesarDatos(data){
         if(fu.permisos)existe.permisos=fu.permisos;
         if(fu.pregunta)existe.pregunta=fu.pregunta;
         if(fu.respuesta)existe.respuesta=fu.respuesta;
+        if(fu.esDueno!==undefined)existe.esDueno=fu.esDueno;
       }
     });
   }
   if(data.cont&&Array.isArray(data.cont))cont=data.cont;
   if(data.entradas&&Array.isArray(data.entradas))entradas=data.entradas;
+  asegurarDueno();
   renderAll();
   renderSV();
   renderUsuarios();
+  aplicarFondoUsuario();
+}
+
+// Garantiza que exista exactamente un usuario "Dueno" (perfil unico protegido).
+// Si por alguna razon no hay ninguno marcado, se asigna automaticamente al primer administrador.
+function asegurarDueno(){
+  var yaHayDueno=users.some(function(u){return u.esDueno;});
+  if(!yaHayDueno){
+    var primerAdmin=users.find(function(u){return u.rol==='admin';})||users[0];
+    if(primerAdmin)primerAdmin.esDueno=true;
+  }
 }
 
 function cargar(){
@@ -1312,24 +1405,36 @@ let sc2=false;
 
 // ── USUARIOS ──
 var users=[
-  {uname:'admin',nombre:'Administrador',pass:'admin123',rol:'admin'},
+  {uname:'admin',nombre:'Administrador',pass:'admin123',rol:'admin',esDueno:true},
 ];
 var currentUser=null;
 
 function isAdmin(){return currentUser&&currentUser.rol==='admin';}
 
 // ── SISTEMA DE PERMISOS ──
+// Configuracion automatica de partida segun el rol. Se puede personalizar despues (marcar o desmarcar) para cualquiera de los 2 roles.
 var PERMS_DEFAULT = {
   'inv-ver':true,'inv-stock':false,'inv-add':false,'inv-edit':false,
   'ven-reg':true,'his-ver':true,'his-edit':false,
   'cart-ver':true,'cuot-gest':true,'cred-ver':true,
-  'res-ver':false,'pdf':true
+  'res-ver':false,'pdf':true,'contable-ver':false,'contable-edit':false,'usuarios':false
 };
+var PERMS_ADMIN_DEFAULT = {
+  'inv-ver':true,'inv-stock':true,'inv-add':true,'inv-edit':true,
+  'ven-reg':true,'his-ver':true,'his-edit':true,
+  'cart-ver':true,'cuot-gest':true,'cred-ver':true,
+  'res-ver':true,'pdf':true,'contable-ver':true,'contable-edit':true,'usuarios':true
+};
+var PERMS_KEYS=['inv-ver','inv-stock','inv-add','inv-edit','ven-reg','his-ver','his-edit','cart-ver','cuot-gest','cred-ver','res-ver','pdf','contable-ver','contable-edit','usuarios'];
 
 function getPerm(key){
   if(!currentUser) return false;
-  if(currentUser.rol==='admin') return true;
-  var perms=currentUser.permisos||PERMS_DEFAULT;
+  if(currentUser.esDueno) return true; // el Admin Soporte (perfil protegido) siempre tiene acceso total
+  var perms=currentUser.permisos;
+  if(!perms){
+    // Compatibilidad con usuarios antiguos que no tienen permisos guardados
+    return currentUser.rol==='admin'?true:(PERMS_DEFAULT[key]===true);
+  }
   return perms[key]===true;
 }
 
@@ -1337,13 +1442,16 @@ function togglePermsPanel(prefix){
   var rol=g(prefix+'-rol');
   var panel=g(prefix+'-perms-panel');
   if(!rol||!panel) return;
-  panel.style.display=rol.value==='vendedor'?'block':'none';
+  panel.style.display='block'; // ahora se muestra para ambos roles
+  // Al cambiar el rol se aplica su configuracion automatica de partida (se puede personalizar despues)
+  var checkboxPrefix=(prefix==='nu')?'p-':(prefix+'-');
+  var preset=rol.value==='admin'?PERMS_ADMIN_DEFAULT:PERMS_DEFAULT;
+  setPermsToForm(checkboxPrefix,preset);
 }
 
 function getPermsFromForm(prefix){
-  var keys=['inv-ver','inv-stock','inv-add','inv-edit','ven-reg','his-ver','his-edit','cart-ver','cuot-gest','cred-ver','res-ver','pdf'];
   var perms={};
-  keys.forEach(function(k){
+  PERMS_KEYS.forEach(function(k){
     var el=g(prefix+k);
     perms[k]=el?el.checked:false;
   });
@@ -1351,8 +1459,7 @@ function getPermsFromForm(prefix){
 }
 
 function setPermsToForm(prefix,perms){
-  var keys=['inv-ver','inv-stock','inv-add','inv-edit','ven-reg','his-ver','his-edit','cart-ver','cuot-gest','cred-ver','res-ver','pdf'];
-  keys.forEach(function(k){
+  PERMS_KEYS.forEach(function(k){
     var el=g(prefix+k);
     if(el) el.checked=perms?perms[k]===true:PERMS_DEFAULT[k]===true;
   });
@@ -1361,18 +1468,20 @@ function setPermsToForm(prefix,perms){
 function applyRol(){
   if(!currentUser) return;
   var esAdmin=isAdmin();
-  // Sidebar items
+  // Sidebar items marcados como admin-only (se afinan mas abajo segun permisos especificos)
   document.querySelectorAll('.admin-only').forEach(function(el){
     el.style.display=esAdmin?'flex':'none';
   });
-  // Tabs segun permisos
+  // Tabs segun permisos individuales (aplica a ambos roles)
   var tabs={
-    'venta': esAdmin||getPerm('ven-reg'),
-    'inventario': esAdmin||getPerm('inv-ver'),
-    'historial': esAdmin||getPerm('his-ver'),
-    'cartera': esAdmin||getPerm('cart-ver'),
-    'creditos': esAdmin||getPerm('cred-ver'),
-    'resumen': esAdmin||getPerm('res-ver'),
+    'venta': getPerm('ven-reg'),
+    'inventario': getPerm('inv-ver'),
+    'historial': getPerm('his-ver'),
+    'cartera': getPerm('cart-ver'),
+    'creditos': getPerm('cred-ver'),
+    'resumen': getPerm('res-ver'),
+    'usuarios': getPerm('usuarios'),
+    'contable': getPerm('contable-ver'),
   };
   document.querySelectorAll('.sitem[onclick]').forEach(function(el){
     var onclick=el.getAttribute('onclick')||'';
@@ -1384,13 +1493,23 @@ function applyRol(){
   });
   // Boton registrar venta
   var btnReg=g('btn-reg-venta');
-  if(btnReg) btnReg.style.display=(esAdmin||getPerm('ven-reg'))?'block':'none';
+  if(btnReg) btnReg.style.display=getPerm('ven-reg')?'block':'none';
   // Agregar articulos
   var cadd=g('cadd');
-  if(cadd) cadd.style.display=(esAdmin||getPerm('inv-add'))?'block':'none';
+  if(cadd) cadd.style.display=getPerm('inv-add')?'block':'none';
   // PDFs
   var btnpdf=g('btnpdf');
-  if(btnpdf&&!esAdmin&&!getPerm('pdf')) btnpdf.style.display='none';
+  if(btnpdf&&!getPerm('pdf')) btnpdf.style.display='none';
+  // Libro contable: si solo puede ver, ocultar controles de edicion
+  var puedeEditarContable=getPerm('contable-edit');
+  var regCard=g('cont-registrar-card');
+  if(regCard) regCard.style.display=puedeEditarContable?'block':'none';
+  var contUndo=g('cont-undo');if(contUndo)contUndo.style.display=puedeEditarContable?'inline-flex':'none';
+  var contRedo=g('cont-redo');if(contRedo)contRedo.style.display=puedeEditarContable?'inline-flex':'none';
+  // Columnas de costo y margen en inventario (informacion sensible del negocio)
+  document.querySelectorAll('.col-costo').forEach(function(el){
+    el.style.display=esAdmin?'':'none';
+  });
 }
 
 function tpwGen(inputId,btnId){
@@ -1425,6 +1544,7 @@ function doLogin(){
   }
   renderAll();
   renderSV();
+  aplicarFondoUsuario();
   var cfLogin=g('cont-fecha');if(cfLogin&&!cfLogin.value)cfLogin.value=fechaHoyISO();
   toast('Bienvenido, '+(user.nombre||user.uname));
 }
@@ -1526,21 +1646,106 @@ function checkSession(){
     }
     g('login-overlay').classList.add('hidden');
     renderSV(); // refresh vendedor list
+    aplicarFondoUsuario();
     return true;
   }catch(e){return false;}
 }
 
-function applyRol(){
-  // Mostrar/ocultar elementos segun rol
-  var esAdmin=isAdmin();
-  // Sidebar Usuarios
-  document.querySelectorAll('.admin-only').forEach(function(el){
-    el.style.display=esAdmin?'flex':'none';
-  });
-  // Columnas de costo y margen en inventario
-  document.querySelectorAll('.col-costo').forEach(function(el){
-    el.style.display=esAdmin?'':'none';
-  });
+// ── AJUSTES (perfil, contrasena, apariencia) ──
+var FONDOS_PRESET=[
+  {nombre:'Gris claro',color:'#f0f2f5'},
+  {nombre:'Azul suave',color:'#eaf2fb'},
+  {nombre:'Verde suave',color:'#eafaf1'},
+  {nombre:'Beige calido',color:'#faf3e9'},
+  {nombre:'Lavanda',color:'#f3f0fb'},
+  {nombre:'Oscuro',color:'#232a35'}
+];
+
+function aplicarFondoUsuario(){
+  if(!currentUser)return;
+  var color=currentUser.fondo||'#f0f2f5';
+  document.body.style.background=color;
+}
+
+function renderAjustes(){
+  if(!currentUser)return;
+  sv('aj-nombre',currentUser.nombre||'');
+  sv('aj-user',currentUser.uname||'');
+  sv('aj-pass-actual','');sv('aj-pass-nueva','');sv('aj-pass-confirmar','');
+  var pEl=g('aj-pregunta');if(pEl)pEl.value=currentUser.pregunta||'Nombre de tu mascota';
+  var rEl=g('aj-respuesta');if(rEl)rEl.value=currentUser.respuesta||'';
+  renderFondosAjustes();
+}
+
+function renderFondosAjustes(){
+  var wrap=g('aj-fondos');
+  if(!wrap)return;
+  var actual=currentUser.fondo||'#f0f2f5';
+  wrap.innerHTML=FONDOS_PRESET.map(function(f){
+    var seleccionado=f.color===actual;
+    return '<div onclick="seleccionarFondo(\''+f.color+'\')" style="cursor:pointer;text-align:center">'+
+      '<div style="width:56px;height:56px;border-radius:12px;background:'+f.color+';border:3px solid '+(seleccionado?'#3498db':'#e0e0e0')+';box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:6px;display:flex;align-items:center;justify-content:center">'+
+      (seleccionado?'<span style="color:#3498db;font-size:18px;font-weight:700">&#10003;</span>':'')+
+      '</div>'+
+      '<div style="font-size:10px;color:#666;font-weight:600">'+f.nombre+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function seleccionarFondo(color){
+  currentUser.fondo=color;
+  var u=users.find(function(x){return x.uname===currentUser.uname;});
+  if(u)u.fondo=color;
+  aplicarFondoUsuario();
+  renderFondosAjustes();
+  save();
+  toast('Color de fondo actualizado');
+}
+
+function guardarPerfilAjustes(){
+  var nombre=(g('aj-nombre').value||'').trim();
+  var uname=(g('aj-user').value||'').trim().toLowerCase();
+  if(!nombre||!uname){toast('Completa nombre y usuario',1);return;}
+  var dup=users.find(function(u){return u.uname===uname&&u.uname!==currentUser.uname;});
+  if(dup){toast('Ese nombre de usuario ya lo usa otra persona',1);return;}
+  var u=users.find(function(x){return x.uname===currentUser.uname;});
+  if(u){
+    u.nombre=nombre;
+    u.uname=uname;
+  }
+  currentUser.nombre=nombre;
+  currentUser.uname=uname;
+  var ub=g('ubadge');if(ub)ub.textContent=nombre;
+  save();
+  toast('Perfil actualizado');
+}
+
+function cambiarContrasenaAjustes(){
+  var actual=g('aj-pass-actual').value;
+  var nueva=g('aj-pass-nueva').value;
+  var confirmar=g('aj-pass-confirmar').value;
+  if(!actual){toast('Escribe tu contrasena actual',1);return;}
+  if(actual!==currentUser.pass){toast('La contrasena actual no es correcta',1);return;}
+  if(!nueva||nueva.length<4){toast('La nueva contrasena debe tener al menos 4 caracteres',1);return;}
+  if(nueva!==confirmar){toast('Las contrasenas nuevas no coinciden',1);return;}
+  var u=users.find(function(x){return x.uname===currentUser.uname;});
+  if(u)u.pass=nueva;
+  currentUser.pass=nueva;
+  sv('aj-pass-actual','');sv('aj-pass-nueva','');sv('aj-pass-confirmar','');
+  save();
+  toast('Contrasena actualizada correctamente');
+}
+
+function guardarPreguntaAjustes(){
+  var pregunta=g('aj-pregunta').value;
+  var respuesta=(g('aj-respuesta').value||'').trim();
+  if(!respuesta){toast('Escribe una respuesta',1);return;}
+  var u=users.find(function(x){return x.uname===currentUser.uname;});
+  if(u){u.pregunta=pregunta;u.respuesta=respuesta;}
+  currentUser.pregunta=pregunta;
+  currentUser.respuesta=respuesta;
+  save();
+  toast('Pregunta de seguridad actualizada');
 }
 
 function crearUsuario(){
@@ -1552,7 +1757,7 @@ function crearUsuario(){
   if(users.find(function(u){return u.uname===uname;})){toast('Ese usuario ya existe',1);return;}
   var pregunta=g('nu-pregunta')?g('nu-pregunta').value:'Nombre de tu mascota';
   var respuesta=g('nu-respuesta')?g('nu-respuesta').value.trim():'';
-  var permisos=rol==='vendedor'?getPermsFromForm('p-'):PERMS_DEFAULT;
+  var permisos=getPermsFromForm('p-');
   users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta,permisos:permisos});
   save();
   g('nu-nombre').value='';g('nu-user').value='';g('nu-pass').value='';
@@ -1569,12 +1774,30 @@ function abrirEditarUsuario(idx){
   sv('eu-rol',u.rol||'vendedor');
   var ep=g('eu-pregunta');if(ep)ep.value=u.pregunta||'Nombre de tu mascota';
   var er=g('eu-respuesta');if(er)er.value=u.respuesta||'';
-  // Mostrar permisos si es vendedor
+  // Mostrar siempre el panel de permisos (aplica a ambos roles)
   var euPanel=g('eu-perms-panel');
   var euRol=g('eu-rol');
   if(euPanel&&euRol){
-    euPanel.style.display=u.rol==='vendedor'?'block':'none';
-    setPermsToForm('ep-',u.permisos||PERMS_DEFAULT);
+    euPanel.style.display='block';
+    setPermsToForm('ep-',u.permisos||(u.rol==='admin'?PERMS_ADMIN_DEFAULT:PERMS_DEFAULT));
+  }
+  // Proteccion del perfil del Dueno: solo el propio Dueno puede cambiar su rol
+  var esDuenoTarget=!!u.esDueno;
+  var soyEseDueno=currentUser&&currentUser.uname===u.uname;
+  var rolSelect=g('eu-rol');
+  var rolLockNote=g('eu-rol-lock-note');
+  if(rolSelect){
+    rolSelect.disabled=esDuenoTarget&&!soyEseDueno;
+  }
+  if(rolLockNote)rolLockNote.style.display=(esDuenoTarget&&!soyEseDueno)?'inline':'none';
+  var duenoFlag=g('eu-dueno-flag');
+  if(duenoFlag)duenoFlag.style.display=esDuenoTarget?'block':'none';
+  // Panel para transferir el rol de Dueno: solo lo ve el Dueno actual, y solo sobre otras cuentas
+  var duenoToggleWrap=g('eu-dueno-toggle-wrap');
+  var puedeTransferir=currentUser&&currentUser.esDueno&&!esDuenoTarget;
+  if(duenoToggleWrap){
+    duenoToggleWrap.style.display=puedeTransferir?'block':'none';
+    if(g('eu-dueno'))g('eu-dueno').checked=false;
   }
   g('m-edit-user').classList.add('open');
 }
@@ -1584,7 +1807,11 @@ function guardarUsuario(){
   var nombre=g('eu-nombre').value.trim();
   var uname=g('eu-user').value.trim().toLowerCase();
   var pass=g('eu-pass').value;
-  var rol=g('eu-rol').value;
+  var target=users[idx];
+  var esDuenoTarget=!!target.esDueno;
+  var soyEseDueno=currentUser&&currentUser.uname===target.uname;
+  // El rol solo se puede cambiar si el objetivo no es el Dueno, o si quien edita es el propio Dueno
+  var rol=(esDuenoTarget&&!soyEseDueno)?target.rol:g('eu-rol').value;
   if(!nombre||!uname){toast('Completa nombre y usuario',1);return;}
   // Verificar que no haya duplicado con otro usuario
   var dup=users.find(function(u,i){return u.uname===uname&&i!==idx;});
@@ -1595,10 +1822,16 @@ function guardarUsuario(){
   if(pass)users[idx].pass=pass;
   var ep=g('eu-pregunta');if(ep)users[idx].pregunta=ep.value;
   var er=g('eu-respuesta');if(er&&er.value.trim())users[idx].respuesta=er.value.trim();
-  if(users[idx].rol==='vendedor'){
-    users[idx].permisos=getPermsFromForm('ep-');
-  }else{
-    delete users[idx].permisos;
+  users[idx].permisos=getPermsFromForm('ep-');
+  // Transferencia del perfil de Dueno (solo el Dueno actual puede hacerlo)
+  var quiereTransferir=g('eu-dueno')&&g('eu-dueno').checked;
+  var puedeTransferir=currentUser&&currentUser.esDueno&&!esDuenoTarget;
+  if(quiereTransferir&&puedeTransferir){
+    var duenoActual=users.find(function(u){return u.esDueno;});
+    if(duenoActual)duenoActual.esDueno=false;
+    users[idx].esDueno=true;
+    users[idx].rol='admin'; // el dueno siempre debe ser administrador
+    toast('Se transfirio el perfil de Admin Soporte a '+users[idx].nombre);
   }
   // Si es el usuario activo, actualizar permisos en sesion
   if(currentUser&&currentUser.uname===users[idx].uname){
@@ -1615,6 +1848,7 @@ function guardarUsuario(){
 
 function eliminarUsuario(idx){
   if(users.length<=1){toast('Debe haber al menos un usuario',1);return;}
+  if(users[idx].esDueno){toast('El perfil de Admin Soporte no se puede eliminar',1);return;}
   if(currentUser&&currentUser.uname===users[idx].uname){toast('No puedes eliminar tu propio usuario',1);return;}
   if(!confirm('Eliminar usuario '+users[idx].nombre+'?'))return;
   users.splice(idx,1);
@@ -1628,23 +1862,25 @@ function renderUsuarios(){
   container.innerHTML=users.map(function(u,i){
     var esAdmin=u.rol==='admin';
     var esCurrent=currentUser&&currentUser.uname===u.uname;
+    var esDueno=!!u.esDueno;
     return '<div class="ur">'+
       '<div style="display:flex;align-items:center;gap:12px">'+
-        '<div style="width:38px;height:38px;border-radius:50%;background:'+(esAdmin?'#3498db':'#2ecc71')+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px">'+
+        '<div style="width:38px;height:38px;border-radius:50%;background:'+(esDueno?'#c9a227':esAdmin?'#3498db':'#2ecc71')+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px">'+
           u.nombre.charAt(0).toUpperCase()+
         '</div>'+
         '<div>'+
           '<div style="font-weight:600;font-size:12px;color:#2c3e50">'+u.nombre+(esCurrent?' <span style="font-size:10px;color:#3498db">(tu)</span>':'')+' <span style="font-size:10px;color:#888">('+u.uname+')</span></div>'+
-          '<div style="font-size:10px;margin-top:2px">'+
+          '<div style="font-size:10px;margin-top:2px;display:flex;gap:5px;flex-wrap:wrap">'+
             '<span style="background:'+(esAdmin?'#ebf5fb':'#eafaf1')+';color:'+(esAdmin?'#1a5276':'#1e8449')+';padding:2px 8px;border-radius:10px;font-weight:600">'+
               (esAdmin?'Administrador':'Vendedor')+
             '</span>'+
+            (esDueno?'<span style="background:#fdf3d9;color:#9a7d0a;padding:2px 8px;border-radius:10px;font-weight:700">Admin Soporte</span>':'')+
           '</div>'+
         '</div>'+
       '</div>'+
       '<div style="display:flex;gap:6px">'+
         '<button class="btn borg" onclick="abrirEditarUsuario('+i+')" style="font-size:10px">Editar</button>'+
-        (users.length>1&&!esCurrent?'<button class="btn bred" onclick="eliminarUsuario('+i+')" style="font-size:10px">Eliminar</button>':'')+
+        (users.length>1&&!esCurrent&&!esDueno?'<button class="btn bred" onclick="eliminarUsuario('+i+')" style="font-size:10px">Eliminar</button>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -4030,6 +4266,7 @@ function contGuardarEstado(){
   contActualizarBotones();
 }
 function contDeshacer(){
+  if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   if(contHistIdx<=0){toast('No hay nada que deshacer',1);return;}
   contHistIdx--;
   cont=JSON.parse(JSON.stringify(contHistorial[contHistIdx]));
@@ -4039,6 +4276,7 @@ function contDeshacer(){
   toast('Movimiento deshecho');
 }
 function contRehacer(){
+  if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   if(contHistIdx>=contHistorial.length-1){toast('No hay nada que rehacer',1);return;}
   contHistIdx++;
   cont=JSON.parse(JSON.stringify(contHistorial[contHistIdx]));
@@ -4076,6 +4314,7 @@ function fechaHoyISO(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function addContable(){
+  if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   var fecha=g('cont-fecha').value;
   var desc=g('cont-desc').value.trim();
   var ing=parseFloat(g('cont-ing').value)||0;
@@ -4265,6 +4504,7 @@ function addContableAuto(fecha,desc,ing,egr,tipo,categoria){
 }
 
 function editContable(i){
+  if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   var c=cont[i];
   if(!c){toast('No encontrado',1);return;}
   sv('ec-idx',i);
@@ -4279,6 +4519,7 @@ function editContable(i){
   document.getElementById('m-edit-cont').classList.add('open');
 }
 function guardarEditContable(){
+  if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   var i=+(document.getElementById('ec-idx')||{value:-1}).value;
   if(isNaN(i)||i<0||i>=cont.length){toast('Error al guardar',1);return;}
   var rawFecha=document.getElementById('ec-fecha').value;
@@ -4305,6 +4546,7 @@ function guardarEditContable(){
   toast('Movimiento actualizado');
 }
 function delContable(i){
+  if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   if(!confirm('Eliminar este movimiento? Si viene de una cuota o entrada de inventario, tambien se revertira alli.'))return;
   var mov=cont[i];
   var extra='';
@@ -4474,8 +4716,10 @@ function renderContable(){
         (horaLabel?'<div style="color:#bbb">'+horaLabel+'</div>':'')+
       '</td>'+
       '<td style="white-space:nowrap">'+
+        (getPerm('contable-edit')?(
         '<button class="btn bgold" onclick="editContable('+idx+')" style="font-size:10px;padding:3px 8px;margin-right:3px">Editar</button>'+
-        '<button class="btn bred" onclick="delContable('+idx+')" style="font-size:10px;padding:3px 8px">X</button>'+
+        '<button class="btn bred" onclick="delContable('+idx+')" style="font-size:10px;padding:3px 8px">X</button>'
+        ):'<span style="color:#ccc;font-size:10px">Solo lectura</span>')+
       '</td>'+
     '</tr>';
   }).join('');
@@ -4702,6 +4946,7 @@ function goTab(id,el){
   if(id==='creditos')renderCreditos();
   if(id==='usuarios')renderUsuarios();
   if(id==='contable'){renderContable();var cfTab=g('cont-fecha');if(cfTab&&!cfTab.value)cfTab.value=fechaHoyISO();}
+  if(id==='ajustes')renderAjustes();
   if(id==='inventario'){switchInvView('stock');}
   if(id==='historial')renderHist();
 }
