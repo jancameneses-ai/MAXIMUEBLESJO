@@ -641,11 +641,6 @@ tr:hover td{background:#f8f9ff}
   </div>
 
   <div id="inv-view-stock">
-    <div class="card"><h2>Stock de articulos</h2>
-      <input type="text" id="inv-search" placeholder="Buscar articulo..." oninput="renderInv()" class="noup" style="margin-bottom:12px;text-transform:none">
-      <div style="overflow-x:auto"><table><thead id="ith"></thead><tbody id="itb"></tbody></table></div>
-      <div id="inv-pag"></div>
-    </div>
     <div class="card admin-only" id="cadd">
       <h2>Agregar articulo</h2>
       <div class="g3" style="margin-bottom:10px">
@@ -656,6 +651,11 @@ tr:hover td{background:#f8f9ff}
         <div><label>P. Venta $</label><input type="number" id="nv" min="0" class="noup"></div>
       </div>
       <button class="btn bgold" onclick="addArt()" style="padding:9px 22px">Agregar articulo</button>
+    </div>
+    <div class="card"><h2>Stock de articulos</h2>
+      <input type="text" id="inv-search" placeholder="Buscar articulo..." oninput="renderInv()" class="noup" style="margin-bottom:12px;text-transform:none">
+      <div style="overflow-x:auto"><table><thead id="ith"></thead><tbody id="itb"></tbody></table></div>
+      <div id="inv-pag"></div>
     </div>
   </div>
 
@@ -2442,7 +2442,7 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
       var fp=parseDate(v.ci.fecha);
       if(fp&&!isNaN(fp.getTime())){
         fp.setMonth(fp.getMonth()+i);
-        fechaV=fp.toLocaleDateString('es-CO');
+        fechaV=fmtFechaDDMMYYYY(fp);
       }
     }
     var bgc=cp.pagado?'#eafaf1':esParcial?'#fff8f0':dias!==null&&dias<=0?'#fff5f5':dias!==null&&dias<=3?'#fff8f0':'#fefdf5';
@@ -2536,7 +2536,7 @@ function togCuota(vi,ci){
   // Auto-registro contable abono Credicontado (solo por el monto recibido en este momento)
   var c2=v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
-  addContableAuto(fecha||new Date().toLocaleDateString('es-CO'),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),montoNuevo,0,'auto');
+  addContableAuto(fecha||fmtFechaDDMMYYYY(),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),montoNuevo,0,'auto');
   logActividad('Cartera',(completo?'Completo':'Abono parcial de')+' la cuota '+(ci+1)+' de '+cl2+' ('+v.art+'): '+fmt(montoNuevo));
   save();gestCuot(vi);renderCart();renderCreditos();
   if(completo){
@@ -3078,11 +3078,11 @@ function regVenta(){
   var sccCuotasN=isSCC?(+g('scc-cuotas').value||3):0;
   var sccSaldo=isSCC?Math.max(0,_sccCc-sccIni):0;
   var sccCval=(isSCC&&sccCuotasN>0)?sccSaldo/sccCuotasN:0;
-  var fechaHoy=new Date().toLocaleDateString('es-CO');
+  var fechaHoy=fmtFechaDDMMYYYY();
   var ci=cc?{cuotas:ccCuotas,inicial:ccIni,saldo:ccSaldo,cval:ccCval,fecha:g('cc-fecha').value}
     :isSCC?{cuotas:sccCuotasN,inicial:sccIni,saldo:sccSaldo,cval:sccCval,fecha:g('scc-fecha').value}
     :null;
-  var fecha=new Date().toLocaleDateString('es-CO');
+  var fecha=fmtFechaDDMMYYYY();
   var cp=cr?Array.from({length:cuotas},function(){return{pagado:false,monto:0,fecha:null};}):[];
   // Nombre del articulo: si hay varios, listarlos
   var artNombre=carrito.length===1?carrito[0].art:carrito.map(function(it){return it.art+' x'+it.qty;}).join(', ');
@@ -3098,7 +3098,7 @@ function regVenta(){
   ven.unshift(v);lv=v;
   // Libro contable automatico
   var pagoV2=pago;
-  var fechaVenta2=new Date().toLocaleDateString('es-CO');
+  var fechaVenta2=fmtFechaDDMMYYYY();
   var artNombreV=artNombre;
   var cNom=[nom,ap].filter(Boolean).join(' ');
   if(pagoV2==='EFECTIVO'){
@@ -4014,7 +4014,7 @@ function exportarDetalleResExcel(){
     var ws=XLSX.utils.table_to_sheet(tabla,{display:true});
     var tituloTxt=(g('res-detalle-titulo').textContent||'Detalle').replace(/[\\/*?:\[\]]/g,'').substring(0,28);
     XLSX.utils.book_append_sheet(wb,ws,tituloTxt||'Detalle');
-    var fechaArchivo=new Date().toLocaleDateString('es-CO').split('/').join('-');
+    var fechaArchivo=fmtFechaDDMMYYYY().split('/').join('-');
     XLSX.writeFile(wb,'Maximuebles_'+tituloTxt.replace(/\s+/g,'_')+'_'+fechaArchivo+'.xlsx');
     toast('Excel descargado correctamente');
   }catch(e){
@@ -4572,7 +4572,7 @@ function logActividad(tipo,detalle){
   var ahora=new Date();
   actividad.unshift({
     ts:Date.now(),
-    fecha:ahora.toLocaleDateString('es-CO'),
+    fecha:fmtFechaDDMMYYYY(ahora),
     hora:ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
     uname:currentUser.uname,
     nombre:currentUser.nombre||currentUser.uname,
@@ -4582,6 +4582,10 @@ function logActividad(tipo,detalle){
   // Limitar el historial para no crecer indefinidamente
   if(actividad.length>2000)actividad.length=2000;
   save();
+}
+function fmtFechaDDMMYYYY(fecha){
+  var d = fecha || new Date();
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
 }
 function fechaHoyISO(){
   var d=new Date();
@@ -4674,7 +4678,7 @@ function exportarExcelContable(){
     ws['!cols']=[{wch:12},{wch:45},{wch:22},{wch:14},{wch:14},{wch:16},{wch:16},{wch:8},{wch:12}];
     XLSX.utils.book_append_sheet(wb,ws,'Libro Contable');
 
-    var fechaArchivo=new Date().toLocaleDateString('es-CO').split('/').join('-');
+    var fechaArchivo=fmtFechaDDMMYYYY().split('/').join('-');
     XLSX.writeFile(wb,'Maximuebles_Jo_Libro_Contable_'+fechaArchivo+'.xlsx');
     toast('Excel del libro contable descargado');
   }catch(e){
@@ -5061,7 +5065,7 @@ function dlReciboCuota(vi,ci){
   var estePago=esteCp.monto||0;
   var fechaPago=esteCp.fecha||v.fecha||'';
   var ahora=new Date();
-  var fechaHoy=ahora.toLocaleDateString('es-CO');
+  var fechaHoy=fmtFechaDDMMYYYY(ahora);
   var horaHoy=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({unit:'mm',format:'a5'});
@@ -5184,7 +5188,7 @@ function dlReciboCuota(vi,ci){
         fp2.setMonth(fp2.getMonth()+proxIdx);
         var yaAbonadoProx=(v.cp[proxIdx]&&v.cp[proxIdx].monto)||0;
         var faltaProx=Math.max(0,(cuotasVal[proxIdx]||cuotaBase)-yaAbonadoProx);
-        var lblProx=yaAbonadoProx>0?('Falta de la cuota '+(proxIdx+1)+': '):('Proxima cuota: '+fp2.toLocaleDateString('es-CO')+' — ');
+        var lblProx=yaAbonadoProx>0?('Falta de la cuota '+(proxIdx+1)+': '):('Proxima cuota: '+fmtFechaDDMMYYYY(fp2)+' — ');
         doc.setFontSize(8);doc.text(lblProx+fmt(faltaProx),W/2,y+1,{align:'center'});
         y+=8;
       }
