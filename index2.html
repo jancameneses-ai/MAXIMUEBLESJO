@@ -343,14 +343,18 @@ tr:hover td{background:#f8f9ff}
       <div class="login-err" id="login-err">Usuario o contrasena incorrectos</div>
       <div class="login-field">
         <label>Usuario</label>
-        <input type="text" id="login-user" placeholder="Escribe tu usuario" style="text-transform:none" onkeydown="if(event.key==='Enter')doLogin()">
+        <input type="text" id="login-user" placeholder="Escribe tu usuario" style="text-transform:none" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <div class="login-field">
         <label>Contrasena</label>
         <div class="login-pw">
-          <input type="password" id="login-pass" placeholder="Contrasena" style="text-transform:none!important" onkeydown="if(event.key==='Enter')doLogin()">
+          <input type="password" id="login-pass" placeholder="Contrasena" style="text-transform:none!important" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()">
           <button class="login-pw-btn" onclick="tpwGen('login-pass','lp-eye')" id="lp-eye" type="button">Ver</button>
         </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px 2px">
+        <input type="checkbox" id="login-recordar" style="width:16px;height:16px;cursor:pointer">
+        <label for="login-recordar" style="font-size:11px;color:#666;font-weight:400;text-transform:none;cursor:pointer;margin:0">Mantener sesion abierta por 30 dias</label>
       </div>
       <button class="login-btn" onclick="doLogin()">Ingresar</button>
       <div id="rec-link" style="text-align:center;margin-top:14px">
@@ -360,7 +364,7 @@ tr:hover td{background:#f8f9ff}
         <div style="font-size:12px;font-weight:600;color:#2c3e50;margin-bottom:10px">Recuperar contraseña</div>
         <div style="margin-bottom:8px">
           <label style="font-size:10px;color:#555;font-weight:600;text-transform:uppercase">Usuario</label>
-          <input type="text" id="rec-user" placeholder="Escribe tu usuario" style="text-transform:none;margin-top:3px">
+          <input type="text" id="rec-user" placeholder="Escribe tu usuario" style="text-transform:none;margin-top:3px" autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
         <div id="rec-pregunta-wrap" style="display:none;margin-bottom:8px">
           <label id="rec-pregunta-lbl" style="font-size:10px;color:#555;font-weight:600;text-transform:uppercase">Pregunta de seguridad</label>
@@ -974,12 +978,12 @@ tr:hover td{background:#f8f9ff}
       </div>
       <div>
         <label>Usuario (para iniciar sesion)</label>
-        <input type="text" id="nu-user" placeholder="USUARIO" style="text-transform:none">
+        <input type="text" id="nu-user" placeholder="USUARIO" style="text-transform:none" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <div>
         <label>Contrasena</label>
         <div style="position:relative">
-          <input type="password" id="nu-pass" placeholder="Contrasena" style="text-transform:none;padding-right:60px">
+          <input type="password" id="nu-pass" placeholder="Contrasena" style="text-transform:none;padding-right:60px" autocapitalize="off" autocorrect="off" spellcheck="false">
           <button onclick="tpwGen('nu-pass','nu-eye')" id="nu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
@@ -1039,7 +1043,7 @@ tr:hover td{background:#f8f9ff}
     <h2>Mi cuenta</h2>
     <div class="g2" style="gap:10px;margin-bottom:12px">
       <div><label>Nombre completo</label><input type="text" id="aj-nombre" placeholder="TU NOMBRE"></div>
-      <div><label>Usuario (para iniciar sesion)</label><input type="text" id="aj-user" style="text-transform:none" placeholder="usuario"></div>
+      <div><label>Usuario (para iniciar sesion)</label><input type="text" id="aj-user" style="text-transform:none" placeholder="usuario" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
     </div>
     <button class="btn bblue" onclick="guardarPerfilAjustes()" style="padding:9px 20px">Guardar cambios</button>
   </div>
@@ -1050,21 +1054,21 @@ tr:hover td{background:#f8f9ff}
       <div>
         <label>Contrasena actual</label>
         <div style="position:relative">
-          <input type="password" id="aj-pass-actual" style="text-transform:none;padding-right:60px">
+          <input type="password" id="aj-pass-actual" style="text-transform:none;padding-right:60px" autocapitalize="off" autocorrect="off" spellcheck="false">
           <button onclick="tpwGen('aj-pass-actual','aj-eye1')" id="aj-eye1" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
       <div>
         <label>Nueva contrasena</label>
         <div style="position:relative">
-          <input type="password" id="aj-pass-nueva" style="text-transform:none;padding-right:60px">
+          <input type="password" id="aj-pass-nueva" style="text-transform:none;padding-right:60px" autocapitalize="off" autocorrect="off" spellcheck="false">
           <button onclick="tpwGen('aj-pass-nueva','aj-eye2')" id="aj-eye2" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
       <div>
         <label>Confirmar nueva contrasena</label>
         <div style="position:relative">
-          <input type="password" id="aj-pass-confirmar" style="text-transform:none;padding-right:60px">
+          <input type="password" id="aj-pass-confirmar" style="text-transform:none;padding-right:60px" autocapitalize="off" autocorrect="off" spellcheck="false">
           <button onclick="tpwGen('aj-pass-confirmar','aj-eye3')" id="aj-eye3" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
@@ -1128,6 +1132,26 @@ tr:hover td{background:#f8f9ff}
 
 <div class="toast" id="toast"></div>
 
+<!-- Bloqueo total de la app cuando no hay conexion, para evitar movimientos a medias -->
+<div id="offline-block" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(26,37,47,.97);align-items:center;justify-content:center;padding:20px">
+  <div style="max-width:340px;text-align:center;color:#fff">
+    <div style="font-size:40px;margin-bottom:10px">📡</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">Sin conexion a internet</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.5">
+      Para evitar que se pierda o se duplique informacion, la aplicacion se pausa hasta que vuelva la señal.
+      No cierres ni recargues la pagina, se reanudara sola apenas se recupere la conexion.
+    </div>
+    <div style="margin-top:18px;display:flex;align-items:center;justify-content:center;gap:6px">
+      <span style="display:flex;align-items:flex-end;gap:3px;height:16px">
+        <span id="offline-bar1" style="width:4px;height:6px;background:#e74c3c;border-radius:1px"></span>
+        <span id="offline-bar2" style="width:4px;height:11px;background:#555;border-radius:1px"></span>
+        <span id="offline-bar3" style="width:4px;height:16px;background:#555;border-radius:1px"></span>
+      </span>
+      <span style="font-size:11px;color:rgba(255,255,255,.6)">Buscando señal...</span>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EDITAR VENTA -->
 <!-- MODAL EDITAR USUARIO -->
 <div class="mb" id="m-edit-user">
@@ -1136,10 +1160,10 @@ tr:hover td{background:#f8f9ff}
     <input type="hidden" id="eu-id">
     <div style="display:flex;flex-direction:column;gap:10px">
       <div><label>Nombre completo</label><input type="text" id="eu-nombre"></div>
-      <div><label>Usuario</label><input type="text" id="eu-user" style="text-transform:none"></div>
+      <div><label>Usuario</label><input type="text" id="eu-user" style="text-transform:none" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
       <div><label>Nueva contrasena (vacio = no cambia)</label>
         <div style="position:relative">
-          <input type="password" id="eu-pass" placeholder="Nueva contrasena" style="text-transform:none;padding-right:65px">
+          <input type="password" id="eu-pass" placeholder="Nueva contrasena" style="text-transform:none;padding-right:65px" autocapitalize="off" autocorrect="off" spellcheck="false">
           <button onclick="tpwGen('eu-pass','eu-eye')" id="eu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
@@ -1434,13 +1458,19 @@ function asegurarDueno(){
   }
 }
 
-function cargar(){
+function cargar(onPrimeraCarga){
   // Cargar local primero
   try{var li=localStorage.getItem(IK);if(li)inv=JSON.parse(li);}catch(e){}
   try{var lc=localStorage.getItem(CK);if(lc)cont=JSON.parse(lc);}catch(e){}
   try{var lv2=localStorage.getItem(VK);if(lv2)ven=JSON.parse(lv2);}catch(e){}
   try{var le=localStorage.getItem(EK);if(le)entradas=JSON.parse(le);}catch(e){}
   try{var la=localStorage.getItem(AK);if(la)actividad=JSON.parse(la);}catch(e){}
+  var yaAvisoPrimeraCarga=false;
+  function avisarUnaVez(exito){
+    if(yaAvisoPrimeraCarga)return;
+    yaAvisoPrimeraCarga=true;
+    if(onPrimeraCarga)onPrimeraCarga(exito);
+  }
   // Conectar Firebase listener (tiempo real)
   var intentos=0;
   function intentarFB(){
@@ -1449,16 +1479,19 @@ function cargar(){
         if(err){
           console.error('Firebase error:',err);
           var b=g('sbadge');if(b){b.textContent='Sin conexion';b.style.background='#e74c3c';}
+          avisarUnaVez(false);
           return;
         }
         procesarDatos(data);
         var b=g('sbadge');if(b){b.textContent='Conectado';b.style.background='#27ae60';}
+        avisarUnaVez(true);
       });
     }else if(intentos<30){
       intentos++;
       setTimeout(intentarFB,500);
     }else{
       var b=g('sbadge');if(b){b.textContent='Solo local';b.style.background='#e67e22';}
+      avisarUnaVez(false);
     }
   }
   intentarFB();
@@ -1610,9 +1643,9 @@ function tpwGen(inputId,btnId){
 }
 
 function doLogin(){
-  var uname=g('login-user').value.trim().toLowerCase();
+  var uname=g('login-user').value.trim();
   var pass=g('login-pass').value;
-  var user=users.find(function(u){return u.uname.toLowerCase()===uname&&u.pass===pass;});
+  var user=users.find(function(u){return u.uname===uname&&u.pass===pass;});
   if(!user){
     g('login-err').style.display='block';
     g('login-pass').value='';
@@ -1620,8 +1653,10 @@ function doLogin(){
   }
   g('login-err').style.display='none';
   currentUser=user;
-  // Guardar sesion
-  try{localStorage.setItem('maxi_sess',JSON.stringify({uname:user.uname,exp:Date.now()+(8*60*60*1000)}));}catch(e){}
+  // Guardar sesion (30 dias si marco "mantener sesion", si no 8 horas)
+  var recordar=g('login-recordar')&&g('login-recordar').checked;
+  var duracion=recordar?(30*24*60*60*1000):(8*60*60*1000);
+  try{localStorage.setItem('maxi_sess',JSON.stringify({uname:user.uname,exp:Date.now()+duracion}));}catch(e){}
   // Mostrar app
   g('login-overlay').classList.add('hidden');
   // Actualizar header
@@ -1685,8 +1720,8 @@ function recMsg(msg,ok){
 function pasoRecuperar(){
   if(window._recStep===1){
     // Buscar usuario
-    var uname=g('rec-user').value.trim().toLowerCase();
-    var user=users.find(function(u){return u.uname.toLowerCase()===uname;});
+    var uname=g('rec-user').value.trim();
+    var user=users.find(function(u){return u.uname===uname;});
     if(!user){recMsg('Usuario no encontrado',false);return;}
     if(!user.pregunta){recMsg('Este usuario no tiene pregunta de seguridad configurada',false);return;}
     window._recUser=user;
@@ -1720,27 +1755,32 @@ function pasoRecuperar(){
     window._recUser=null;
   }
 }
-function checkSession(){
+// Solo valida que el token de sesion exista y no haya expirado (no busca el usuario todavia)
+function leerSesionValida(){
   try{
     var sess=localStorage.getItem('maxi_sess');
-    if(!sess)return false;
+    if(!sess)return null;
     var su=JSON.parse(sess);
-    if(su.exp&&Date.now()>su.exp){localStorage.removeItem('maxi_sess');return false;}
-    var user=users.find(function(u){return u.uname===su.uname;});
-    if(!user)return false;
-    currentUser=user;
-    var ub=g('ubadge');if(ub)ub.textContent=user.nombre||(user.uname);
-    var rb=g('rbadge');
-    if(rb){
-      rb.textContent=user.rol==='admin'?'Admin':'Vendedor';
-      rb.style.background=user.rol==='admin'?'#3498db':'#2ecc71';
-      rb.style.color='#fff';
-    }
-    g('login-overlay').classList.add('hidden');
-    renderSV(); // refresh vendedor list
-    aplicarFondoUsuario();
-    return true;
-  }catch(e){return false;}
+    if(su.exp&&Date.now()>su.exp){localStorage.removeItem('maxi_sess');return null;}
+    return su;
+  }catch(e){return null;}
+}
+// Aplica la sesion ya con los datos reales cargados (users ya poblado desde Firebase)
+function aplicarSesion(su){
+  var user=users.find(function(u){return u.uname===su.uname;});
+  if(!user)return false;
+  currentUser=user;
+  var ub=g('ubadge');if(ub)ub.textContent=user.nombre||(user.uname);
+  var rb=g('rbadge');
+  if(rb){
+    rb.textContent=user.rol==='admin'?'Admin':'Vendedor';
+    rb.style.background=user.rol==='admin'?'#3498db':'#2ecc71';
+    rb.style.color='#fff';
+  }
+  g('login-overlay').classList.add('hidden');
+  renderSV();
+  aplicarFondoUsuario();
+  return true;
 }
 
 // ── AJUSTES (perfil, contrasena, apariencia) ──
@@ -2481,6 +2521,7 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
   g('mcuot').classList.add('open');
 }
 function togCuota(vi,ci){
+  if(sinConexionActiva()){toast('Sin conexion a internet. No se puede realizar este movimiento en este momento.',1);return;}
   var v=ven[vi];
   if(!v.cp)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null};});
   var montoNuevo=parseFloat(g('cm'+vi+'_'+ci).value)||0;
@@ -2858,6 +2899,7 @@ function evQuitarItem(i){
   renderEvItems();
 }
 function guardarEdicionVenta(){
+  if(sinConexionActiva()){toast('Sin conexion a internet. No se puede realizar este movimiento en este momento.',1);return;}
   var i=+(document.getElementById('ev-idx')||{value:-1}).value;
   if(isNaN(i)||i<0||i>=ven.length){toast('Error al guardar',1);return;}
   var items=evItems||[];
@@ -2905,6 +2947,7 @@ function guardarEdicionVenta(){
   save();cm('medit-venta');renderHist();renderCart();renderContable();toast('Venta actualizada');
 }
 function delVenta(i,artIdx,qty){
+  if(sinConexionActiva()){toast('Sin conexion a internet. No se puede realizar este movimiento en este momento.',1);return;}
   if(!confirm('Eliminar esta venta?'))return;
   var v=ven[i];
   var art=v?v.art:'';
@@ -2986,6 +3029,7 @@ function quitarDelCarrito(i){
   calcCC();calcSCC();
 }
 function regVenta(){
+  if(sinConexionActiva()){toast('Sin conexion a internet. No se puede registrar esta venta en este momento.',1);return;}
   var pago=g('sp').value;
   var isSEF=pago==='SISTECREDITO+EFECTIVO';
   var isSCC=pago==='SISTECREDITO+CREDICONTADO';
@@ -4544,6 +4588,7 @@ function fechaHoyISO(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function addContable(){
+  if(sinConexionActiva()){toast('Sin conexion a internet. No se puede realizar este movimiento en este momento.',1);return;}
   if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
   var fecha=g('cont-fecha').value;
   var desc=g('cont-desc').value.trim();
@@ -5213,16 +5258,31 @@ function pintarBarras(prefijo,nivel,conectado){
     else{txt.textContent='Debil';txt.style.color='';}
   }
 }
+var _timerBloqueo=null;
 function actualizarIndicadorConexion(conectado,nivel){
   nivel=nivel||0;
   pintarBarras('conn',nivel,conectado);
   pintarBarras('login-conn',nivel,conectado);
+  // Bloquear TODA la app mientras no haya conexion — pero con un margen de espera,
+  // para no mostrar el aviso por el "parpadeo" normal de un segundo cuando recien conecta.
+  var bloqueo=g('offline-block');
+  if(conectado){
+    if(_timerBloqueo){clearTimeout(_timerBloqueo);_timerBloqueo=null;}
+    if(bloqueo)bloqueo.style.display='none';
+  }else{
+    if(!_timerBloqueo){
+      _timerBloqueo=setTimeout(function(){
+        if(bloqueo)bloqueo.style.display='flex';
+        _timerBloqueo=null;
+      },3500);
+    }
+  }
   // Solo avisar con una notificacion cuando el estado REALMENTE cambia (no en la primera carga)
   if(_conexionEstadoPrevio!==null&&_conexionEstadoPrevio!==conectado){
     if(conectado){
       toast('Conexion recuperada — sincronizando...');
     }else{
-      toast('Sin conexion a internet. Los cambios se guardan localmente y se sincronizan al volver la señal.',1);
+      toast('Sin conexion a internet. La aplicacion se pauso para evitar perder informacion.',1);
     }
   }
   _conexionEstadoPrevio=conectado;
@@ -5232,12 +5292,17 @@ window.addEventListener('conexionCambio',function(e){
 });
 // Respaldo: el navegador tambien avisa si se cae el internet por completo (sin wifi/datos)
 window.addEventListener('offline',function(){
+  // Esto es una señal confiable e instantanea del sistema operativo: bloquear YA, sin esperar nada
   actualizarIndicadorConexion(false,0);
 });
 window.addEventListener('online',function(){
   // Cuando vuelve el internet del sistema, Firebase confirmara por su cuenta el reconecte via 'conexionCambio'
   toast('Se recupero el internet, verificando conexion...');
 });
+// Se puede usar en cualquier funcion que registre un movimiento, para frenarlo si no hay conexion real
+function sinConexionActiva(){
+  return _conexionEstadoPrevio===false;
+}
 
 
 function cm(id){
@@ -5267,14 +5332,16 @@ window.addEventListener('load',function(){
   });
   try{var li=localStorage.getItem(IK);if(li)inv=JSON.parse(li);}catch(e){}
   try{var lv2=localStorage.getItem(VK);if(lv2)ven=JSON.parse(lv2);}catch(e){}
-  cargar();
-  // Verificar sesion
+
   var dogScreen=g('dog-screen');
   var loginForm=g('login-form-wrap');
   var lo=g('login-overlay');
-
-  if(checkSession()){
-    // Sesion valida - mostrar barra de carga rapida
+  function mostrarLogin(){
+    if(lo)lo.classList.remove('hidden');
+    if(dogScreen)dogScreen.style.display='none';
+    if(loginForm)loginForm.style.display='flex';
+  }
+  function mostrarAppConBarra(){
     var bar=g('dog-bar');var pctEl=g('dog-pct');var msg=g('dog-msg');
     var pct=0;
     var dogInt=setInterval(function(){
@@ -5287,17 +5354,28 @@ window.addEventListener('load',function(){
       if(bar)bar.style.width='100%';
       if(pctEl)pctEl.textContent='100%';
       if(msg)msg.textContent='Bienvenido!';
-      // Ocultar overlay y entrar
       if(lo)lo.classList.add('hidden');
       renderAll();renderSV();
       var cf=g('cont-fecha');
       if(cf)cf.value=fechaHoyISO();
     },800);
+  }
+
+  var sesionPendiente=leerSesionValida();
+  if(sesionPendiente){
+    // Hay un token de sesion valido: NO decidir nada todavia, esperar a que
+    // Firebase traiga los datos reales (incluyendo el usuario) antes de sacar a login.
+    cargar(function(exito){
+      if(exito&&aplicarSesion(sesionPendiente)){
+        mostrarAppConBarra();
+      }else{
+        // De verdad no existe ese usuario (o Firebase nunca conecto): recien ahi a login
+        mostrarLogin();
+      }
+    });
   }else{
-    // Sesion vencida o no existe - ir directo al login SIN barra
-    if(lo)lo.classList.remove('hidden');
-    if(dogScreen)dogScreen.style.display='none';
-    if(loginForm)loginForm.style.display='flex';
+    cargar();
+    mostrarLogin();
   }
 });
 </script>
