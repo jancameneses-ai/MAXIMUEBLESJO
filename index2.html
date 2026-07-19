@@ -439,6 +439,9 @@ tr:hover td{background:#f8f9ff}
     <div class="sitem" onclick="goTab('actividad',this)">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></div>
       <span class="slbl">Actividad</span></div>
+    <div class="sitem admin-only" onclick="goTab('metas',this)" style="display:none">
+      <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <span class="slbl">Metas <span id="metas-alerta-badge" style="display:none;background:#e74c3c;color:#fff;border-radius:10px;font-size:9px;padding:1px 6px;margin-left:4px">!</span></span></div>
 
   </div>
   <div class="main-content">
@@ -821,17 +824,6 @@ tr:hover td{background:#f8f9ff}
     </div>
   </div>
 
-  <!-- Balance de los ultimos 3 meses (solo administradores) -->
-  <div class="card" id="res-balance-3m" style="display:none">
-    <h2>Balance de los ultimos 3 meses</h2>
-    <div id="balance3m-chart" style="display:flex;align-items:flex-end;justify-content:space-around;gap:18px;height:180px;padding:10px 6px 0"></div>
-    <div style="display:flex;justify-content:center;gap:18px;margin-top:12px;font-size:11px;color:#666">
-      <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:5px"></span>Ingresos</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;margin-right:5px"></span>Gastos</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#3498db;border-radius:2px;margin-right:5px"></span>Ganancia neta</span>
-    </div>
-  </div>
-
   <div id="res-admin-content">
   <!-- Selector de mes -->
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -917,6 +909,16 @@ tr:hover td{background:#f8f9ff}
       <thead><tr><th>Mes</th><th style="text-align:center">Ventas</th><th style="text-align:right">Efectivo</th><th style="text-align:right">Credicontado</th><th style="text-align:right">Sistecredito/Addi</th><th style="text-align:right">Total</th><th style="text-align:right">Gastos</th></tr></thead>
       <tbody id="res-hist-meses"></tbody>
     </table></div>
+  </div>
+
+  <!-- Balance comparativo de los ultimos 3 meses: ventas y ganancia (al final, solo administradores) -->
+  <div class="card" id="res-balance-3m" style="display:none">
+    <h2>Balance comparativo — ultimos 3 meses</h2>
+    <div id="balance3m-chart" style="display:flex;align-items:flex-end;justify-content:space-around;gap:18px;height:180px;padding:10px 6px 0"></div>
+    <div style="display:flex;justify-content:center;gap:18px;margin-top:12px;font-size:11px;color:#666">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#3498db;border-radius:2px;margin-right:5px"></span>Ventas</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:5px"></span>Ganancia</span>
+    </div>
   </div>
 
   </div><!-- end res-admin-content -->
@@ -1028,15 +1030,11 @@ tr:hover td{background:#f8f9ff}
       </div>
       <div>
         <label>Rol</label>
-        <select id="nu-rol" onchange="togglePermsPanel('nu');toggleMetaPanel('nu')">
+        <select id="nu-rol" onchange="togglePermsPanel('nu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
       </div>
-    </div>
-    <div id="nu-meta-wrap" style="max-width:260px;margin-bottom:12px">
-      <label>Meta de ventas mensual $ <span style="color:#888;font-weight:400;text-transform:none">(opcional)</span></label>
-      <input type="number" id="nu-meta" min="0" class="noup" placeholder="Ej: 5000000">
     </div>
     <div class="g2" style="gap:10px;margin-top:10px;margin-bottom:12px">
       <div>
@@ -1173,6 +1171,27 @@ tr:hover td{background:#f8f9ff}
   </div>
 </div>
 
+<!-- TAB METAS -->
+<div id="tab-metas" class="sec">
+  <div id="metas-alerta" style="display:none;background:#fff5f5;border:1.5px solid #f5b7b1;border-radius:10px;padding:12px 16px;margin-bottom:14px;color:#c0392b;font-size:13px;font-weight:600"></div>
+  <div class="card">
+    <h2>Metas de ventas por mes</h2>
+    <div style="font-size:11px;color:#888;margin-bottom:12px">Define la meta de ventas y el porcentaje de comision que gana cada vendedor si la cumple. Se maneja mes a mes.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <label style="font-size:11px;color:#666;font-weight:600;text-transform:uppercase;margin:0">Mes:</label>
+      <select id="metas-mes" onchange="renderMetas()" style="max-width:160px"></select>
+      <select id="metas-anio" onchange="renderMetas()" style="max-width:110px"></select>
+    </div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>Vendedor</th><th style="text-align:right">Meta $</th><th style="text-align:right">Comision %</th>
+        <th style="text-align:right">Vendido</th><th style="text-align:right">Cumplimiento</th><th></th>
+      </tr></thead>
+      <tbody id="metas-tb"></tbody>
+    </table></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Bloqueo total de la app cuando no hay conexion, para evitar movimientos a medias -->
@@ -1211,14 +1230,10 @@ tr:hover td{background:#f8f9ff}
         </div>
       </div>
       <div><label>Rol <span id="eu-rol-lock-note" style="display:none;color:#c9a227;font-weight:400;text-transform:none">(perfil de Admin Soporte — solo el/ella puede cambiar su propio rol)</span></label>
-        <select id="eu-rol" onchange="togglePermsPanel('eu');toggleMetaPanel('eu')">
+        <select id="eu-rol" onchange="togglePermsPanel('eu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
-      </div>
-      <div id="eu-meta-wrap" style="max-width:260px">
-        <label>Meta de ventas mensual $ <span style="color:#888;font-weight:400;text-transform:none">(opcional)</span></label>
-        <input type="number" id="eu-meta" min="0" class="noup" placeholder="Ej: 5000000">
       </div>
       <div id="eu-dueno-flag" style="display:none;background:#fdf3d9;color:#9a7d0a;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:600">Este es el perfil de Admin Soporte</div>
       <div id="eu-dueno-toggle-wrap" style="display:none;padding:8px 12px;background:#f8f9fa;border-radius:8px">
@@ -1617,12 +1632,6 @@ function togglePermsPanel(prefix){
   var preset=rol.value==='admin'?PERMS_ADMIN_DEFAULT:PERMS_DEFAULT;
   setPermsToForm(checkboxPrefix,preset);
 }
-function toggleMetaPanel(prefix){
-  var rol=g(prefix+'-rol');
-  var wrap=g(prefix+'-meta-wrap');
-  if(!rol||!wrap)return;
-  wrap.style.display=rol.value==='vendedor'?'block':'none';
-}
 
 function getPermsFromForm(prefix){
   var perms={};
@@ -1686,6 +1695,7 @@ function applyRol(){
   document.querySelectorAll('.col-costo').forEach(function(el){
     el.style.display=esAdmin?'':'none';
   });
+  actualizarAlertaMetas();
 }
 
 function tpwGen(inputId,btnId){
@@ -1955,12 +1965,12 @@ function crearUsuario(){
   var pregunta=g('nu-pregunta')?g('nu-pregunta').value:'Nombre de tu mascota';
   var respuesta=g('nu-respuesta')?g('nu-respuesta').value.trim():'';
   var permisos=getPermsFromForm('p-');
-  var meta=+(g('nu-meta')||{value:0}).value||0;
-  users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta,permisos:permisos,meta:meta});
+  users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta,permisos:permisos});
   logActividad('Usuarios','Creo el usuario '+nombre+' ('+uname+', rol '+rol+')');
   save();
-  g('nu-nombre').value='';g('nu-user').value='';g('nu-pass').value='';g('nu-meta').value='';
+  g('nu-nombre').value='';g('nu-user').value='';g('nu-pass').value='';
   renderUsuarios();
+  actualizarAlertaMetas();
   toast('Usuario creado correctamente');
 }
 
@@ -1973,8 +1983,6 @@ function abrirEditarUsuario(idx){
   sv('eu-rol',u.rol||'vendedor');
   var ep=g('eu-pregunta');if(ep)ep.value=u.pregunta||'Nombre de tu mascota';
   var er=g('eu-respuesta');if(er)er.value=u.respuesta||'';
-  sv('eu-meta',u.meta||'');
-  toggleMetaPanel('eu');
   // Mostrar siempre el panel de permisos (aplica a ambos roles)
   var euPanel=g('eu-perms-panel');
   var euRol=g('eu-rol');
@@ -2024,7 +2032,6 @@ function guardarUsuario(){
   var ep=g('eu-pregunta');if(ep)users[idx].pregunta=ep.value;
   var er=g('eu-respuesta');if(er&&er.value.trim())users[idx].respuesta=er.value.trim();
   users[idx].permisos=getPermsFromForm('ep-');
-  users[idx].meta=+(g('eu-meta')||{value:0}).value||0;
   // Transferencia del perfil de Dueno (solo el Dueno actual puede hacerlo)
   var quiereTransferir=g('eu-dueno')&&g('eu-dueno').checked;
   var puedeTransferir=currentUser&&currentUser.esDueno&&!esDuenoTarget;
@@ -2046,6 +2053,7 @@ function guardarUsuario(){
   }
   logActividad('Usuarios','Edito el usuario '+users[idx].nombre+' ('+users[idx].uname+')');
   save();cm('m-edit-user');renderUsuarios();
+  actualizarAlertaMetas();
   toast('Usuario actualizado');
 }
 
@@ -2058,6 +2066,7 @@ function eliminarUsuario(idx){
   users.splice(idx,1);
   logActividad('Usuarios','Elimino el usuario '+nombreEliminado+' ('+unameEliminado+')');
   save();renderUsuarios();
+  actualizarAlertaMetas();
   toast('Usuario eliminado');
 }
 
@@ -4285,6 +4294,85 @@ function cerrarDetalleRes(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+function claveMes(mes,anio){ return anio+'-'+(mes+1); }
+function renderMetas(){
+  var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var hoy=new Date();
+  var selMes=g('metas-mes'),selAnio=g('metas-anio');
+  if(!selMes||!selAnio)return;
+  if(selMes.options.length===0){
+    MESES.forEach(function(m,i){var o=document.createElement('option');o.value=i;o.textContent=m;selMes.appendChild(o);});
+    selMes.value=hoy.getMonth();
+  }
+  if(selAnio.options.length===0){
+    var base=hoy.getFullYear();
+    for(var a=base-1;a<=base+1;a++){var o=document.createElement('option');o.value=a;o.textContent=a;selAnio.appendChild(o);}
+    selAnio.value=base;
+  }
+  var mes=+selMes.value,anio=+selAnio.value;
+  var key=claveMes(mes,anio);
+  function esMesM(fecha){
+    if(!fecha)return false;
+    var p=fecha.split('/');
+    return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
+  }
+  var vendedores=users.filter(function(u){return u.rol==='vendedor';});
+  var tb=g('metas-tb');
+  if(!tb)return;
+  if(!vendedores.length){
+    tb.innerHTML='<tr><td colspan="6" class="empty">No hay vendedores registrados</td></tr>';
+  }else{
+    tb.innerHTML=vendedores.map(function(u,i){
+      var entry=(u.metas&&u.metas[key])||{meta:0,comision:0};
+      var vendido=ven.filter(function(v){return v.vend===u.nombre&&esMesM(v.fecha);}).reduce(function(s,v){return s+(v.total||0);},0);
+      var pct=entry.meta>0?Math.min(999,(vendido/entry.meta*100)):0;
+      var colorPct=entry.meta<=0?'#aaa':pct>=100?'#27ae60':pct>=60?'#f39c12':'#e74c3c';
+      return '<tr>'+
+        '<td style="font-weight:600">'+u.nombre+'</td>'+
+        '<td style="text-align:right"><input type="number" id="meta-val-'+i+'" value="'+(entry.meta||'')+'" min="0" class="noup" style="width:130px;text-align:right;padding:5px 8px" placeholder="0"></td>'+
+        '<td style="text-align:right"><input type="number" id="meta-com-'+i+'" value="'+(entry.comision||'')+'" min="0" max="100" class="noup" style="width:70px;text-align:right;padding:5px 8px" placeholder="0"></td>'+
+        '<td style="text-align:right;font-weight:600">'+fmt(vendido)+'</td>'+
+        '<td style="text-align:right;font-weight:700;color:'+colorPct+'">'+(entry.meta>0?pct.toFixed(0)+'%':'-')+'</td>'+
+        '<td><button class="btn bblue" onclick="guardarMeta(\''+u.uname+'\',\''+key+'\','+i+')" style="font-size:10px;padding:6px 14px">Guardar</button></td>'+
+      '</tr>';
+    }).join('');
+  }
+  actualizarAlertaMetas();
+}
+
+function guardarMeta(uname,key,i){
+  var u=users.find(function(x){return x.uname===uname;});
+  if(!u)return;
+  if(!u.metas)u.metas={};
+  var metaVal=+(g('meta-val-'+i)||{value:0}).value||0;
+  var comVal=+(g('meta-com-'+i)||{value:0}).value||0;
+  u.metas[key]={meta:metaVal,comision:comVal};
+  logActividad('Usuarios','Definio meta de '+key+' para '+u.nombre+': '+fmt(metaVal)+' ('+comVal+'% comision)');
+  save();
+  toast('Meta guardada para '+u.nombre);
+  renderMetas();
+}
+
+function actualizarAlertaMetas(){
+  if(!isAdmin())return;
+  var hoy=new Date();
+  var keyActual=claveMes(hoy.getMonth(),hoy.getFullYear());
+  var vendedores=users.filter(function(u){return u.rol==='vendedor';});
+  var faltantes=vendedores.filter(function(u){return !(u.metas&&u.metas[keyActual]&&u.metas[keyActual].meta>0);});
+  var banner=g('metas-alerta');
+  var badge=g('metas-alerta-badge');
+  if(faltantes.length&&vendedores.length){
+    if(banner){
+      banner.style.display='block';
+      banner.textContent='Aun no has definido la meta de este mes para: '+faltantes.map(function(u){return u.nombre;}).join(', ');
+    }
+    if(badge)badge.style.display='inline-block';
+  }else{
+    if(banner)banner.style.display='none';
+    if(badge)badge.style.display='none';
+  }
+}
+
 function renderResVendedor(MESES,hoy){
   var mesActual=hoy.getMonth(),anioActual=hoy.getFullYear();
   var lbl=g('rv-mes-lbl');if(lbl)lbl.textContent='Tus ventas de '+MESES[mesActual]+' '+anioActual;
@@ -4295,12 +4383,16 @@ function renderResVendedor(MESES,hoy){
   }
   var misVentas=ven.filter(function(v){return v.vend===currentUser.nombre&&esMesV(v.fecha);});
   var total=misVentas.reduce(function(s,v){return s+(v.total||0);},0);
-  var meta=currentUser.meta||0;
+  var keyMes=claveMes(mesActual,anioActual);
+  var entryMeta=(currentUser.metas&&currentUser.metas[keyMes])||{meta:0,comision:0};
+  var meta=entryMeta.meta||0;
+  var comisionPct=entryMeta.comision||0;
   var pct=meta>0?Math.min(100,(total/meta*100)):0;
   var falta=Math.max(0,meta-total);
+  var comisionGanada=total>=meta&&meta>0?total*(comisionPct/100):0;
 
   var tEl=g('rv-total');if(tEl)tEl.textContent=fmt(total);
-  var mEl=g('rv-meta');if(mEl)mEl.textContent=meta>0?fmt(meta):'Sin meta asignada';
+  var mEl=g('rv-meta');if(mEl)mEl.textContent=meta>0?fmt(meta):'Tu administrador aun no ha definido tu meta de este mes';
   var pEl=g('rv-pct');if(pEl)pEl.textContent=meta>0?pct.toFixed(0)+'%':'';
   var barra=g('rv-barra');
   if(barra){
@@ -4309,9 +4401,9 @@ function renderResVendedor(MESES,hoy){
   }
   var faltaTxt=g('rv-falta-txt');
   if(faltaTxt){
-    if(meta<=0)faltaTxt.textContent='Pidele a tu administrador que te asigne una meta mensual.';
-    else if(falta<=0)faltaTxt.textContent='Meta cumplida! Superaste tu meta por '+fmt(total-meta)+'.';
-    else faltaTxt.textContent='Te faltan '+fmt(falta)+' para llegar a tu meta.';
+    if(meta<=0)faltaTxt.textContent='Pidele a tu administrador que te asigne una meta para este mes.';
+    else if(falta<=0)faltaTxt.textContent='Meta cumplida! Superaste tu meta por '+fmt(total-meta)+'.'+(comisionPct>0?' Tu comision de '+comisionPct+'% equivale a '+fmt(comisionGanada)+'.':'');
+    else faltaTxt.textContent='Te faltan '+fmt(falta)+' para llegar a tu meta.'+(comisionPct>0?' Si la cumples, ganas el '+comisionPct+'% de comision.':'');
   }
 
   var tb=g('rv-tb');
@@ -4329,6 +4421,14 @@ function renderResVendedor(MESES,hoy){
   }
 }
 
+function gananciaDeVenta(v){
+  var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
+  var costo=it.reduce(function(s,item){
+    var art=inv.find(function(a){return a.art===item.art;});
+    return s+(art?art.costo*(item.qty||1):0);
+  },0);
+  return v.total-costo;
+}
 function renderBalance3Meses(hoy){
   var wrap=g('balance3m-chart');
   if(!wrap)return;
@@ -4344,24 +4444,23 @@ function renderBalance3Meses(hoy){
     return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
   }
   var datos=meses.map(function(m){
-    var ingresos=ven.filter(function(v){return enMes(v.fecha,m.mes,m.anio);}).reduce(function(s,v){return s+(v.total||0);},0);
-    var gastos=cont.filter(function(c){return c.egr>0&&enMes(c.fecha,m.mes,m.anio);}).reduce(function(s,c){return s+(c.egr||0);},0);
-    var balance=ingresos-gastos;
-    return {label:m.label,ingresos:ingresos,gastos:gastos,balance:balance};
+    var ventasMes=ven.filter(function(v){return enMes(v.fecha,m.mes,m.anio);});
+    var ventas=ventasMes.reduce(function(s,v){return s+(v.total||0);},0);
+    var ganancia=ventasMes.reduce(function(s,v){return s+gananciaDeVenta(v);},0);
+    return {label:m.label,ventas:ventas,ganancia:ganancia};
   });
-  var maxVal=Math.max(1,Math.max.apply(null,datos.map(function(d){return Math.max(d.ingresos,d.gastos,Math.abs(d.balance));})));
+  var maxVal=Math.max(1,Math.max.apply(null,datos.map(function(d){return Math.max(d.ventas,Math.abs(d.ganancia));})));
   wrap.innerHTML=datos.map(function(d){
-    var hIng=Math.max(3,(d.ingresos/maxVal)*140);
-    var hGas=Math.max(3,(d.gastos/maxVal)*140);
-    var hBal=Math.max(3,(Math.abs(d.balance)/maxVal)*140);
+    var hVen=Math.max(3,(d.ventas/maxVal)*140);
+    var hGan=Math.max(3,(Math.abs(d.ganancia)/maxVal)*140);
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1">'+
       '<div style="display:flex;align-items:flex-end;gap:4px;height:140px">'+
-        '<div title="Ingresos: '+fmt(d.ingresos)+'" style="width:16px;height:'+hIng+'px;background:#27ae60;border-radius:3px 3px 0 0"></div>'+
-        '<div title="Gastos: '+fmt(d.gastos)+'" style="width:16px;height:'+hGas+'px;background:#e74c3c;border-radius:3px 3px 0 0"></div>'+
-        '<div title="Balance neto: '+fmt(d.balance)+'" style="width:16px;height:'+hBal+'px;background:'+(d.balance>=0?'#3498db':'#95a5a6')+';border-radius:3px 3px 0 0"></div>'+
+        '<div title="Ventas: '+fmt(d.ventas)+'" style="width:20px;height:'+hVen+'px;background:#3498db;border-radius:3px 3px 0 0"></div>'+
+        '<div title="Ganancia: '+fmt(d.ganancia)+'" style="width:20px;height:'+hGan+'px;background:'+(d.ganancia>=0?'#27ae60':'#c0392b')+';border-radius:3px 3px 0 0"></div>'+
       '</div>'+
       '<div style="font-size:11px;font-weight:600;color:#2c3e50">'+d.label+'</div>'+
-      '<div style="font-size:10px;color:'+(d.balance>=0?'#1e8449':'#c0392b')+';font-weight:700">'+fmt(d.balance)+'</div>'+
+      '<div style="font-size:10px;color:#3498db;font-weight:700">'+fmt(d.ventas)+'</div>'+
+      '<div style="font-size:10px;color:'+(d.ganancia>=0?'#1e8449':'#c0392b')+';font-weight:700">'+fmt(d.ganancia)+'</div>'+
     '</div>';
   }).join('');
 }
@@ -5397,6 +5496,7 @@ function goTab(id,el){
   if(id==='contable'){renderContable();var cfTab=g('cont-fecha');if(cfTab&&!cfTab.value)cfTab.value=fechaHoyISO();}
   if(id==='ajustes')renderAjustes();
   if(id==='actividad')renderActividad();
+  if(id==='metas')renderMetas();
   if(id==='inventario'){switchInvView('stock');}
   if(id==='historial')renderHist();
 }
