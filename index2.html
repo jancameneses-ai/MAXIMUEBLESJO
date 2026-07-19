@@ -796,6 +796,43 @@ tr:hover td{background:#f8f9ff}
   <!-- VISTA PRINCIPAL RESUMEN -->
   <div id="res-main">
 
+  <!-- Resumen exclusivo para vendedores: sus propias ventas, meta y cuanto les falta -->
+  <div id="res-vendedor-panel" style="display:none">
+    <div class="card" style="text-align:center;padding:26px 20px">
+      <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px" id="rv-mes-lbl">Tus ventas de este mes</div>
+      <div style="font-size:32px;font-weight:700;color:#1a3a1a;margin-bottom:18px" id="rv-total">$0</div>
+      <div style="max-width:420px;margin:0 auto">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px">
+          <span>Meta: <b id="rv-meta">$0</b></span>
+          <span id="rv-pct">0%</span>
+        </div>
+        <div style="background:#eee;border-radius:20px;height:16px;overflow:hidden">
+          <div id="rv-barra" style="height:100%;width:0%;background:#27ae60;border-radius:20px;transition:width .4s"></div>
+        </div>
+        <div style="margin-top:14px;font-size:13px;color:#555" id="rv-falta-txt"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Tus ventas de este mes</h2>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody id="rv-tb"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- Balance de los ultimos 3 meses (solo administradores) -->
+  <div class="card" id="res-balance-3m" style="display:none">
+    <h2>Balance de los ultimos 3 meses</h2>
+    <div id="balance3m-chart" style="display:flex;align-items:flex-end;justify-content:space-around;gap:18px;height:180px;padding:10px 6px 0"></div>
+    <div style="display:flex;justify-content:center;gap:18px;margin-top:12px;font-size:11px;color:#666">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:5px"></span>Ingresos</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#e74c3c;border-radius:2px;margin-right:5px"></span>Gastos</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#3498db;border-radius:2px;margin-right:5px"></span>Ganancia neta</span>
+    </div>
+  </div>
+
+  <div id="res-admin-content">
   <!-- Selector de mes -->
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:8px;background:#fff;padding:8px 14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
@@ -882,6 +919,8 @@ tr:hover td{background:#f8f9ff}
     </table></div>
   </div>
 
+  </div><!-- end res-admin-content -->
+
   </div><!-- end res-main -->
 </div><!-- end tab-resumen -->
 <!-- TAB CONTABLE -->
@@ -939,7 +978,7 @@ tr:hover td{background:#f8f9ff}
     </div>
   </div>
   <div class="card">
-    <h2>Gastos por categoria (todo el historial)</h2>
+    <h2>Gastos por categoria (mes actual)</h2>
     <div id="cont-cat-resumen" style="overflow-x:auto"></div>
   </div>
   <div class="card">
@@ -984,16 +1023,20 @@ tr:hover td{background:#f8f9ff}
         <label>Contrasena</label>
         <div style="position:relative">
           <input type="password" id="nu-pass" placeholder="Contrasena" style="text-transform:none;padding-right:60px" autocapitalize="off" autocorrect="off" spellcheck="false">
-          <button onclick="tpwGen('nu-pass','nu-eye')" id="nu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
+          <button onclick="tpwGenAdmin('nu-pass','nu-eye')" id="nu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
       <div>
         <label>Rol</label>
-        <select id="nu-rol" onchange="togglePermsPanel('nu')">
+        <select id="nu-rol" onchange="togglePermsPanel('nu');toggleMetaPanel('nu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
       </div>
+    </div>
+    <div id="nu-meta-wrap" style="max-width:260px;margin-bottom:12px">
+      <label>Meta de ventas mensual $ <span style="color:#888;font-weight:400;text-transform:none">(opcional)</span></label>
+      <input type="number" id="nu-meta" min="0" class="noup" placeholder="Ej: 5000000">
     </div>
     <div class="g2" style="gap:10px;margin-top:10px;margin-bottom:12px">
       <div>
@@ -1164,14 +1207,18 @@ tr:hover td{background:#f8f9ff}
       <div><label>Nueva contrasena (vacio = no cambia)</label>
         <div style="position:relative">
           <input type="password" id="eu-pass" placeholder="Nueva contrasena" style="text-transform:none;padding-right:65px" autocapitalize="off" autocorrect="off" spellcheck="false">
-          <button onclick="tpwGen('eu-pass','eu-eye')" id="eu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer">Ver</button>
+          <button onclick="tpwGenAdmin('eu-pass','eu-eye')" id="eu-eye" type="button" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#2c3e50;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer">Ver</button>
         </div>
       </div>
       <div><label>Rol <span id="eu-rol-lock-note" style="display:none;color:#c9a227;font-weight:400;text-transform:none">(perfil de Admin Soporte — solo el/ella puede cambiar su propio rol)</span></label>
-        <select id="eu-rol" onchange="togglePermsPanel('eu')">
+        <select id="eu-rol" onchange="togglePermsPanel('eu');toggleMetaPanel('eu')">
           <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
+      </div>
+      <div id="eu-meta-wrap" style="max-width:260px">
+        <label>Meta de ventas mensual $ <span style="color:#888;font-weight:400;text-transform:none">(opcional)</span></label>
+        <input type="number" id="eu-meta" min="0" class="noup" placeholder="Ej: 5000000">
       </div>
       <div id="eu-dueno-flag" style="display:none;background:#fdf3d9;color:#9a7d0a;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:600">Este es el perfil de Admin Soporte</div>
       <div id="eu-dueno-toggle-wrap" style="display:none;padding:8px 12px;background:#f8f9fa;border-radius:8px">
@@ -1539,7 +1586,7 @@ var PERMS_DEFAULT = {
   'inv-ver':true,'inv-stock':false,'inv-add':false,'inv-edit':false,
   'ven-reg':true,'his-ver':true,'his-edit':false,
   'cart-ver':true,'cuot-gest':true,'cred-ver':true,
-  'res-ver':false,'pdf':true,'contable-ver':false,'contable-edit':false,'usuarios':false,'actividad-ver':false
+  'res-ver':true,'pdf':true,'contable-ver':false,'contable-edit':false,'usuarios':false,'actividad-ver':false
 };
 var PERMS_ADMIN_DEFAULT = {
   'inv-ver':true,'inv-stock':true,'inv-add':true,'inv-edit':true,
@@ -1569,6 +1616,12 @@ function togglePermsPanel(prefix){
   var checkboxPrefix=(prefix==='nu')?'p-':(prefix+'-');
   var preset=rol.value==='admin'?PERMS_ADMIN_DEFAULT:PERMS_DEFAULT;
   setPermsToForm(checkboxPrefix,preset);
+}
+function toggleMetaPanel(prefix){
+  var rol=g(prefix+'-rol');
+  var wrap=g(prefix+'-meta-wrap');
+  if(!rol||!wrap)return;
+  wrap.style.display=rol.value==='vendedor'?'block':'none';
 }
 
 function getPermsFromForm(prefix){
@@ -1640,6 +1693,14 @@ function tpwGen(inputId,btnId){
   if(!i||!b)return;
   if(i.type==='password'){i.type='text';b.textContent='Ocultar';}
   else{i.type='password';b.textContent='Ver';}
+}
+// Version restringida: solo el Admin Soporte puede revelar la contrasena de OTRO usuario
+function tpwGenAdmin(inputId,btnId){
+  if(!currentUser||!currentUser.esDueno){
+    toast('Solo el Admin Soporte puede ver contrasenas',1);
+    return;
+  }
+  tpwGen(inputId,btnId);
 }
 
 function doLogin(){
@@ -1894,10 +1955,11 @@ function crearUsuario(){
   var pregunta=g('nu-pregunta')?g('nu-pregunta').value:'Nombre de tu mascota';
   var respuesta=g('nu-respuesta')?g('nu-respuesta').value.trim():'';
   var permisos=getPermsFromForm('p-');
-  users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta,permisos:permisos});
+  var meta=+(g('nu-meta')||{value:0}).value||0;
+  users.push({uname:uname,nombre:nombre,pass:pass,rol:rol,pregunta:pregunta,respuesta:respuesta,permisos:permisos,meta:meta});
   logActividad('Usuarios','Creo el usuario '+nombre+' ('+uname+', rol '+rol+')');
   save();
-  g('nu-nombre').value='';g('nu-user').value='';g('nu-pass').value='';
+  g('nu-nombre').value='';g('nu-user').value='';g('nu-pass').value='';g('nu-meta').value='';
   renderUsuarios();
   toast('Usuario creado correctamente');
 }
@@ -1911,6 +1973,8 @@ function abrirEditarUsuario(idx){
   sv('eu-rol',u.rol||'vendedor');
   var ep=g('eu-pregunta');if(ep)ep.value=u.pregunta||'Nombre de tu mascota';
   var er=g('eu-respuesta');if(er)er.value=u.respuesta||'';
+  sv('eu-meta',u.meta||'');
+  toggleMetaPanel('eu');
   // Mostrar siempre el panel de permisos (aplica a ambos roles)
   var euPanel=g('eu-perms-panel');
   var euRol=g('eu-rol');
@@ -1960,6 +2024,7 @@ function guardarUsuario(){
   var ep=g('eu-pregunta');if(ep)users[idx].pregunta=ep.value;
   var er=g('eu-respuesta');if(er&&er.value.trim())users[idx].respuesta=er.value.trim();
   users[idx].permisos=getPermsFromForm('ep-');
+  users[idx].meta=+(g('eu-meta')||{value:0}).value||0;
   // Transferencia del perfil de Dueno (solo el Dueno actual puede hacerlo)
   var quiereTransferir=g('eu-dueno')&&g('eu-dueno').checked;
   var puedeTransferir=currentUser&&currentUser.esDueno&&!esDuenoTarget;
@@ -4220,9 +4285,107 @@ function cerrarDetalleRes(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+function renderResVendedor(MESES,hoy){
+  var mesActual=hoy.getMonth(),anioActual=hoy.getFullYear();
+  var lbl=g('rv-mes-lbl');if(lbl)lbl.textContent='Tus ventas de '+MESES[mesActual]+' '+anioActual;
+  function esMesV(fecha){
+    if(!fecha)return false;
+    var p=fecha.split('/');
+    return p.length===3&&(+p[1]-1)===mesActual&&+p[2]===anioActual;
+  }
+  var misVentas=ven.filter(function(v){return v.vend===currentUser.nombre&&esMesV(v.fecha);});
+  var total=misVentas.reduce(function(s,v){return s+(v.total||0);},0);
+  var meta=currentUser.meta||0;
+  var pct=meta>0?Math.min(100,(total/meta*100)):0;
+  var falta=Math.max(0,meta-total);
+
+  var tEl=g('rv-total');if(tEl)tEl.textContent=fmt(total);
+  var mEl=g('rv-meta');if(mEl)mEl.textContent=meta>0?fmt(meta):'Sin meta asignada';
+  var pEl=g('rv-pct');if(pEl)pEl.textContent=meta>0?pct.toFixed(0)+'%':'';
+  var barra=g('rv-barra');
+  if(barra){
+    barra.style.width=pct+'%';
+    barra.style.background=pct>=100?'#27ae60':pct>=60?'#f39c12':'#e74c3c';
+  }
+  var faltaTxt=g('rv-falta-txt');
+  if(faltaTxt){
+    if(meta<=0)faltaTxt.textContent='Pidele a tu administrador que te asigne una meta mensual.';
+    else if(falta<=0)faltaTxt.textContent='Meta cumplida! Superaste tu meta por '+fmt(total-meta)+'.';
+    else faltaTxt.textContent='Te faltan '+fmt(falta)+' para llegar a tu meta.';
+  }
+
+  var tb=g('rv-tb');
+  if(tb){
+    if(!misVentas.length){
+      tb.innerHTML='<tr><td colspan="5" class="empty">Sin ventas registradas este mes todavia</td></tr>';
+    }else{
+      tb.innerHTML=misVentas.slice().sort(function(a,b){return (b.ts||0)-(a.ts||0);}).map(function(v){
+        var c=v.comprador||{};
+        var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
+        return '<tr><td style="font-size:11px;color:#888">'+v.fecha+'</td><td>'+v.art+'</td><td>'+cl+'</td>'+
+               '<td>'+v.pago+'</td><td style="text-align:right;font-weight:700;color:#1e8449">'+fmt(v.total)+'</td></tr>';
+      }).join('');
+    }
+  }
+}
+
+function renderBalance3Meses(hoy){
+  var wrap=g('balance3m-chart');
+  if(!wrap)return;
+  var MESES3=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var meses=[];
+  for(var i=2;i>=0;i--){
+    var d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
+    meses.push({mes:d.getMonth(),anio:d.getFullYear(),label:MESES3[d.getMonth()]+' '+d.getFullYear()});
+  }
+  function enMes(fecha,mes,anio){
+    if(!fecha)return false;
+    var p=(normFechaGlobal(fecha)||fecha).split('/');
+    return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
+  }
+  var datos=meses.map(function(m){
+    var ingresos=ven.filter(function(v){return enMes(v.fecha,m.mes,m.anio);}).reduce(function(s,v){return s+(v.total||0);},0);
+    var gastos=cont.filter(function(c){return c.egr>0&&enMes(c.fecha,m.mes,m.anio);}).reduce(function(s,c){return s+(c.egr||0);},0);
+    var balance=ingresos-gastos;
+    return {label:m.label,ingresos:ingresos,gastos:gastos,balance:balance};
+  });
+  var maxVal=Math.max(1,Math.max.apply(null,datos.map(function(d){return Math.max(d.ingresos,d.gastos,Math.abs(d.balance));})));
+  wrap.innerHTML=datos.map(function(d){
+    var hIng=Math.max(3,(d.ingresos/maxVal)*140);
+    var hGas=Math.max(3,(d.gastos/maxVal)*140);
+    var hBal=Math.max(3,(Math.abs(d.balance)/maxVal)*140);
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1">'+
+      '<div style="display:flex;align-items:flex-end;gap:4px;height:140px">'+
+        '<div title="Ingresos: '+fmt(d.ingresos)+'" style="width:16px;height:'+hIng+'px;background:#27ae60;border-radius:3px 3px 0 0"></div>'+
+        '<div title="Gastos: '+fmt(d.gastos)+'" style="width:16px;height:'+hGas+'px;background:#e74c3c;border-radius:3px 3px 0 0"></div>'+
+        '<div title="Balance neto: '+fmt(d.balance)+'" style="width:16px;height:'+hBal+'px;background:'+(d.balance>=0?'#3498db':'#95a5a6')+';border-radius:3px 3px 0 0"></div>'+
+      '</div>'+
+      '<div style="font-size:11px;font-weight:600;color:#2c3e50">'+d.label+'</div>'+
+      '<div style="font-size:10px;color:'+(d.balance>=0?'#1e8449':'#c0392b')+';font-weight:700">'+fmt(d.balance)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
 function renderRes(){
   var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var hoy=new Date();
+
+  // Los vendedores ven SOLO su propio resumen de ventas (no las cifras financieras del negocio)
+  var esVendedor=currentUser&&currentUser.rol==='vendedor';
+  var panelVend=g('res-vendedor-panel');
+  var panelAdmin=g('res-admin-content');
+  var panelBalance=g('res-balance-3m');
+  if(esVendedor){
+    if(panelVend)panelVend.style.display='block';
+    if(panelAdmin)panelAdmin.style.display='none';
+    if(panelBalance)panelBalance.style.display='none';
+    renderResVendedor(MESES,hoy);
+    return;
+  }else{
+    if(panelVend)panelVend.style.display='none';
+    if(panelAdmin)panelAdmin.style.display='block';
+    if(panelBalance)panelBalance.style.display='block';
+  }
 
   // Poblar selectores si aun no tienen opciones
   var selMes=g('res-mes');var selAnio=g('res-anio');
@@ -4243,6 +4406,7 @@ function renderRes(){
   }
 
   var mesActual=selMes?+selMes.value:hoy.getMonth();
+  renderBalance3Meses(hoy);
   var anioActual=selAnio?+selAnio.value:hoy.getFullYear();
 
   // Label del mes seleccionado
@@ -5011,11 +5175,15 @@ function setContPage(p){contPage=p;renderContable();}
 function renderContableCategorias(){
   var wrap=g('cont-cat-resumen');
   if(!wrap)return;
+  var ahora=new Date();
+  var mesActualCat=ahora.getMonth(),anioActualCat=ahora.getFullYear();
   var porCat={};
   var sinCategoria=0;
   cont.forEach(function(c){
     if(!c.egr||c.egr<=0)return;
     if(c.categoria==='Ingreso por ventas')return; // por seguridad, no deberia tener egr
+    var p=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
+    if(p.length!==3||(+p[1]-1)!==mesActualCat||+p[2]!==anioActualCat)return;
     var cat=c.categoria&&c.categoria.trim()?c.categoria:null;
     if(!cat){sinCategoria+=c.egr;return;}
     porCat[cat]=(porCat[cat]||0)+c.egr;
@@ -5023,7 +5191,7 @@ function renderContableCategorias(){
   var entradas2=Object.entries(porCat).sort(function(a,b){return b[1]-a[1];});
   var totalCat=entradas2.reduce(function(s,e){return s+e[1];},0)+sinCategoria;
   if(!entradas2.length&&!sinCategoria){
-    wrap.innerHTML='<div class="empty" style="padding:20px 0">Sin gastos categorizados todavia</div>';
+    wrap.innerHTML='<div class="empty" style="padding:20px 0">Sin gastos categorizados este mes todavia</div>';
     return;
   }
   var colores=['#e74c3c','#e67e22','#f39c12','#9b59b6','#3498db','#1abc9c','#2ecc71','#34495e','#c0392b','#8e44ad','#16a085','#d35400'];
