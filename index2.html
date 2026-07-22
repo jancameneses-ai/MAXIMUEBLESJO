@@ -653,6 +653,13 @@ tr:hover td{background:#f8f9ff}
         <div><label>P. Costo $</label><input type="number" id="nco" min="0" class="noup"></div>
         <div><label>P. Venta $</label><input type="number" id="nv" min="0" class="noup"></div>
       </div>
+      <div style="margin-bottom:12px">
+        <label>Fotos del articulo <span style="color:#888;font-weight:400;text-transform:none">(opcional, puedes elegir varias)</span></label>
+        <div style="margin-top:6px">
+          <input type="file" id="na-foto-input" accept="image/*" multiple onchange="previsualizarFotoArt(this,'na')">
+          <div id="na-foto-preview-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+        </div>
+      </div>
       <button class="btn bgold" onclick="addArt()" style="padding:9px 22px">Agregar articulo</button>
     </div>
     <div class="card"><h2>Stock de articulos</h2>
@@ -1194,6 +1201,17 @@ tr:hover td{background:#f8f9ff}
 
 <div class="toast" id="toast"></div>
 
+<!-- Visor de foto en grande -->
+<div id="foto-lightbox" onclick="if(event.target===this)cerrarFotoGrande()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99998;align-items:center;justify-content:center;padding:24px;cursor:zoom-out">
+  <div style="max-width:90vw;max-height:90vh;text-align:center;position:relative">
+    <button onclick="event.stopPropagation();navegarFotoGrande(-1)" id="foto-lightbox-prev" style="display:none;position:absolute;left:-40px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer">&#8249;</button>
+    <img id="foto-lightbox-img" src="" style="max-width:100%;max-height:80vh;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);cursor:default" onclick="event.stopPropagation()">
+    <button onclick="event.stopPropagation();navegarFotoGrande(1)" id="foto-lightbox-next" style="display:none;position:absolute;right:-40px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer">&#8250;</button>
+    <div id="foto-lightbox-nombre" style="color:#fff;margin-top:12px;font-size:14px;font-weight:600"></div>
+    <div id="foto-lightbox-contador" style="color:rgba(255,255,255,.6);margin-top:4px;font-size:11px"></div>
+  </div>
+</div>
+
 <!-- Bloqueo total de la app cuando no hay conexion, para evitar movimientos a medias -->
 <div id="offline-block" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(26,37,47,.97);align-items:center;justify-content:center;padding:20px">
   <div style="max-width:340px;text-align:center;color:#fff">
@@ -1294,6 +1312,13 @@ tr:hover td{background:#f8f9ff}
       <div><label>P. Costo $</label><input type="number" id="ea-costo" class="noup"></div>
       <div><label>P. Venta $</label><input type="number" id="ea-venta" class="noup"></div>
       <div><label>Stock</label><input type="number" id="ea-stk" class="noup"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label>Fotos del articulo <span style="color:#888;font-weight:400;text-transform:none">(opcional, puedes elegir varias)</span></label>
+      <div style="margin-top:6px">
+        <input type="file" id="ea-foto-input" accept="image/*" multiple onchange="previsualizarFotoArt(this,'ea')">
+        <div id="ea-foto-preview-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
     </div>
     <div class="mdf">
       <button class="btn bgray" onclick="cm('med')">Cancelar</button>
@@ -1497,6 +1522,7 @@ function procesarDatos(data){
         if(fu.pregunta)existe.pregunta=fu.pregunta;
         if(fu.respuesta)existe.respuesta=fu.respuesta;
         if(fu.esDueno!==undefined)existe.esDueno=fu.esDueno;
+        if(fu.metas)existe.metas=fu.metas;
       }
     });
   }
@@ -2486,7 +2512,9 @@ function gestCuot(vi){
     h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">VALOR TOTAL VENTA</div><div style="font-size:15px;font-weight:700;color:#fff">'+fmt(v.total)+'</div></div>';
     h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">CUOTA REFERENCIA</div><div style="font-size:15px;font-weight:700;color:#c9a227">'+fmt(cuotaBase)+'/mes</div></div>';
   }
-  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">INICIAL PAGADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(ini)+'</div></div>';
+  h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">INICIAL PAGADO</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(ini)+'</div>'+
+    (ini>0?'<button class="btn bpdf" onclick="dlReciboInicial('+vi+')" style="font-size:9px;padding:3px 8px;margin-top:4px">Recibo cuota inicial</button>':'')+
+  '</div>';
   h+='<div><div style="font-size:9px;color:rgba(255,255,255,.6)">ABONADO EN CUOTAS</div><div style="font-size:14px;font-weight:700;color:#2ecc71">'+fmt(totalAbonado)+'</div></div>';
   h+='<div style="grid-column:span 2;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;margin-top:2px">';
   h+='<div style="font-size:9px;color:rgba(255,255,255,.6)">SALDO PENDIENTE</div>';
@@ -2645,6 +2673,107 @@ function updStk(i,val){
   logActividad('Inventario','Actualizo stock de '+artNom+' a '+nuevoStk+' unidades');
   save();toast('Stock actualizado');
 }
+var _fotoArtTemp={};
+var MAX_FOTOS_ART=6;
+function previsualizarFotoArt(input,prefijo){
+  var files=input.files?Array.from(input.files):[];
+  if(!files.length)return;
+  if(!Array.isArray(_fotoArtTemp[prefijo]))_fotoArtTemp[prefijo]=[];
+  var espacio=MAX_FOTOS_ART-_fotoArtTemp[prefijo].length;
+  if(espacio<=0){
+    toast('Ya tienes el maximo de '+MAX_FOTOS_ART+' fotos para este articulo',1);
+    input.value='';
+    return;
+  }
+  var aProcesar=files.slice(0,espacio);
+  if(files.length>espacio)toast('Solo se agregaron '+espacio+' foto(s) (maximo '+MAX_FOTOS_ART+' por articulo)',1);
+  var procesadas=0;
+  aProcesar.forEach(function(file){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        // Redimensionar a un maximo de 600px de lado y comprimir como JPEG, para que
+        // cualquier foto de celular quede liviana automaticamente, sin que el usuario
+        // tenga que hacer nada.
+        var maxLado=600;
+        var w=img.width,h=img.height;
+        if(w>h&&w>maxLado){h=Math.round(h*(maxLado/w));w=maxLado;}
+        else if(h>=w&&h>maxLado){w=Math.round(w*(maxLado/h));h=maxLado;}
+        var canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        var ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        var calidad=0.75;
+        var dataUrl=canvas.toDataURL('image/jpeg',calidad);
+        // Si por alguna razon sigue muy pesada (foto enorme), bajar mas la calidad
+        var intentos=0;
+        while(dataUrl.length>700000&&intentos<4){
+          calidad-=0.15;
+          dataUrl=canvas.toDataURL('image/jpeg',Math.max(0.3,calidad));
+          intentos++;
+        }
+        _fotoArtTemp[prefijo].push(dataUrl);
+        procesadas++;
+        renderPreviewFotosArt(prefijo);
+        if(procesadas===aProcesar.length)toast('Foto(s) lista(s) (se ajusto automaticamente el tamano)');
+      };
+      img.onerror=function(){toast('No se pudo leer una de las imagenes',1);};
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+function renderPreviewFotosArt(prefijo){
+  var cont=g(prefijo+'-foto-preview-list');
+  if(!cont)return;
+  var fotos=_fotoArtTemp[prefijo]||[];
+  cont.innerHTML=fotos.map(function(f,idx){
+    return '<div style="position:relative;width:60px;height:60px">'+
+      '<img src="'+f+'" style="width:60px;height:60px;border-radius:8px;object-fit:cover;border:1.5px solid #eee">'+
+      '<span onclick="quitarFotoTemp(\''+prefijo+'\','+idx+')" style="position:absolute;top:-6px;right:-6px;background:#e74c3c;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;font-weight:700">x</span>'+
+    '</div>';
+  }).join('');
+}
+function quitarFotoTemp(prefijo,idx){
+  if(!_fotoArtTemp[prefijo])return;
+  _fotoArtTemp[prefijo].splice(idx,1);
+  renderPreviewFotosArt(prefijo);
+}
+var _fotosLightboxActual=[];
+var _fotoLightboxIdx=0;
+var _fotoLightboxNombre='';
+function verFotoGrande(fotos,nombre,idxInicial){
+  _fotosLightboxActual=Array.isArray(fotos)?fotos:[fotos];
+  _fotoLightboxIdx=idxInicial||0;
+  _fotoLightboxNombre=nombre||'';
+  pintarFotoLightbox();
+  var lb=g('foto-lightbox');
+  if(lb)lb.style.display='flex';
+}
+function pintarFotoLightbox(){
+  var img=g('foto-lightbox-img');
+  var nom=g('foto-lightbox-nombre');
+  var cont=g('foto-lightbox-contador');
+  var prevBtn=g('foto-lightbox-prev'),nextBtn=g('foto-lightbox-next');
+  if(img)img.src=_fotosLightboxActual[_fotoLightboxIdx]||'';
+  if(nom)nom.textContent=_fotoLightboxNombre;
+  var hayVarias=_fotosLightboxActual.length>1;
+  if(cont)cont.textContent=hayVarias?(_fotoLightboxIdx+1)+' / '+_fotosLightboxActual.length:'';
+  if(prevBtn)prevBtn.style.display=hayVarias?'block':'none';
+  if(nextBtn)nextBtn.style.display=hayVarias?'block':'none';
+}
+function navegarFotoGrande(dir){
+  var n=_fotosLightboxActual.length;
+  if(n<=1)return;
+  _fotoLightboxIdx=(_fotoLightboxIdx+dir+n)%n;
+  pintarFotoLightbox();
+}
+function cerrarFotoGrande(){
+  var lb=g('foto-lightbox');
+  if(lb)lb.style.display='none';
+}
 function openEA(i){
   var a=inv[i];
   g('ea-idx').value=i;
@@ -2653,6 +2782,11 @@ function openEA(i){
   g('ea-costo').value=a.costo||0;
   g('ea-venta').value=a.venta||0;
   g('ea-stk').value=a.stk||0;
+  // Cargar fotos existentes (compatibilidad con articulos que solo tenian una sola foto antigua)
+  var fotosExistentes=Array.isArray(a.fotos)?a.fotos.slice():(a.foto?[a.foto]:[]);
+  _fotoArtTemp['ea']=fotosExistentes;
+  renderPreviewFotosArt('ea');
+  var fi=g('ea-foto-input');if(fi)fi.value='';
   g('med').classList.add('open');
 }
 function saveArt(){
@@ -2664,7 +2798,8 @@ function saveArt(){
   var stk=+g('ea-stk').value||0;
   if(!art){toast('Escribe el nombre del articulo',1);return;}
   if(i>=0&&i<inv.length){
-    inv[i]={cod:cod,art:art,costo:costo,venta:venta,stk:stk};
+    var fotosActuales=_fotoArtTemp['ea']||[];
+    inv[i]={cod:cod,art:art,costo:costo,venta:venta,stk:stk,fotos:fotosActuales.slice()};
   }
   logActividad('Inventario','Edito articulo: '+art+' ('+cod+')');
   save();cm('med');renderInv();toast('Articulo actualizado');
@@ -2680,10 +2815,14 @@ function addArt(){
   if(!art)faltan.push('el nombre');
   if(faltan.length){toast('Falta agregar: '+faltan.join(', ')+'.',1);return;}
   if(inv.find(function(a){return a.cod===cod;})){toast('Ese codigo ya existe',1);return;}
-  inv.push({cod:cod,art:art,costo:costo,venta:venta,stk:stk});
+  var fotos=(_fotoArtTemp['na']||[]).slice();
+  inv.push({cod:cod,art:art,costo:costo,venta:venta,stk:stk,fotos:fotos});
   logActividad('Inventario','Creo articulo: '+art+' ('+cod+')');
   save();
   ['nc','na','nco','nv','ns'].forEach(function(id){var el=g(id);if(el)el.value='';});
+  _fotoArtTemp['na']=[];
+  renderPreviewFotosArt('na');
+  var fiNa=g('na-foto-input');if(fiNa)fiNa.value='';
   renderInv();toast('Articulo agregado');
 }
 function delArt(i){
@@ -3018,7 +3157,7 @@ function guardarEdicionVenta(){
     try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   }
   logActividad('Venta','Edito venta: '+ven[i].art+' — '+fmt(ven[i].total));
-  save();cm('medit-venta');renderHist();renderCart();renderContable();toast('Venta actualizada');
+  save();cm('medit-venta');renderAll();toast('Venta actualizada');
 }
 function delVenta(i,artIdx,qty){
   if(sinConexionActiva()){toast('Sin conexion a internet. No se puede realizar este movimiento en este momento.',1);return;}
@@ -3720,6 +3859,7 @@ function renderInv(){
   var ss='cursor:pointer;user-select:none';
   function ah(col){return invSort.col===col?(invSort.asc?' ▲':' ▼'):'';}
   th.innerHTML='<tr>'+
+    '<th>Foto</th>'+
     '<th onclick="setInvSort(\'cod\')" style="'+ss+'">Cod'+ah('cod')+'</th>'+
     '<th onclick="setInvSort(\'art\')" style="'+ss+'">Articulo'+ah('art')+'</th>'+
     '<th onclick="setInvSort(\'stk\')" style="text-align:center;'+ss+'">Stock'+ah('stk')+'</th>'+
@@ -3749,7 +3889,7 @@ function renderInv(){
     return invSort.asc?va-vb:vb-va;
   });
   if(!lista.length){
-    tb.innerHTML='<tr><td colspan="8" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="9" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
     return;
   }
   // Pagination
@@ -3763,7 +3903,7 @@ function renderInv(){
   if(pw)pw.innerHTML=pagWidget('inv',invPage,totalInv,INV_PER_PAGE,'setInvPage');
 
   if(!paginada.length){
-    tb.innerHTML='<tr><td colspan="8" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="9" class="empty">'+(q?'Sin resultados':'Sin articulos')+'</td></tr>';
     return;
   }
   tb.innerHTML=paginada.map(function(x){
@@ -3779,7 +3919,15 @@ function renderInv(){
         '<button class="btn borg" onclick="openEA('+i+')" style="margin-right:3px">Editar</button>'+
         '<button class="btn bred" onclick="delArt('+i+')">Eliminar</button>'+
       '</td>':'';
-    return '<tr><td style="font-size:10px;color:#888">'+a.cod+'</td>'+
+    var fotosArr=Array.isArray(a.fotos)?a.fotos:(a.foto?[a.foto]:[]);
+    var fotoTd=fotosArr.length?
+      '<div style="position:relative;width:38px;height:38px;display:inline-block">'+
+        '<img src="'+fotosArr[0]+'" onclick="verFotoGrande(inv['+i+'].fotos,\''+a.art.replace(/'/g,"\\'")+'\',0)" style="width:38px;height:38px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee">'+
+        (fotosArr.length>1?'<span style="position:absolute;bottom:-4px;right:-4px;background:#2c3e50;color:#fff;border-radius:8px;font-size:8px;padding:1px 4px;font-weight:700">+'+(fotosArr.length-1)+'</span>':'')+
+      '</div>'
+      :'<div style="width:38px;height:38px;border-radius:6px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:9px;text-align:center">Sin foto</div>';
+    return '<tr><td>'+fotoTd+'</td>'+
+      '<td style="font-size:10px;color:#888">'+a.cod+'</td>'+
       '<td style="font-weight:700">'+a.art+'</td>'+
       '<td style="text-align:center"><input class="si" type="number" min="0" value="'+a.stk+'" style="color:'+col+'" onchange="updStk('+i+',this.value)"'+(puedeStock?'':' readonly')+'></td>'+
       costoTd+
@@ -3888,6 +4036,7 @@ function renderHist(){
         '<button class="btn bgold" onclick="showDet('+i+')" style="margin-right:3px">Ver</button>'+
         (getPerm('his-edit')?'<button class="btn borg" onclick="abrirEditarVenta('+i+')" style="margin-right:3px">Editar</button>':'')+
         (getPerm('pdf')?'<button class="btn bpdf" onclick="dlPDFi('+i+')" style="margin-right:3px">PDF</button>':'')+
+        (getPerm('pdf')&&v.ci&&v.ci.inicial>0?'<button class="btn bpdf" onclick="dlReciboInicial('+i+')" style="margin-right:3px;background:#1a5276">Recibo inicial</button>':'')+
         (getPerm('his-edit')?'<button class="btn bred" onclick="delVenta('+i+','+(v.idx||0)+','+(v.qty||1)+')">X</button>':'')+
       '</td></tr>';
   }).join('');
@@ -5135,12 +5284,46 @@ function delContable(i){
         extra=' Se descontaron '+ent.cantidad+' unidades del stock de '+ent.articulo+'.';
       }
     }
+    // Si el movimiento eliminado es el ingreso de una venta (efectivo, cuota inicial, etc.),
+    // eliminar tambien la venta completa para que quede igual en todas partes (Historial, Cartera, Metas)
+    var mVentaIngreso=desc.match(/^(Venta efectivo|Cuota inicial Credicontado|Efectivo complementario Sistecredito|Cuota inicial Credicontado \(Sistecredito\+Credicontado\)): (.+?)(?: — (.+))?$/);
+    if(mVentaIngreso){
+      var artVentaBuscado=mVentaIngreso[2],clienteVentaBuscado=mVentaIngreso[3]||'';
+      var viVenta=ven.findIndex(function(v){
+        if(v.art!==artVentaBuscado)return false;
+        var c=v.comprador||{};
+        var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
+        return clienteVentaBuscado?cl===clienteVentaBuscado:true;
+      });
+      if(viVenta>=0){
+        var ventaAEliminar=ven[viVenta];
+        // Restaurar stock
+        if(ventaAEliminar.items){
+          ventaAEliminar.items.forEach(function(it){
+            var af=inv.find(function(a){return a.art===it.art;});
+            if(af)af.stk+=it.qty||1;
+          });
+        }
+        ven.splice(viVenta,1);
+        // Eliminar CUALQUIER otro registro contable relacionado con esta misma venta (cuotas, abonos, etc.)
+        cont=cont.filter(function(c2){
+          if(c2===mov)return false; // este ya se elimina abajo de todas formas
+          if(c2.tipo!=='auto')return true;
+          var d2=c2.desc||'';
+          var matchArt2=artVentaBuscado&&d2.indexOf(artVentaBuscado)>=0;
+          var matchCli2=clienteVentaBuscado?d2.indexOf(clienteVentaBuscado)>=0:true;
+          return !(matchArt2&&matchCli2);
+        });
+        logActividad('Venta','Elimino venta (desde libro contable): '+artVentaBuscado+(clienteVentaBuscado?' — '+clienteVentaBuscado:''));
+        extra=' Se elimino tambien la venta completa de '+artVentaBuscado+(clienteVentaBuscado?' ('+clienteVentaBuscado+')':'')+' y se restauro el stock.';
+      }
+    }
   }
   contGuardarEstado();
-  cont.splice(i,1);
+  cont.splice(cont.indexOf(mov),1);
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   logActividad('Contable','Elimino movimiento: '+(mov?mov.desc:''));
-  save();renderContable();renderCart();renderCreditos();renderInv();renderEntradas();
+  save();renderAll();renderContable();renderCart();renderCreditos();renderInv();renderEntradas();
   toast('Movimiento eliminado.'+extra);
 }
 
@@ -5313,6 +5496,78 @@ function renderContableCategorias(){
 }
 
 
+function dlReciboInicial(vi){
+  var v=ven[vi];
+  var montoCredito=creditoTotal(v);
+  var c=v.comprador||{};
+  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
+  var asesor=v.vend||currentUser&&(currentUser.nombre||currentUser.uname)||'Admin';
+  var plan=calcularPlanCuotas(v);
+  var cuotaBase=plan.cuotaBase;
+  var diaPago='';
+  if(v.ci&&v.ci.fecha){var fp0=parseDate(v.ci.fecha);if(fp0&&!isNaN(fp0.getTime()))diaPago=fp0.getDate()+' de cada mes';}
+  var totalCuotas=(v.cp||[]).reduce(function(s,p){return s+(p.monto||0);},0);
+  var ini=v.ci?v.ci.inicial||0:0;
+  var totalDado=totalCuotas+ini;
+  var saldo=Math.max(0,montoCredito-totalDado);
+  var fechaPago=normFechaGlobal(v.fecha)||v.fecha||'';
+  var ahora=new Date();
+  var fechaHoy=fmtFechaDDMMYYYY(ahora);
+  var horaHoy=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'mm',format:'a5'});
+  var W=doc.internal.pageSize.getWidth();
+  var y=0;
+  var VERDE=[26,58,26];var DORADO=[201,162,39];var GR=[80,80,80];var BL=[20,20,20];
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(0,0,W,28,'F');
+  try{doc.addImage(LOGO,'JPEG',6,5,18,18);}catch(e){}
+  doc.setTextColor(DORADO[0],DORADO[1],DORADO[2]);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('MAXIMUEBLES JO',30,12);
+  doc.setTextColor(180,210,180);doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text('Orito, Putumayo — Tel: 313 311 4598',30,17);
+  doc.setTextColor(150,190,150);doc.setFontSize(7);doc.text('Recibo de cuota inicial',30,22);
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text(fechaHoy,W-8,13,{align:'right'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(180,210,180);
+  doc.text(horaHoy,W-8,19,{align:'right'});
+  y=33;
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(6,y-3,W-12,7,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('DATOS DEL CREDITO',W/2,y+1,{align:'center'});y+=9;
+  function fila(label,val){
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.setTextColor(GR[0],GR[1],GR[2]);doc.text(label,8,y);
+    doc.setTextColor(BL[0],BL[1],BL[2]);doc.text(String(val||'-'),W-8,y,{align:'right'});y+=5.5;
+  }
+  fila('Cliente:',cl);
+  fila('Articulo:',v.art.length>38?v.art.substring(0,38)+'...':v.art);
+  fila('Total del credito:',fmt(montoCredito));
+  if(v.pago==='SISTECREDITO+CREDICONTADO')fila('Valor total de la venta:',fmt(v.total));
+  fila('Cuotas pactadas:',v.cuotas+' cuotas de '+fmt(cuotaBase));
+  fila('Dias de pago:',diaPago||'-');y+=3;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.4);doc.line(6,y-4,W-6,y-4);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text('Cuota inicial recibida',8,y+2);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Fecha — '+fechaPago,8,y+7);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
+  doc.text(fmt(ini),W-8,y+7,{align:'right'});y+=14;
+  doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-2,W-6,y-2);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Asesor: '+asesor,W/2,y+2,{align:'center'});y+=8;
+  if(saldo>0){
+    doc.setFontSize(8);doc.text('Saldo pendiente por pagar: '+fmt(saldo),W/2,y+1,{align:'center'});y+=8;
+  }else{
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
+    doc.text('CREDITO CANCELADO EN SU TOTALIDAD',W/2,y+1,{align:'center'});y+=8;
+  }
+  doc.setDrawColor(220,220,220);doc.setLineWidth(0.3);doc.line(6,y,W-6,y);y+=6;
+  doc.setFontSize(7);doc.setFont('helvetica','italic');doc.setTextColor(150,150,150);
+  doc.text('Gracias por su compra — Maximuebles Jo, Orito Putumayo',W/2,y,{align:'center'});
+  doc.save('Recibo_Inicial_'+cl.replace(/ /g,'_')+'.pdf');
+  toast('Recibo de cuota inicial descargado');
+}
+
 function dlReciboCuota(vi,ci){
   var v=ven[vi];
   var montoCredito=creditoTotal(v);
@@ -5471,11 +5726,81 @@ function dlReciboCuota(vi,ci){
   toast('Recibo descargado');
 }
 
+function dlReciboInicial(vi){
+  var v=ven[vi];
+  if(!v||!v.ci||!(v.ci.inicial>0)){toast('Esta venta no tiene cuota inicial registrada',1);return;}
+  var montoCredito=creditoTotal(v);
+  var c=v.comprador||{};
+  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
+  var asesor=v.vend||currentUser&&(currentUser.nombre||currentUser.uname)||'Admin';
+  var plan=calcularPlanCuotas(v);
+  var cuotaBase=plan.cuotaBase;
+  var ini=v.ci.inicial||0;
+  var saldo=Math.max(0,montoCredito-ini);
+  var fechaIniReal=normFechaGlobal(v.fecha)||v.fecha;
+  var ahora=new Date();
+  var fechaHoy=fmtFechaDDMMYYYY(ahora);
+  var horaHoy=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'mm',format:'a5'});
+  var W=doc.internal.pageSize.getWidth();
+  var y=0;
+  var VERDE=[26,58,26];var DORADO=[201,162,39];var GR=[80,80,80];var BL=[20,20,20];
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(0,0,W,28,'F');
+  try{doc.addImage(LOGO,'JPEG',6,5,18,18);}catch(e){}
+  doc.setTextColor(DORADO[0],DORADO[1],DORADO[2]);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('MAXIMUEBLES JO',30,12);
+  doc.setTextColor(180,210,180);doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text('Orito, Putumayo — Tel: 313 311 4598',30,17);
+  doc.setTextColor(150,190,150);doc.setFontSize(7);doc.text('Recibo de cuota inicial',30,22);
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text(fechaHoy,W-8,13,{align:'right'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(180,210,180);
+  doc.text(horaHoy,W-8,19,{align:'right'});
+  y=33;
+  doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]);doc.rect(6,y-3,W-12,7,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('DATOS DEL CREDITO',W/2,y+1,{align:'center'});y+=9;
+  function fila(label,val){
+    doc.setFontSize(9);doc.setFont('helvetica','normal');
+    doc.setTextColor(GR[0],GR[1],GR[2]);doc.text(label,8,y);
+    doc.setTextColor(BL[0],BL[1],BL[2]);doc.text(String(val||'-'),W-8,y,{align:'right'});y+=5.5;
+  }
+  fila('Cliente:',cl);
+  fila('Articulo:',v.art.length>38?v.art.substring(0,38)+'...':v.art);
+  fila(v.pago==='SISTECREDITO+CREDICONTADO'?'Valor total a credito:':'Total del credito:',fmt(montoCredito));
+  if(v.pago==='SISTECREDITO+CREDICONTADO')fila('Valor total de la venta:',fmt(v.total));
+  fila('Cuotas pactadas:',v.cuotas+' cuotas de '+fmt(cuotaBase));
+  y+=3;
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.4);doc.line(6,y-4,W-6,y-4);y+=6;
+  doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text('Cuota inicial recibida',8,y+2);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Fecha — '+fechaIniReal,8,y+7);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
+  doc.text(fmt(ini),W-8,y+7,{align:'right'});y+=16;
+  doc.setFillColor(250,250,250);doc.rect(6,y-3,W-12,8,'F');
+  doc.setDrawColor(220,220,220);doc.line(6,y+5,W-6,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Saldo pendiente por pagar',8,y+2);
+  doc.setFont('helvetica','bold');doc.setTextColor(BL[0],BL[1],BL[2]);
+  doc.text(fmt(saldo),W-8,y+2,{align:'right'});y+=13;
+  doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-2,W-6,y-2);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
+  doc.text('Asesor: '+asesor,W/2,y+2,{align:'center'});y+=10;
+  doc.setDrawColor(DORADO[0],DORADO[1],DORADO[2]);doc.setLineWidth(0.3);doc.line(6,y,W-6,y);y+=5;
+  doc.setFontSize(7);doc.setFont('helvetica','italic');doc.setTextColor(150,150,150);
+  doc.text('Gracias por su pago — Maximuebles Jo, Orito Putumayo — Tel: 313 311 4598',W/2,y,{align:'center'});
+  doc.save('Recibo_Inicial_'+cl.replace(/ /g,'_')+'.pdf');
+  toast('Recibo de cuota inicial descargado');
+}
+
 function renderAll(){
   if(!currentUser)return;
   applyRol();
   renderInv();renderSel();renderHist();renderCart();renderRes();renderSV();renderCreditos();
   renderUsuarios();renderContable();renderEntradas();
+  if(isAdmin())renderMetas();
 }
 
 function goTab(id,el){
