@@ -112,6 +112,7 @@ body{font-family:'Poppins',Arial,sans-serif;background:#f0f2f5;color:#333;font-s
 
 /* ── HEADER ── */
 header{background:#2c3e50;color:#fff;padding:0 20px;display:flex;justify-content:space-between;align-items:center;height:52px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+body.offline-banner-visible header{margin-top:34px}
 .header-logo{height:32px;border-radius:6px}
 .hdr{display:flex;gap:10px;align-items:center}
 .ub{background:rgba(255,255,255,.12);font-size:11px;padding:4px 14px;border-radius:20px;font-weight:500;border:1px solid rgba(255,255,255,.15)}
@@ -1226,23 +1227,9 @@ tr:hover td{background:#f8f9ff}
 </div>
 
 <!-- Bloqueo total de la app cuando no hay conexion, para evitar movimientos a medias -->
-<div id="offline-block" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(26,37,47,.97);align-items:center;justify-content:center;padding:20px">
-  <div style="max-width:340px;text-align:center;color:#fff">
-    <div style="font-size:40px;margin-bottom:10px">📡</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:8px">Sin conexion a internet</div>
-    <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.5">
-      Para evitar que se pierda o se duplique informacion, la aplicacion se pausa hasta que vuelva la señal.
-      No cierres ni recargues la pagina, se reanudara sola apenas se recupere la conexion.
-    </div>
-    <div style="margin-top:18px;display:flex;align-items:center;justify-content:center;gap:6px">
-      <span style="display:flex;align-items:flex-end;gap:3px;height:16px">
-        <span id="offline-bar1" style="width:4px;height:6px;background:#e74c3c;border-radius:1px"></span>
-        <span id="offline-bar2" style="width:4px;height:11px;background:#555;border-radius:1px"></span>
-        <span id="offline-bar3" style="width:4px;height:16px;background:#555;border-radius:1px"></span>
-      </span>
-      <span style="font-size:11px;color:rgba(255,255,255,.6)">Buscando señal...</span>
-    </div>
-  </div>
+<div id="offline-block" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#fff3e0;color:#9a6b0a;padding:7px 14px;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.1)">
+  <span style="width:7px;height:7px;border-radius:50%;background:#e74c3c;display:inline-block;flex-shrink:0"></span>
+  <span>Sin conexion a internet — puedes seguir viendo todo, pero no se pueden guardar ni registrar cambios hasta que vuelva la señal.</span>
 </div>
 
 <!-- MODAL EDITAR VENTA -->
@@ -5909,16 +5896,20 @@ function actualizarIndicadorConexion(conectado,nivel){
   nivel=nivel||0;
   pintarBarras('conn',nivel,conectado);
   pintarBarras('login-conn',nivel,conectado);
-  // Bloquear TODA la app mientras no haya conexion — pero con un margen de espera,
-  // para no mostrar el aviso por el "parpadeo" normal de un segundo cuando recien conecta.
+  // Mostrar un aviso pequeño y fijo arriba (no bloquea la vista) mientras no haya conexion —
+  // pero con un margen de espera, para no mostrar el aviso por el "parpadeo" normal de un
+  // segundo cuando recien conecta. Solo se bloquea el GUARDADO de datos (en cada funcion de registro),
+  // no la lectura: se puede seguir viendo precios, inventario, cartera, etc. con normalidad.
   var bloqueo=g('offline-block');
   if(conectado){
     if(_timerBloqueo){clearTimeout(_timerBloqueo);_timerBloqueo=null;}
     if(bloqueo)bloqueo.style.display='none';
+    document.body.classList.remove('offline-banner-visible');
   }else{
     if(!_timerBloqueo){
       _timerBloqueo=setTimeout(function(){
         if(bloqueo)bloqueo.style.display='flex';
+        document.body.classList.add('offline-banner-visible');
         _timerBloqueo=null;
       },3500);
     }
@@ -5928,7 +5919,7 @@ function actualizarIndicadorConexion(conectado,nivel){
     if(conectado){
       toast('Conexion recuperada — sincronizando...');
     }else{
-      toast('Sin conexion a internet. La aplicacion se pauso para evitar perder informacion.',1);
+      toast('Sin conexion a internet. Puedes seguir viendo todo, pero no se pueden guardar cambios.',1);
     }
   }
   _conexionEstadoPrevio=conectado;
