@@ -2785,21 +2785,22 @@ function cerrarFotoGrande(){
   document.body.style.width='';
   window.scrollTo(0,_scrollYPrevio);
 }
-// Deslizar el dedo sobre la foto para pasar a la siguiente/anterior
+// Deslizar el dedo SOLO sobre la foto (no en el fondo) para pasar a la siguiente/anterior.
+// Fuera de la foto se deja libre el gesto nativo del navegador (pellizcar para acercar/alejar, etc).
 var _fotoTouchStartX=null,_fotoTouchStartY=null;
 (function(){
-  var lb=document.getElementById('foto-lightbox');
-  if(!lb)return;
-  lb.addEventListener('touchstart',function(e){
+  var img=document.getElementById('foto-lightbox-img');
+  if(!img)return;
+  img.addEventListener('touchstart',function(e){
     if(e.touches.length!==1)return;
     _fotoTouchStartX=e.touches[0].clientX;
     _fotoTouchStartY=e.touches[0].clientY;
   },{passive:true});
-  lb.addEventListener('touchmove',function(e){
-    // Evitar que el gesto arrastre/haga scroll la pagina de fondo
-    e.preventDefault();
+  img.addEventListener('touchmove',function(e){
+    // Solo evitar el scroll de fondo si es un solo dedo (deslizando la foto), no si esta pellizcando con 2 dedos
+    if(e.touches.length===1)e.preventDefault();
   },{passive:false});
-  lb.addEventListener('touchend',function(e){
+  img.addEventListener('touchend',function(e){
     if(_fotoTouchStartX===null)return;
     var touch=e.changedTouches[0];
     var dx=touch.clientX-_fotoTouchStartX;
