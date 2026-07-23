@@ -183,6 +183,19 @@ header{background:#2c3e50;color:#fff;padding:0 20px;display:flex;justify-content
   .login-box{padding:24px 18px}
   .login-logo{width:100px}
   .fac-wrap{max-width:100%}
+
+  /* Convertir TODAS las tablas en tarjetas apiladas, para que se vea toda la info sin cortar nada */
+  .sec table{border:none;width:100%}
+  .sec table thead{display:none}
+  .sec table tbody{display:block}
+  .sec table tbody tr{display:block;background:#fff;border:1px solid #eee;border-radius:10px;padding:8px 10px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .sec table tbody tr.total-row{background:#f7f9fc;font-weight:700}
+  .sec table tbody tr td{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 2px!important;border:none!important;text-align:left!important;width:100%}
+  .sec table tbody tr td:not(:last-child){border-bottom:1px dashed #f0f0f0!important}
+  .sec table tbody tr td:empty,.sec table tbody tr td:has(>*:only-child:empty){display:none}
+  .sec table tbody tr td.empty{display:block;text-align:center!important;padding:14px 0!important}
+  .sec table tbody tr td img,.sec table tbody tr td .btn{margin-left:auto}
+  .sec table tbody tr td input,.sec table tbody tr td select{width:auto;max-width:130px;margin-left:auto}
 }
 
 /* ── FORMS ── */
