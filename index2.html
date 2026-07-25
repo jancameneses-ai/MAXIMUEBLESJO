@@ -1586,6 +1586,10 @@ function isA(){return isAdmin();}
 
 function procesarDatos(data){
   if(!data)return;
+  if(window._guardandoLocal){
+    console.log('[procesarDatos] Ignorando actualizacion entrante: hay un guardado propio en curso');
+    return;
+  }
   if(data.comisionesFinanciera)comisionesFinanciera=data.comisionesFinanciera;
   if(data.inv)inv=data.inv;
   if(data.ven)ven=data.ven;
@@ -1677,6 +1681,7 @@ function save(){
   // Guardar en Firebase
   if(typeof window.fbSet==='function'){
     b.textContent='Guardando...';b.style.background='#f39c12';
+    window._guardandoLocal=true;
     window.fbSet({inv:inv,ven:ven,users:users,cont:cont,entradas:entradas,actividad:actividad,comisionesFinanciera:comisionesFinanciera},function(err){
       if(err){
         console.error('Firebase save error:',err);
@@ -1685,6 +1690,9 @@ function save(){
       }else{
         b.textContent='Guardado';b.style.background='#27ae60';
       }
+      // Esperar un poco mas antes de volver a aceptar datos entrantes, para dejar que
+      // el propio eco de este guardado termine de llegar sin que se confunda con datos viejos
+      setTimeout(function(){window._guardandoLocal=false;},1500);
     });
   }else{
     b.textContent='Guardado local';b.style.background='#e67e22';
