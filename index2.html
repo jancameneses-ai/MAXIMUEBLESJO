@@ -700,7 +700,12 @@ tr:hover td{background:#f8f9ff}
 
   <div id="inv-view-entradas" style="display:none">
     <div class="card">
-      <h2>Registrar entrada de inventario (articulos nuevos que llegan)</h2>
+      <h2>Registrar entrada de inventario (una factura con varios articulos)</h2>
+      <div class="g2" style="margin-bottom:14px;background:#f8f9fa;padding:12px 14px;border-radius:10px">
+        <div><label>Proveedor <span style="color:#aaa;font-weight:400;text-transform:none">(opcional, aplica a toda la factura)</span></label><input type="text" id="ent-prov" placeholder="NOMBRE DEL PROVEEDOR"></div>
+        <div><label>Fecha de la factura</label><input type="date" id="ent-fecha" class="noup"></div>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:10px;font-weight:600;text-transform:uppercase">Agregar articulo a esta factura</div>
       <div style="margin-bottom:10px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-weight:400;font-size:12px">
           <input type="checkbox" id="ent-nuevo" onchange="toggleEntNuevo()" style="width:16px;height:16px">
@@ -723,19 +728,27 @@ tr:hover td{background:#f8f9ff}
         <div><label>Cantidad que entro</label><input type="number" id="ent-cant" min="1" value="1" class="noup" oninput="calcEntrada()"></div>
         <div><label>Costo unitario $</label><input type="number" id="ent-costo" min="0" class="noup" oninput="calcEntrada()"></div>
         <div><label>Precio de venta $</label><input type="number" id="ent-venta" min="0" class="noup"></div>
-        <div><label>Total $ <span style="color:#aaa;font-weight:400;text-transform:none">(automatico)</span></label><input type="text" id="ent-total" readonly style="background:#f0f0f0"></div>
+        <div><label>Subtotal $ <span style="color:#aaa;font-weight:400;text-transform:none">(automatico)</span></label><input type="text" id="ent-total" readonly style="background:#f0f0f0"></div>
       </div>
-      <div class="g2" style="margin-top:10px">
-        <div><label>Proveedor <span style="color:#aaa;font-weight:400;text-transform:none">(opcional)</span></label><input type="text" id="ent-prov" placeholder="NOMBRE DEL PROVEEDOR"></div>
-        <div><label>Fecha de entrada</label><input type="date" id="ent-fecha" class="noup"></div>
+      <button class="btn bblue" onclick="agregarItemFactura()" style="margin-top:14px;padding:10px 20px">+ Agregar articulo a la factura</button>
+
+      <div style="margin-top:22px;border-top:2px solid #f0f0f0;padding-top:16px">
+        <div style="font-size:11px;color:#888;margin-bottom:10px;font-weight:600;text-transform:uppercase">Articulos en esta factura</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Articulo</th><th style="text-align:center">Cantidad</th><th style="text-align:right">Costo unit.</th><th style="text-align:right">Subtotal</th><th></th></tr></thead>
+          <tbody id="ent-carrito-tb"></tbody>
+        </table></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;font-size:15px;font-weight:700;color:#1a3a1a">
+          Total de la factura: <span id="ent-carrito-total" style="margin-left:8px">$0</span>
+        </div>
+        <div style="margin-top:10px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-weight:400;font-size:12px">
+            <input type="checkbox" id="ent-egreso" checked style="width:16px;height:16px">
+            Registrar automaticamente como egreso en el libro contable
+          </label>
+        </div>
+        <button class="btn bg" onclick="registrarFacturaCompleta()" style="margin-top:14px;padding:12px;width:100%">Registrar factura completa</button>
       </div>
-      <div style="margin-top:10px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-weight:400;font-size:12px">
-          <input type="checkbox" id="ent-egreso" checked style="width:16px;height:16px">
-          Registrar automaticamente como egreso en el libro contable
-        </label>
-      </div>
-      <button class="btn bg" onclick="registrarEntrada()" style="margin-top:14px;padding:12px">Registrar entrada</button>
     </div>
     <div class="card">
       <h2>Historial de entradas registradas</h2>
@@ -2979,6 +2992,7 @@ function switchInvView(view){
       g('ent-fecha').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }
     renderEntradas();
+    renderCarritoEntrada();
   }else{
     if(vs)vs.style.display='block';
     if(ve)ve.style.display='none';
@@ -3027,6 +3041,119 @@ function calcEntrada(){
   var cant=+g('ent-cant').value||0;
   var costo=+g('ent-costo').value||0;
   var t=g('ent-total');if(t)t.value=fmt(cant*costo);
+}
+var _carritoEntrada=[];
+function agregarItemFactura(){
+  var esNuevo=g('ent-nuevo').checked;
+  var cant=+g('ent-cant').value||0;
+  var costo=+g('ent-costo').value||0;
+  var venta=+g('ent-venta').value||0;
+  var idxSel=+g('ent-idx').value;
+  var artCodNuevo=(g('ent-cod').value||'').trim().toUpperCase();
+  var artNombreNuevo=(g('ent-art').value||'').trim().toUpperCase();
+
+  var faltan=[];
+  if(esNuevo){
+    if(!artCodNuevo)faltan.push('el codigo del articulo nuevo');
+    if(!artNombreNuevo)faltan.push('el nombre del articulo nuevo');
+  }else{
+    if(isNaN(idxSel)||idxSel<0||!inv[idxSel])faltan.push('seleccionar el articulo existente de la lista (busca y haz clic en el resultado)');
+  }
+  if(!cant||cant<1)faltan.push('la cantidad (debe ser mayor a 0)');
+  if(!costo||costo<=0)faltan.push('el costo unitario');
+  if(!venta||venta<=0)faltan.push('el precio de venta');
+  if(faltan.length){
+    toast('Falta agregar: '+faltan.join(', ')+'.',1);
+    return;
+  }
+  if(esNuevo&&(inv.find(function(a){return a.cod===artCodNuevo;})||_carritoEntrada.find(function(it){return it.esNuevo&&it.artCodNuevo===artCodNuevo;}))){
+    toast('Ese codigo ya existe (o ya lo agregaste a esta factura)',1);
+    return;
+  }
+  var artNombreMostrar=esNuevo?artNombreNuevo:inv[idxSel].art;
+  _carritoEntrada.push({
+    esNuevo:esNuevo,idxSel:idxSel,artCodNuevo:artCodNuevo,artNombreNuevo:artNombreNuevo,
+    artNombreMostrar:artNombreMostrar,cant:cant,costo:costo,venta:venta,subtotal:cant*costo
+  });
+  // Limpiar solo los campos del articulo, dejar proveedor/fecha intactos para el siguiente
+  sv('ent-cant',1);sv('ent-costo','');sv('ent-venta','');sv('ent-total','');
+  sv('ent-cod','');sv('ent-art','');sv('ent-buscar','');sv('ent-idx',-1);
+  g('ent-nuevo').checked=false;
+  toggleEntNuevo();
+  renderCarritoEntrada();
+  toast(artNombreMostrar+' agregado a la factura');
+}
+function quitarItemFactura(i){
+  _carritoEntrada.splice(i,1);
+  renderCarritoEntrada();
+}
+function renderCarritoEntrada(){
+  var tb=g('ent-carrito-tb');
+  if(!tb)return;
+  if(!_carritoEntrada.length){
+    tb.innerHTML='<tr><td colspan="5" class="empty">Aun no has agregado articulos a esta factura</td></tr>';
+  }else{
+    tb.innerHTML=_carritoEntrada.map(function(it,i){
+      return '<tr><td>'+it.artNombreMostrar+(it.esNuevo?' <span style="color:#3498db;font-size:9px;font-weight:700">(NUEVO)</span>':'')+'</td>'+
+        '<td style="text-align:center">'+it.cant+'</td>'+
+        '<td style="text-align:right">'+fmt(it.costo)+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+fmt(it.subtotal)+'</td>'+
+        '<td><button onclick="quitarItemFactura('+i+')" style="background:#e74c3c;color:#fff;border:none;border-radius:5px;padding:4px 9px;font-size:10px;cursor:pointer">Quitar</button></td></tr>';
+    }).join('');
+  }
+  var total=_carritoEntrada.reduce(function(s,it){return s+it.subtotal;},0);
+  var totalEl=g('ent-carrito-total');if(totalEl)totalEl.textContent=fmt(total);
+}
+function registrarFacturaCompleta(){
+  var rawFecha=g('ent-fecha').value;
+  var prov=(g('ent-prov').value||'').trim().toUpperCase();
+  if(!rawFecha){toast('Falta la fecha de la factura',1);return;}
+  if(!_carritoEntrada.length){toast('Agrega al menos un articulo a la factura antes de registrarla',1);return;}
+
+  var fp=rawFecha.split('-');
+  var fechaFmt=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;
+  var ahora=new Date();
+  var horaHoy=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var quien=currentUser?(currentUser.nombre||currentUser.uname):'Sistema';
+  var totalFactura=0;
+  var nombresArts=[];
+
+  _carritoEntrada.forEach(function(it){
+    var artNombre,artCod,idx;
+    if(it.esNuevo){
+      artCod=it.artCodNuevo;artNombre=it.artNombreNuevo;
+      inv.push({cod:artCod,art:artNombre,costo:it.costo,venta:it.venta,stk:it.cant,fotos:[]});
+      idx=inv.length-1;
+    }else{
+      idx=it.idxSel;
+      inv[idx].stk=(inv[idx].stk||0)+it.cant;
+      inv[idx].costo=it.costo;
+      if(it.venta>0)inv[idx].venta=it.venta;
+      artNombre=inv[idx].art;
+      artCod=inv[idx].cod;
+    }
+    entradas.unshift({
+      fecha:fechaFmt,articulo:artNombre,codigo:artCod,cantidad:it.cant,
+      costoUnitario:it.costo,total:it.subtotal,proveedor:prov||'-',
+      quien:quien,hora:horaHoy,ts:Date.now()
+    });
+    totalFactura+=it.subtotal;
+    nombresArts.push(artNombre);
+  });
+
+  // Un solo registro contable para toda la factura (no uno por articulo)
+  if(g('ent-egreso').checked){
+    addContableAuto(fechaFmt,'Entrada de inventario (factura de '+_carritoEntrada.length+' articulo'+(_carritoEntrada.length>1?'s':'')+')'+(prov?' — Proveedor: '+prov:''),0,totalFactura,'auto','Compra de mercancia');
+  }
+  logActividad('Inventario','Registro factura de entrada: '+_carritoEntrada.length+' articulo(s) — '+nombresArts.join(', ')+' — Total '+fmt(totalFactura)+(prov?' — Proveedor: '+prov:''));
+
+  save();
+  renderInv();renderEntradas();
+  var cantidadItems=_carritoEntrada.length;
+  _carritoEntrada=[];
+  renderCarritoEntrada();
+  sv('ent-prov','');
+  toast('Factura registrada: '+cantidadItems+' articulo(s) por '+fmt(totalFactura));
 }
 function registrarEntrada(){
   var esNuevo=g('ent-nuevo').checked;
