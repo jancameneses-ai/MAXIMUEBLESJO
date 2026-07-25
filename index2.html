@@ -62,10 +62,13 @@
   });
 
   // Mide que tan rapido responde el servidor (proxy de la intensidad de la señal)
+  // IMPORTANTE: se escribe en una ruta separada ("_ping_senal"), NO dentro de "maxi",
+  // para que esta medicion NUNCA dispare el listener de datos principales ni cause
+  // que se vuelvan a procesar/sobreescribir los datos reales de la app cada pocos segundos.
   function medirIntensidadSenal(){
     if(!_ultimoConectado)return;
     var inicio = Date.now();
-    set(ref(db, 'maxi/_ping'), inicio).then(function(){
+    set(ref(db, '_ping_senal'), inicio).then(function(){
       var rtt = Date.now() - inicio;
       var nivel = rtt < 400 ? 3 : (rtt < 1200 ? 2 : 1);
       window.dispatchEvent(new CustomEvent('conexionCambio', { detail: { conectado:true, nivel:nivel, rtt:rtt } }));
