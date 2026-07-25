@@ -105,6 +105,9 @@ body{font-family:'Poppins',Arial,sans-serif;background:#f0f2f5;color:#333;font-s
 .sitem.active{background:rgba(52,152,219,.2);color:#3498db;border-left-color:#3498db}
 .sicon{width:28px;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.08);font-size:13px;flex-shrink:0}
 .sitem.active .sicon{background:rgba(52,152,219,.25);color:#3498db}
+.sitem-sub{font-size:10px;padding:9px 16px 9px 34px}
+.sitem-sub .slbl{font-size:10px;text-transform:none;letter-spacing:0}
+#cartera-submenu{display:none}
 .slbl{font-size:11px;font-weight:500;transition:opacity .2s}
 .sidebar.collapsed .slbl{opacity:0;width:0;overflow:hidden}
 .sidebar.collapsed .sitem{justify-content:center;padding:11px 0}
@@ -432,12 +435,21 @@ tr:hover td{background:#f8f9ff}
     <div class="sitem" onclick="goTab('historial',this)">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
       <span class="slbl">Historial</span></div>
-    <div class="sitem" onclick="goTab('cartera',this)">
+    <div class="sitem" onclick="toggleCarteraMenu()" id="sitem-cartera-parent">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
-      <span class="slbl">Cartera</span></div>
-    <div class="sitem" onclick="goTab('creditos',this)">
-      <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-      <span class="slbl">Credicontado</span></div>
+      <span class="slbl">Cartera
+        <span id="cartera-caret" style="margin-left:6px;display:inline-block;transition:transform .2s">&#9662;</span>
+      </span></div>
+    <div id="cartera-submenu">
+      <div class="sitem sitem-sub" onclick="goTab('cartera',this)" style="padding-left:34px">
+        <span class="slbl">Cartera Credicontado</span></div>
+      <div class="sitem sitem-sub" onclick="goTab('creditos',this)" style="padding-left:34px">
+        <span class="slbl">Info. Credicontado</span></div>
+      <div class="sitem sitem-sub" onclick="goTab('financiera',this)" style="padding-left:34px">
+        <span class="slbl">Sistecredito - Addi</span></div>
+      <div class="sitem sitem-sub" onclick="goTab('carteraglobal',this)" style="padding-left:34px">
+        <span class="slbl">Cartera global</span></div>
+    </div>
     <div class="sitem" onclick="goTab('resumen',this)">
       <div class="sicon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <span class="slbl">Resumen</span></div>
@@ -752,17 +764,82 @@ tr:hover td{background:#f8f9ff}
 
 <!-- TAB CARTERA -->
 <div id="tab-cartera" class="sec">
-  <div class="card"><h2>Cartera — Creditos activos</h2>
+  <div class="card"><h2>Cartera Credicontado</h2>
     <div class="g4" style="margin-bottom:12px">
       <div class="met"><div class="ml">Creditos</div><div class="mv" id="cn">0</div></div>
       <div class="met"><div class="ml">Total cartera</div><div class="mv" id="ct">$0</div></div>
       <div class="met"><div class="ml">Cobrado</div><div class="mv" id="cc" style="color:#1e8449">$0</div></div>
       <div class="met"><div class="ml">Por cobrar</div><div class="mv" id="cpend" style="color:#c9a227">$0</div></div>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button id="cart-btn-activos" class="btn bblue" onclick="setCartVista('activos')" style="padding:8px 16px;font-size:12px">Por cobrar</button>
+      <button id="cart-btn-pagados" class="btn bgray" onclick="setCartVista('pagados')" style="padding:8px 16px;font-size:12px">Pagados</button>
+    </div>
     <input type="text" id="cart-buscar" placeholder="Buscar por fecha, cliente, articulo, pago, total..." oninput="renderCart()" style="margin-bottom:12px;text-transform:none">
-    <div style="overflow-x:auto"><table>
+    <div id="cart-tabla-creditos"><div style="overflow-x:auto"><table>
       <thead id="carth"></thead>
       <tbody id="cartb"></tbody>
+    </table></div></div>
+  </div>
+</div>
+
+<!-- TAB CARTERA GLOBAL (informe combinado) -->
+<div id="tab-carteraglobal" class="sec">
+  <div class="card">
+    <h2>Cartera global</h2>
+    <div style="font-size:11px;color:#888;margin-bottom:14px">Resumen combinado de todo lo que el negocio tiene pendiente por cobrar, sumando Cartera Credicontado y Sistecredito/Addi.</div>
+    <div class="g3" style="margin-bottom:18px">
+      <div class="met"><div class="ml">Cartera Credicontado — por cobrar</div><div class="mv" id="cg-credicontado" style="color:#c9a227">$0</div></div>
+      <div class="met"><div class="ml">Sistecredito/Addi — pendiente (neto)</div><div class="mv" id="cg-financiera" style="color:#7d3c98">$0</div></div>
+      <div class="met"><div class="ml">Total combinado por cobrar</div><div class="mv" id="cg-total" style="color:#1e8449;font-size:22px">$0</div></div>
+    </div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Origen</th><th style="text-align:center">Cuentas pendientes</th><th style="text-align:right">Monto pendiente</th></tr></thead>
+      <tbody id="cg-tb"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- TAB SISTECREDITO / ADDI -->
+<div id="tab-financiera" class="sec">
+  <div class="card">
+    <h2>Sistecredito y Addi</h2>
+    <div style="font-size:11px;color:#888;margin-bottom:16px">Estas ventas las paga la empresa (Sistecredito o Addi) unos meses despues, descontando su comision. Marca "Pagado" cuando el dinero ya haya llegado.</div>
+    <div class="g2" style="gap:14px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,#00a99d,#00847a);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 10px rgba(0,132,122,.25)">
+        <div>
+          <div style="color:#fff;font-size:19px;font-weight:800;letter-spacing:.3px">Sistecrédito</div>
+          <div style="color:rgba(255,255,255,.8);font-size:10px;margin-top:2px">Compra ya, paga despues</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:rgba(255,255,255,.85);font-weight:600;margin:0">Comision</label>
+          <input type="number" id="com-sistecredito" min="0" max="100" step="0.1" class="noup" style="width:56px;padding:5px 6px;border:none;border-radius:6px;text-align:center;font-weight:700" onchange="guardarComisionFinanciera('SISTECREDITO',this.value)">
+          <span style="color:#fff;font-size:12px;font-weight:700">%</span>
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#1a1a2e,#0d0d18);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 10px rgba(0,0,0,.25)">
+        <div>
+          <div style="color:#8fd694;font-size:19px;font-weight:800;letter-spacing:.3px">addi</div>
+          <div style="color:rgba(255,255,255,.6);font-size:10px;margin-top:2px">Paga a cuotas sin tarjeta</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:rgba(255,255,255,.75);font-weight:600;margin:0">Comision</label>
+          <input type="number" id="com-addi" min="0" max="100" step="0.1" class="noup" style="width:56px;padding:5px 6px;border:none;border-radius:6px;text-align:center;font-weight:700" onchange="guardarComisionFinanciera('ADDI',this.value)">
+          <span style="color:#8fd694;font-size:12px;font-weight:700">%</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button id="cart-btn-fin-pend" class="btn bblue" onclick="setCartFinVista('pendientes')" style="padding:7px 14px;font-size:11px">Pendientes</button>
+      <button id="cart-btn-fin-pag" class="btn bgray" onclick="setCartFinVista('pagadas')" style="padding:7px 14px;font-size:11px">Ya pagadas</button>
+    </div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>Fecha</th><th>Cliente</th><th>Articulo</th><th>Empresa</th>
+        <th style="text-align:right">Monto bruto</th><th style="text-align:right">Comision</th>
+        <th style="text-align:right">Monto neto</th><th></th>
+      </tr></thead>
+      <tbody id="cart-fin-tb"></tbody>
     </table></div>
   </div>
 </div>
@@ -1494,6 +1571,7 @@ const DI=[
 ];
 
 let inv=[],ven=[],cont=[],entradas=[],actividad=[],lv=null,sc=false;
+var comisionesFinanciera={SISTECREDITO:3,ADDI:3};
 var editVentaIdx=-1;
 var editVentaItems=[];
 var evItems=[];
@@ -1505,6 +1583,7 @@ function isA(){return isAdmin();}
 
 function procesarDatos(data){
   if(!data)return;
+  if(data.comisionesFinanciera)comisionesFinanciera=data.comisionesFinanciera;
   if(data.inv)inv=data.inv;
   if(data.ven)ven=data.ven;
   if(data.users){
@@ -1595,10 +1674,11 @@ function save(){
   // Guardar en Firebase
   if(typeof window.fbSet==='function'){
     b.textContent='Guardando...';b.style.background='#f39c12';
-    window.fbSet({inv:inv,ven:ven,users:users,cont:cont,entradas:entradas,actividad:actividad},function(err){
+    window.fbSet({inv:inv,ven:ven,users:users,cont:cont,entradas:entradas,actividad:actividad,comisionesFinanciera:comisionesFinanciera},function(err){
       if(err){
         console.error('Firebase save error:',err);
         b.textContent='Solo local';b.style.background='#e67e22';
+        toast('No se pudo guardar en la nube: '+(err.message||err)+'. El cambio solo quedo en este dispositivo.',1);
       }else{
         b.textContent='Guardado';b.style.background='#27ae60';
       }
@@ -1688,6 +1768,8 @@ function applyRol(){
     'inventario': getPerm('inv-ver'),
     'historial': getPerm('his-ver'),
     'cartera': getPerm('cart-ver'),
+    'financiera': getPerm('cart-ver'),
+    'carteraglobal': getPerm('cart-ver'),
     'creditos': getPerm('cred-ver'),
     'resumen': getPerm('res-ver'),
     'usuarios': getPerm('usuarios'),
@@ -3986,6 +4068,212 @@ function setHisSort(col){
   renderHist();
 }
 var cartSort={col:'dias',asc:true}; // vencidas primero por defecto
+var cartVista='activos';
+var cartFinVista='pendientes';
+function setCartVista(v){
+  cartVista=v;
+  var bActivos=g('cart-btn-activos'),bPagados=g('cart-btn-pagados');
+  if(bActivos)bActivos.className=v==='activos'?'btn bblue':'btn bgray';
+  if(bPagados)bPagados.className=v==='pagados'?'btn bblue':'btn bgray';
+  renderCart();
+}
+function setCartFinVista(v){
+  cartFinVista=v;
+  var bPend=g('cart-btn-fin-pend'),bPag=g('cart-btn-fin-pag');
+  if(bPend)bPend.className=v==='pendientes'?'btn bblue':'btn bgray';
+  if(bPag)bPag.className=v==='pagadas'?'btn bblue':'btn bgray';
+  renderCartFinanciera();
+}
+function guardarComisionFinanciera(empresa,valor){
+  var pct=Math.max(0,Math.min(100,+valor||0));
+  comisionesFinanciera[empresa]=pct;
+  logActividad('Contable','Actualizo la comision de '+empresa+' a '+pct+'%');
+  save();
+  renderCartFinanciera();
+  toast('Comision de '+empresa+' actualizada a '+pct+'%');
+}
+function renderCarteraGlobal(){
+  var tb=g('cg-tb');
+  if(!tb)return;
+  // Cartera Credicontado: mismo calculo que la pestana de Cartera Credicontado (sin la inicial)
+  var credsCC=ven.filter(function(v){return esCredicontado(v)&&v.cuotas>0;});
+  var totCC=0,cobCC=0,pendCC=0,cuentasCC=0;
+  credsCC.forEach(function(v){
+    var montoCredito=creditoTotal(v);
+    var iniV=v.ci?v.ci.inicial||0:0;
+    var financiado=Math.max(0,montoCredito-iniV);
+    var cuotasV=(v.cp||[]).reduce(function(s,c){return s+(c.monto||0);},0);
+    var pend=Math.max(0,financiado-cuotasV);
+    if(pend>0)cuentasCC++;
+    totCC+=financiado;cobCC+=cuotasV;
+  });
+  pendCC=totCC-cobCC;
+
+  // Sistecredito/Addi: lo pendiente (neto esperado) de las que no se han marcado como pagadas
+  var finPend=ven.filter(function(v){return esFinanciera(v)&&montoFinanciera(v)>0&&!v.finPagado;});
+  var totFin=0;
+  finPend.forEach(function(v){
+    var empresa=empresaFinanciera(v);
+    var bruto=montoFinanciera(v);
+    var pct=comisionesFinanciera[empresa]!=null?comisionesFinanciera[empresa]:3;
+    totFin+=Math.round(bruto*(1-pct/100));
+  });
+
+  var totalCombinado=pendCC+totFin;
+  if(g('cg-credicontado'))g('cg-credicontado').textContent=fmt(pendCC);
+  if(g('cg-financiera'))g('cg-financiera').textContent=fmt(totFin);
+  if(g('cg-total'))g('cg-total').textContent=fmt(totalCombinado);
+
+  tb.innerHTML=
+    '<tr><td>Cartera Credicontado</td><td style="text-align:center">'+cuentasCC+'</td><td style="text-align:right;font-weight:700;color:#c9a227">'+fmt(pendCC)+'</td></tr>'+
+    '<tr><td>Sistecredito / Addi</td><td style="text-align:center">'+finPend.length+'</td><td style="text-align:right;font-weight:700;color:#7d3c98">'+fmt(totFin)+'</td></tr>'+
+    '<tr class="total-row" style="background:#f0f7ff;font-weight:700"><td>Total</td><td style="text-align:center">'+(cuentasCC+finPend.length)+'</td><td style="text-align:right;color:#1e8449">'+fmt(totalCombinado)+'</td></tr>';
+}
+function renderCartFinanciera(){
+  var tb=g('cart-fin-tb');
+  if(!tb)return;
+  var todasFinBadge=ven.filter(function(v){return esFinanciera(v)&&montoFinanciera(v)>0&&!v.finPagado;});
+  var badge=g('fin-alerta-badge');
+  if(badge){
+    if(todasFinBadge.length){
+      badge.style.display='inline-block';
+      badge.textContent=todasFinBadge.length;
+    }else{
+      badge.style.display='none';
+    }
+  }
+  var inSc=g('com-sistecredito'),inAd=g('com-addi');
+  if(inSc&&document.activeElement!==inSc)inSc.value=comisionesFinanciera.SISTECREDITO!=null?comisionesFinanciera.SISTECREDITO:3;
+  if(inAd&&document.activeElement!==inAd)inAd.value=comisionesFinanciera.ADDI!=null?comisionesFinanciera.ADDI:3;
+
+  var todasFin=ven.filter(function(v){return esFinanciera(v)&&montoFinanciera(v)>0;});
+  var filtradas=todasFin.filter(function(v){
+    return cartFinVista==='pagadas'?!!v.finPagado:!v.finPagado;
+  });
+  filtradas.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+
+  if(!filtradas.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty">'+(cartFinVista==='pagadas'?'Aun no hay pagos recibidos de Sistecredito/Addi':'No hay ventas pendientes de Sistecredito/Addi')+'</td></tr>';
+    return;
+  }
+  tb.innerHTML=filtradas.map(function(v){
+    var vi=ven.indexOf(v);
+    var c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
+    var empresa=empresaFinanciera(v);
+    var bruto=montoFinanciera(v);
+    var pctUsado=v.finPagado?(v.finComisionUsada!=null?v.finComisionUsada:0):(comisionesFinanciera[empresa]!=null?comisionesFinanciera[empresa]:3);
+    var neto=v.finPagado?(v.finMontoNeto!=null?v.finMontoNeto:bruto):Math.round(bruto*(1-pctUsado/100));
+    var accion=v.finPagado?
+      '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">'+
+        '<span style="color:#1e8449;font-weight:700;font-size:10px;white-space:nowrap">Pagado '+(v.finFecha||'')+'</span>'+
+        '<button onclick="event.stopPropagation();editarPagoFinanciera('+vi+')" class="btn bgold" style="font-size:9px;padding:4px 8px">Editar</button>'+
+        '<button onclick="event.stopPropagation();eliminarPagoFinanciera('+vi+',this)" class="btn" style="font-size:9px;padding:4px 8px;background:#e74c3c;color:#fff">Eliminar</button>'+
+      '</div>'
+      :'<button class="btn bgreen" onclick="event.stopPropagation();marcarPagadoFinanciera('+vi+')" style="font-size:10px;padding:5px 12px">Marcar pagado</button>';
+    return '<tr>'+
+      '<td style="font-size:11px;color:#888">'+v.fecha+'</td>'+
+      '<td>'+cl+'</td>'+
+      '<td>'+v.art+'</td>'+
+      '<td><span style="background:#f0e6fa;color:#7d3c98;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">'+empresa+'</span></td>'+
+      '<td style="text-align:right;font-weight:600">'+fmt(bruto)+'</td>'+
+      '<td style="text-align:right;color:#c0392b">'+pctUsado+'%</td>'+
+      '<td style="text-align:right;font-weight:700;color:#1e8449">'+fmt(neto)+'</td>'+
+      '<td>'+accion+'</td>'+
+    '</tr>';
+  }).join('');
+}
+function marcarPagadoFinanciera(vi){
+  try{
+    var v=ven[vi];
+    if(!v){toast('No se encontro esa venta',1);return;}
+    var empresa=empresaFinanciera(v);
+    var bruto=montoFinanciera(v);
+    var pct=comisionesFinanciera[empresa]!=null?comisionesFinanciera[empresa]:3;
+    var neto=Math.round(bruto*(1-pct/100));
+    v.finPagado=true;
+    v.finFecha=fechaHoyISO().split('-').reverse().join('/');
+    v.finMontoNeto=neto;
+    v.finComisionUsada=pct;
+    var c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Cliente';
+    addContableAuto(fmtFechaDDMMYYYY(),'Pago recibido de '+empresa+': '+v.art+' — '+cl+' (comision '+pct+'%)',neto,0,'auto','Ingreso por ventas');
+    logActividad('Cartera','Marco como pagado por '+empresa+': '+v.art+' — '+cl+' (neto '+fmt(neto)+')');
+    save();
+    renderAll();
+    toast('Pago de '+empresa+' registrado: '+fmt(neto)+' netos');
+  }catch(e){
+    console.error('Error en marcarPagadoFinanciera:',e);
+    toast('Ocurrio un error al marcar como pagado: '+e.message,1);
+  }
+}
+function buscarMovContableFinanciera(v){
+  var empresa=empresaFinanciera(v);
+  var c=v.comprador||{};
+  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
+  return cont.findIndex(function(m){
+    if(m.tipo!=='auto')return false;
+    var d=m.desc||'';
+    return d.indexOf('Pago recibido de '+empresa+': '+v.art)===0&&(cl?d.indexOf(cl)>=0:true);
+  });
+}
+function editarPagoFinanciera(vi){
+  var v=ven[vi];
+  if(!v||!v.finPagado)return;
+  var empresa=empresaFinanciera(v);
+  var bruto=montoFinanciera(v);
+  var nuevaPct=prompt('Nuevo porcentaje de comision para este pago de '+empresa+':',v.finComisionUsada!=null?v.finComisionUsada:0);
+  if(nuevaPct===null)return;
+  nuevaPct=Math.max(0,Math.min(100,+nuevaPct||0));
+  var nuevoNeto=Math.round(bruto*(1-nuevaPct/100));
+  var idxMov=buscarMovContableFinanciera(v);
+  var c=v.comprador||{};
+  var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Cliente';
+  if(idxMov>=0){
+    cont[idxMov].ing=nuevoNeto;
+    cont[idxMov].desc='Pago recibido de '+empresa+': '+v.art+' — '+cl+' (comision '+nuevaPct+'%)';
+  }
+  v.finComisionUsada=nuevaPct;
+  v.finMontoNeto=nuevoNeto;
+  logActividad('Cartera','Edito el pago de '+empresa+': '+v.art+' — '+cl+' (nueva comision '+nuevaPct+'%, neto '+fmt(nuevoNeto)+')');
+  save();renderAll();renderContable();
+  toast('Pago actualizado: '+fmt(nuevoNeto)+' netos');
+}
+function eliminarPagoFinanciera(vi,btnEl){
+  console.log('[eliminarPagoFinanciera] Iniciando, vi=',vi);
+  try{
+    var v=ven[vi];
+    if(!v){toast('No se encontro esa venta',1);console.log('[eliminarPagoFinanciera] No se encontro la venta en indice',vi);return;}
+    console.log('[eliminarPagoFinanciera] Venta encontrada:',v.art,v.comprador,'finPagado=',v.finPagado);
+    if(!v.finPagado){toast('Esta venta no estaba marcada como pagada',1);return;}
+    // Quitar la fila del DOM AL INSTANTE, sin esperar a que se re-dibuje toda la tabla
+    if(btnEl){
+      var fila=btnEl.closest('tr');
+      if(fila){fila.style.opacity='0.3';fila.style.pointerEvents='none';}
+    }
+    var empresa=empresaFinanciera(v);
+    var idxMov=buscarMovContableFinanciera(v);
+    console.log('[eliminarPagoFinanciera] idxMov encontrado en libro contable:',idxMov);
+    if(idxMov>=0){
+      cont.splice(idxMov,1);
+      try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+    }
+    var c=v.comprador||{};
+    var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Cliente';
+    logActividad('Cartera','Deshizo el pago de '+empresa+': '+v.art+' — '+cl);
+    delete v.finPagado;delete v.finFecha;delete v.finMontoNeto;delete v.finComisionUsada;
+    console.log('[eliminarPagoFinanciera] Estado despues de borrar campos:',JSON.stringify(v));
+    save();
+    console.log('[eliminarPagoFinanciera] save() llamado. Re-renderizando...');
+    renderAll();renderContable();renderCartFinanciera();
+    if(btnEl){var filaFinal=document.querySelector('#cart-fin-tb tr');}
+    console.log('[eliminarPagoFinanciera] Re-render completo. Contenido actual de cart-fin-tb:',g('cart-fin-tb')?g('cart-fin-tb').innerText:'(no existe)');
+    toast('Pago deshecho — '+v.art+' ('+cl+') vuelve a estar pendiente');
+  }catch(e){
+    console.error('[eliminarPagoFinanciera] ERROR:',e);
+    toast('Ocurrio un error al eliminar: '+e.message,1);
+  }
+}
 function setCartSort(col){
   if(cartSort.col===col){ cartSort.asc=!cartSort.asc; }
   else{ cartSort.col=col; cartSort.asc=true; }
@@ -4115,6 +4403,19 @@ function creditoTotal(v){
 function esCredicontado(v){
   return v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';
 }
+function esFinanciera(v){
+  return v.pago==='SISTECREDITO'||v.pago==='ADDI'||v.pago==='SISTECREDITO+EFECTIVO'||v.pago==='SISTECREDITO+CREDICONTADO';
+}
+function empresaFinanciera(v){
+  if(v.pago==='ADDI')return 'ADDI';
+  return 'SISTECREDITO'; // Sistecredito puro, o la parte SC de un pago mixto
+}
+function montoFinanciera(v){
+  if(v.pago==='SISTECREDITO'||v.pago==='ADDI')return v.total;
+  if(v.pago==='SISTECREDITO+EFECTIVO')return v.sefSc||0;
+  if(v.pago==='SISTECREDITO+CREDICONTADO')return v.sccSc||0;
+  return 0;
+}
 // Calcula cuanto debe cada cuota (cuotaBase + arrastre de cuotas anteriores no cubiertas del todo)
 function calcularPlanCuotas(v){
   var montoCredito=creditoTotal(v);
@@ -4147,11 +4448,17 @@ function renderCart(){
   if(!tb)return;
   var q=((g('cart-buscar')||{value:''}).value||'').toLowerCase().trim();
   // Calcular metricas
+  // La cuota inicial no cuenta aqui: ya se recibio en efectivo al momento de la venta,
+  // no es "cartera" pendiente. Aqui solo se mide lo financiado a cuotas.
   var allCreds=ven.filter(function(v){return esCredicontado(v)&&v.cuotas>0;});
   var tot=0,cob=0;
   allCreds.forEach(function(v){
-    tot+=creditoTotal(v);
-    (v.cp||[]).forEach(function(c){cob+=c.monto||0;});
+    var montoCredito=creditoTotal(v);
+    var iniV=v.ci?v.ci.inicial||0:0;
+    var financiado=Math.max(0,montoCredito-iniV);
+    var cuotasV=(v.cp||[]).reduce(function(s,c){return s+(c.monto||0);},0);
+    tot+=financiado;
+    cob+=cuotasV;
   });
   if(g('cn'))g('cn').textContent=allCreds.length;
   if(g('ct'))g('ct').textContent=fmt(tot);
@@ -4176,8 +4483,19 @@ function renderCart(){
     }).join('')+'</tr>';
   }
 
+  // Separar segun si ya quedaron pagados en su totalidad o no
+  function creditoPagadoDelTodo(v){
+    var montoCredito=creditoTotal(v);
+    var iniV=v.ci?v.ci.inicial||0:0;
+    var cuotasV=(v.cp||[]).reduce(function(s,c){return s+(c.monto||0);},0);
+    return (iniV+cuotasV)>=(montoCredito-1);
+  }
+  var credsPorVista=allCreds.filter(function(v){
+    return cartVista==='pagados'?creditoPagadoDelTodo(v):!creditoPagadoDelTodo(v);
+  });
+
   // Filtrar
-  var creds=allCreds.filter(function(v){
+  var creds=credsPorVista.filter(function(v){
     if(!q)return true;
     var c=v.comprador||{};
     var cl=[c.nombre,c.apellido].filter(Boolean).join(' ').toLowerCase();
@@ -4216,7 +4534,7 @@ function renderCart(){
   });
 
   if(!creds.length){
-    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados':'Sin creditos')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="10" class="empty">'+(q?'Sin resultados':(cartVista==='pagados'?'Aun no hay creditos pagados en su totalidad':'No hay creditos pendientes por cobrar'))+'</td></tr>';
     return;
   }
   tb.innerHTML=creds.map(function(v){
@@ -5267,12 +5585,27 @@ function guardarEditContable(){
   cont[i].egr=egr;
   cont[i].categoria=cat||'';
   cont[i].ts=parseTS(fechaFmt,0);
+  // Si esta editando un pago de Sistecredito/Addi, sincronizar el monto neto en la venta relacionada
+  var mPagoFinEdit=desc.match(/^Pago recibido de (SISTECREDITO|ADDI): (.+?) — (.+?) \(comision ([\d.]+)%\)$/);
+  var extraSync='';
+  if(mPagoFinEdit){
+    var artFinEdit=mPagoFinEdit[2],clienteFinEdit=mPagoFinEdit[3];
+    var vEdit=ven.find(function(v){
+      if(v.art!==artFinEdit||!v.finPagado)return false;
+      var c=v.comprador||{};
+      return [c.nombre,c.apellido].filter(Boolean).join(' ')===clienteFinEdit;
+    });
+    if(vEdit){
+      vEdit.finMontoNeto=ing;
+      extraSync=' Se actualizo tambien el monto neto en Sistecredito/Addi.';
+    }
+  }
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   logActividad('Contable','Edito movimiento manual: '+desc);
   save();
   cm('m-edit-cont');
   renderContable();
-  toast('Movimiento actualizado');
+  toast('Movimiento actualizado.'+extraSync);
 }
 function delContable(i){
   if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
@@ -5319,6 +5652,26 @@ function delContable(i){
         if(artFound)artFound.stk=Math.max(0,(artFound.stk||0)-ent.cantidad);
         entradas.splice(eIdx,1);
         extra=' Se descontaron '+ent.cantidad+' unidades del stock de '+ent.articulo+'.';
+      }
+    }
+    // Si el movimiento eliminado es un pago recibido de Sistecredito/Addi, revertir el estado
+    // "pagado" de esa venta (vuelve a aparecer como pendiente en la seccion Sistecredito/Addi)
+    var mPagoFin=desc.match(/^Pago recibido de (SISTECREDITO|ADDI): (.+?) — (.+?) \(comision ([\d.]+)%\)$/);
+    if(mPagoFin){
+      var artFinBuscado=mPagoFin[2],clienteFinBuscado=mPagoFin[3];
+      var viFin=ven.findIndex(function(v){
+        if(v.art!==artFinBuscado||!v.finPagado)return false;
+        var c=v.comprador||{};
+        var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
+        return cl===clienteFinBuscado;
+      });
+      if(viFin>=0){
+        ven[viFin].finPagado=false;
+        delete ven[viFin].finFecha;
+        delete ven[viFin].finMontoNeto;
+        delete ven[viFin].finComisionUsada;
+        logActividad('Cartera','Deshizo el pago de '+mPagoFin[1]+' de '+artFinBuscado+' — '+clienteFinBuscado+' (desde el libro contable)');
+        extra=' Esa venta volvio a quedar pendiente en Sistecredito/Addi.';
       }
     }
     // Si el movimiento eliminado es el ingreso de una venta (efectivo, cuota inicial, etc.),
@@ -5835,17 +6188,29 @@ function dlReciboInicial(vi){
 function renderAll(){
   if(!currentUser)return;
   applyRol();
-  renderInv();renderSel();renderHist();renderCart();renderRes();renderSV();renderCreditos();
+  renderInv();renderSel();renderHist();renderCart();renderRes();renderSV();renderCreditos();renderCartFinanciera();
   renderUsuarios();renderContable();renderEntradas();
   if(isAdmin())renderMetas();
 }
 
+function toggleCarteraMenu(){
+  var sub=g('cartera-submenu'),caret=g('cartera-caret');
+  if(!sub)return;
+  var abierto=sub.style.display==='block';
+  sub.style.display=abierto?'none':'block';
+  if(caret)caret.style.transform=abierto?'rotate(0deg)':'rotate(180deg)';
+}
 function goTab(id,el){
   document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('active');});
   document.querySelectorAll('.sitem').forEach(function(t){t.classList.remove('active');});
   var tab=document.getElementById('tab-'+id);
   if(tab) tab.classList.add('active');
   if(el) el.classList.add('active');
+  if(['cartera','financiera','creditos','carteraglobal'].indexOf(id)>=0){
+    var sub=g('cartera-submenu'),caret=g('cartera-caret');
+    if(sub)sub.style.display='block';
+    if(caret)caret.style.transform='rotate(180deg)';
+  }
   // Reset buscadores al cambiar de tab
   ['inv-search','hist-search','cart-buscar','cont-buscar'].forEach(function(sid){
     var el2=document.getElementById(sid);if(el2)el2.value='';
@@ -5859,6 +6224,8 @@ function goTab(id,el){
   if(id==='ajustes')renderAjustes();
   if(id==='actividad')renderActividad();
   if(id==='metas')renderMetas();
+  if(id==='financiera')renderCartFinanciera();
+  if(id==='carteraglobal')renderCarteraGlobal();
   if(id==='inventario'){switchInvView('stock');}
   if(id==='historial')renderHist();
 }
