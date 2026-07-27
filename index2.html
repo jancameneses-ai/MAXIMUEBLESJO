@@ -3375,6 +3375,12 @@ function guardarEdicionVenta(){
   var items=evItems||[];
   if(!items.length){toast('Agrega al menos un articulo',1);return;}
   var total=items.reduce(function(s,it){return s+it.subtotal;},0);
+  // Guardar los datos ORIGINALES antes de sobreescribir, para poder encontrar
+  // el movimiento correcto en el libro contable (que todavia tiene el nombre viejo)
+  var artViejo=ven[i].art||'';
+  var cViejo=ven[i].comprador||{};
+  var clViejo=[cViejo.nombre,cViejo.apellido].filter(Boolean).join(' ')||'';
+
   ven[i].items=JSON.parse(JSON.stringify(items));
   ven[i].art=items.map(function(it){return it.art+(it.qty>1?' x'+it.qty:'');}).join(', ');
   ven[i].total=total;
@@ -3397,30 +3403,39 @@ function guardarEdicionVenta(){
       ven[i].ci.cval=Math.round(nuevoSaldo/ven[i].cuotas);
     }
   }
-  // Actualizar fecha en libro contable - buscar por articulo Y cliente para ser exacto
-  if(rawFecha){
-    var fechaNueva=ven[i].fecha;
+  // Actualizar el libro contable: buscar el movimiento con los datos VIEJOS (articulo y
+  // cliente originales), y actualizarle tanto la descripcion (nuevo articulo) como la fecha
+  {
     var v2=ven[i];
     var c2=v2.comprador||{};
-    // Incluir nombre del cliente en la busqueda para no afectar otras ventas del mismo articulo
-    var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'';
-    var artBuscar=v2.art||'';
+    var clNuevo=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'';
+    var fechaNueva=ven[i].fecha;
     cont.forEach(function(c){
       if(c.tipo!=='auto')return;
       var desc=c.desc||'';
-      // Buscar por articulo Y cliente para ser preciso
-      var matchArt=artBuscar&&desc.indexOf(artBuscar)>=0;
-      var matchCli=cl2&&desc.indexOf(cl2)>=0;
-      var matchExacto=matchArt&&(matchCli||!cl2);
-      // Efectivo: articulo + cliente
-      if(desc.indexOf('Venta efectivo:')>=0&&matchExacto){
-        c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,0);
+      var matchArt=artViejo&&desc.indexOf(artViejo)>=0;
+      var matchCli=clViejo&&desc.indexOf(clViejo)>=0;
+      var matchExacto=matchArt&&(matchCli||!clViejo);
+      if(!matchExacto)return;
+      var esVentaEfectivo=desc.indexOf('Venta efectivo:')>=0;
+      var esCuotaInicial=desc.indexOf('Cuota inicial Credicontado:')>=0;
+      if(esVentaEfectivo||esCuotaInicial){
+        // Reemplazar el articulo (y cliente, si cambio) viejo por el nuevo en la descripcion
+        var descNueva=desc.split(artViejo).join(ven[i].art);
+        if(clViejo&&clNuevo&&clViejo!==clNuevo){
+          descNueva=descNueva.split(clViejo).join(clNuevo);
+        }
+        c.desc=descNueva;
+        if(rawFecha){c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,esCuotaInicial?1:0);}
       }
-      // Credicontado inicial: articulo + cliente
-      if(desc.indexOf('Cuota inicial Credicontado:')>=0&&matchExacto){
-        c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,1);
+      // Abonos de cuotas: no cambian de fecha, pero si el articulo/cliente cambiaron, tambien se actualiza el texto
+      else if(desc.indexOf('Abono Credicontado:')>=0){
+        var descNueva2=desc.split(artViejo).join(ven[i].art);
+        if(clViejo&&clNuevo&&clViejo!==clNuevo){
+          descNueva2=descNueva2.split(clViejo).join(clNuevo);
+        }
+        c.desc=descNueva2;
       }
-      // Abonos: NO cambian
     });
     try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   }
