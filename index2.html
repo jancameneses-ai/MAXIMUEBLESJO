@@ -3386,6 +3386,17 @@ function guardarEdicionVenta(){
   if(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'||pago==='SISTECREDITO+CREDICONTADO'){
     ven[i].cuotas=+g('ev-cuotas').value||0;
   }
+  // Si es una venta a credito, recalcular el saldo y el valor de cada cuota
+  // con el NUEVO total (por ejemplo, si se le dio un descuento al editar la factura)
+  if(ven[i].ci){
+    var montoCreditoNuevo=creditoTotal(ven[i]);
+    var inicialActual=ven[i].ci.inicial||0;
+    var nuevoSaldo=Math.max(0,montoCreditoNuevo-inicialActual);
+    ven[i].ci.saldo=nuevoSaldo;
+    if(ven[i].cuotas>0){
+      ven[i].ci.cval=Math.round(nuevoSaldo/ven[i].cuotas);
+    }
+  }
   // Actualizar fecha en libro contable - buscar por articulo Y cliente para ser exacto
   if(rawFecha){
     var fechaNueva=ven[i].fecha;
