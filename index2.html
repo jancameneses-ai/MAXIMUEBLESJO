@@ -158,7 +158,7 @@ body.offline-banner-visible header{margin-top:34px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}.app-layout{flex-direction:column}.sidebar{width:100%!important;min-width:unset;flex-direction:row;flex-wrap:wrap}.sitem{flex:1;justify-content:center;padding:8px}.slbl{display:none!important}.sidebar.collapsed{width:100%!important}}
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}.app-layout{flex-direction:column}.sidebar{width:100%!important;min-width:unset;flex-direction:row;flex-wrap:wrap}.sitem{flex:1;justify-content:center;padding:8px}.slbl{display:none!important}.sidebar.collapsed{width:100%!important}.sitem-sub{padding-left:8px!important}}
 
 /* ── MOVIL (celulares) ── */
 @media(max-width:480px){
@@ -445,12 +445,16 @@ tr:hover td{background:#f8f9ff}
       </span></div>
     <div id="cartera-submenu">
       <div class="sitem sitem-sub" onclick="goTab('cartera',this)" style="padding-left:34px">
+        <div class="sicon" style="width:20px;min-width:20px;height:20px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
         <span class="slbl">Cartera Credicontado</span></div>
       <div class="sitem sitem-sub" onclick="goTab('creditos',this)" style="padding-left:34px">
+        <div class="sicon" style="width:20px;min-width:20px;height:20px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
         <span class="slbl">Info. Credicontado</span></div>
       <div class="sitem sitem-sub" onclick="goTab('financiera',this)" style="padding-left:34px">
+        <div class="sicon" style="width:20px;min-width:20px;height:20px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8l4 4-4 4M3 12h18"/></svg></div>
         <span class="slbl">Sistecredito - Addi</span></div>
       <div class="sitem sitem-sub" onclick="goTab('carteraglobal',this)" style="padding-left:34px">
+        <div class="sicon" style="width:20px;min-width:20px;height:20px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg></div>
         <span class="slbl">Cartera global</span></div>
     </div>
     <div class="sitem" onclick="goTab('resumen',this)">
@@ -996,14 +1000,19 @@ tr:hover td{background:#f8f9ff}
   <!-- Ganancia del mes -->
   <div class="card" style="margin-top:14px">
     <h2>Ganancias generadas este mes</h2>
+    <div style="font-size:11px;color:#888;margin-bottom:14px">Estos numeros son <b>ganancia</b> (venta menos costo del articulo), no son la plata en caja. El % junto a cada uno es que tanto de margen dejo ese grupo de ventas.</div>
     <div class="g4">
-      <div class="met" onclick="abrirDetalleRes('EFECTIVO')" style="cursor:pointer"><div class="ml">Ganancia efectivo</div><div class="mv" id="rg-ef">$0</div></div>
-      <div class="met" onclick="abrirDetalleRes('CREDICONTADO')" style="cursor:pointer"><div class="ml">Ganancia Credicontado</div><div class="mv" id="rg-cc">$0</div></div>
-      <div class="met" onclick="abrirDetalleRes('SISTECREDITO')" style="cursor:pointer"><div class="ml">Ganancia Sistecredito</div><div class="mv" id="rg-sc">$0</div></div>
-      <div class="met" onclick="abrirDetalleRes('ADDI')" style="cursor:pointer"><div class="ml">Ganancia Addi</div><div class="mv" id="rg-ad">$0</div></div>
-      <div class="met" onclick="abrirDetalleRes('todas')" style="background:#f0f7ff;cursor:pointer"><div class="ml">Ganancia bruta (ventas - costo)</div><div class="mv" id="rg" style="color:#1a3a1a">$0</div></div>
-      <div class="met" id="rg-op-card" style="background:#fff5f5"><div class="ml">Gastos operativos del mes</div><div class="mv" id="rg-op" style="color:#c0392b">$0</div></div>
-      <div class="met" style="background:#eafaf1;grid-column:span 2"><div class="ml">Ganancia neta real (bruta - gastos operativos)</div><div class="mv" id="rg-neta" style="color:#1a3a1a;font-size:22px">$0</div></div>
+      <div class="met" onclick="abrirDetalleRes('EFECTIVO')" style="cursor:pointer"><div class="ml">Ganancia en ventas de contado</div><div class="mv" id="rg-ef">$0</div><div class="ml" id="rg-ef-pct" style="margin-top:2px;font-weight:600"></div></div>
+      <div class="met" onclick="abrirDetalleRes('CREDICONTADO')" style="cursor:pointer"><div class="ml">Ganancia en ventas Credicontado</div><div class="mv" id="rg-cc">$0</div><div class="ml" id="rg-cc-pct" style="margin-top:2px;font-weight:600"></div></div>
+      <div class="met" onclick="abrirDetalleRes('SISTECREDITO')" style="cursor:pointer"><div class="ml">Ganancia en ventas Sistecredito</div><div class="mv" id="rg-sc">$0</div><div class="ml" id="rg-sc-pct" style="margin-top:2px;font-weight:600"></div></div>
+      <div class="met" onclick="abrirDetalleRes('ADDI')" style="cursor:pointer"><div class="ml">Ganancia en ventas Addi</div><div class="mv" id="rg-ad">$0</div><div class="ml" id="rg-ad-pct" style="margin-top:2px;font-weight:600"></div></div>
+      <div class="met" onclick="abrirDetalleRes('todas')" style="background:#f0f7ff;cursor:pointer"><div class="ml">Ganancia bruta (ventas - costo)</div><div class="mv" id="rg" style="color:#1a3a1a">$0</div><div class="ml" id="rg-pct" style="margin-top:2px;font-weight:600;color:#3498db"></div></div>
+      <div class="met" id="rg-op-card" style="background:#fff5f5"><div class="ml">Gastos operativos del mes</div><div class="mv" id="rg-op" style="color:#c0392b">$0</div><div style="font-size:9px;color:#aaa;margin-top:2px;line-height:1.3">No incluye compra de mercancia — esa ya esta descontada en el costo de cada articulo, arriba</div></div>
+      <div class="met" style="background:#eafaf1;grid-column:span 2">
+        <div class="ml">Ganancia neta real (bruta - gastos operativos)</div>
+        <div class="mv" id="rg-neta" style="color:#1a3a1a;font-size:22px">$0</div>
+        <div class="ml" id="rg-neta-comp" style="margin-top:4px;font-weight:600"></div>
+      </div>
     </div>
   </div>
 
@@ -1032,6 +1041,27 @@ tr:hover td{background:#f8f9ff}
     <div style="display:flex;justify-content:center;gap:18px;margin-top:12px;font-size:11px;color:#666">
       <span><span style="display:inline-block;width:10px;height:10px;background:#3498db;border-radius:2px;margin-right:5px"></span>Ventas</span>
       <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:5px"></span>Ganancia</span>
+    </div>
+  </div>
+
+  <div class="card" id="res-crecimiento" style="display:none">
+    <h2>Crecimiento del negocio — ultimos 12 meses</h2>
+    <div id="crecimiento-chart" style="display:flex;align-items:flex-end;justify-content:space-around;gap:4px;height:140px;padding:10px 4px 0"></div>
+    <div style="display:flex;justify-content:center;gap:18px;margin:8px 0 16px;font-size:11px;color:#666">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#3498db;border-radius:2px;margin-right:5px"></span>Ventas</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#27ae60;border-radius:2px;margin-right:5px"></span>Ganancia</span>
+    </div>
+    <div class="g2" style="gap:10px;margin-bottom:10px">
+      <div class="met"><div class="ml">Ticket promedio (este mes)</div><div class="mv" id="cre-ticket" style="color:#2c3e50">$0</div><div id="cre-ticket-cmp" style="font-size:10px;font-weight:700;margin-top:2px"></div></div>
+      <div class="met"><div class="ml">Clientes nuevos este mes</div><div class="mv" id="cre-clientes" style="color:#2c3e50">0</div><div id="cre-clientes-pct" style="font-size:10px;color:#3498db;font-weight:700;margin-top:2px"></div></div>
+    </div>
+    <div style="background:#fff5f5;border-radius:10px;padding:12px 14px">
+      <div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase">Plata atrapada en cartera vs. ya cobrada</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+        <div style="flex:1;background:#eee;border-radius:20px;height:14px;overflow:hidden"><div id="cre-cartera-barra" style="width:0%;height:100%;background:#e67e22"></div></div>
+        <div id="cre-cartera-monto" style="font-size:11px;color:#c0392b;font-weight:700;white-space:nowrap">$0 pendiente</div>
+      </div>
+      <div id="cre-cartera-pct" style="font-size:10px;color:#999;margin-top:4px"></div>
     </div>
   </div>
 
@@ -3127,8 +3157,14 @@ function registrarFacturaCompleta(){
     }else{
       idx=it.idxSel;
       inv[idx].stk=(inv[idx].stk||0)+it.cant;
-      inv[idx].costo=it.costo;
-      if(it.venta>0)inv[idx].venta=it.venta;
+      // El costo (y el precio de venta) solo se actualizan si el nuevo costo es MAYOR
+      // al que ya tenia registrado. Si compraste mas barato esta vez, se deja igual
+      // como estaba, para no bajar el precio de venta sin que tu lo decidas.
+      if(it.costo>(inv[idx].costo||0)){
+        inv[idx].costo=it.costo;
+        if(it.venta>0)inv[idx].venta=it.venta;
+        it.subioCosto=true;
+      }
       artNombre=inv[idx].art;
       artCod=inv[idx].cod;
     }
@@ -3147,13 +3183,19 @@ function registrarFacturaCompleta(){
   }
   logActividad('Inventario','Registro factura de entrada: '+_carritoEntrada.length+' articulo(s) — '+nombresArts.join(', ')+' — Total '+fmt(totalFactura)+(prov?' — Proveedor: '+prov:''));
 
+  var subieronCosto=_carritoEntrada.filter(function(it){return it.subioCosto;}).map(function(it){return it.artNombreMostrar;});
+
   save();
   renderInv();renderEntradas();
   var cantidadItems=_carritoEntrada.length;
   _carritoEntrada=[];
   renderCarritoEntrada();
   sv('ent-prov','');
-  toast('Factura registrada: '+cantidadItems+' articulo(s) por '+fmt(totalFactura));
+  var msg='Factura registrada: '+cantidadItems+' articulo(s) por '+fmt(totalFactura);
+  if(subieronCosto.length){
+    msg+='. Se actualizo el costo y precio de venta de: '+subieronCosto.join(', ');
+  }
+  toast(msg);
 }
 function registrarEntrada(){
   var esNuevo=g('ent-nuevo').checked;
@@ -5089,6 +5131,19 @@ function renderResVendedor(MESES,hoy){
   }
 }
 
+function calcularGananciaNetaMes(mes,anio){
+  function enEsteMes(fecha){
+    if(!fecha)return false;
+    var p=(normFechaGlobal(fecha)||fecha).split('/');
+    return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
+  }
+  var ventasM=ven.filter(function(v){return enEsteMes(v.fecha);});
+  var ganTotalM=ventasM.reduce(function(s,v){return s+gananciaDeVenta(v);},0);
+  var gastosM=cont.filter(function(c){
+    return c.egr>0&&c.categoria!=='Compra de mercancia'&&enEsteMes(c.fecha);
+  }).reduce(function(s,c){return s+(c.egr||0);},0);
+  return ganTotalM-gastosM;
+}
 function gananciaDeVenta(v){
   var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
   var costo=it.reduce(function(s,item){
@@ -5133,6 +5188,94 @@ function renderBalance3Meses(hoy){
   }).join('');
 }
 
+function renderCrecimientoNegocio(hoy){
+  var wrap=g('crecimiento-chart');
+  if(!wrap)return;
+  var MESES3=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var meses=[];
+  for(var i=11;i>=0;i--){
+    var d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
+    meses.push({mes:d.getMonth(),anio:d.getFullYear(),label:MESES3[d.getMonth()]});
+  }
+  function enMes(fecha,mes,anio){
+    if(!fecha)return false;
+    var p=(normFechaGlobal(fecha)||fecha).split('/');
+    return p.length===3&&(+p[1]-1)===mes&&+p[2]===anio;
+  }
+  var datos=meses.map(function(m){
+    var ventasMes=ven.filter(function(v){return enMes(v.fecha,m.mes,m.anio);});
+    var ventas=ventasMes.reduce(function(s,v){return s+(v.total||0);},0);
+    var ganancia=ventasMes.reduce(function(s,v){return s+gananciaDeVenta(v);},0);
+    return {mes:m.mes,anio:m.anio,label:m.label,ventas:ventas,ganancia:ganancia,ventasMes:ventasMes};
+  });
+  var maxVal=Math.max(1,Math.max.apply(null,datos.map(function(d){return Math.max(d.ventas,Math.abs(d.ganancia));})));
+  wrap.innerHTML=datos.map(function(d){
+    var hVen=Math.max(2,(d.ventas/maxVal)*110);
+    var hGan=Math.max(2,(Math.abs(d.ganancia)/maxVal)*110);
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">'+
+      '<div style="display:flex;align-items:flex-end;gap:2px;height:110px">'+
+        '<div title="Ventas: '+fmt(d.ventas)+'" style="width:9px;height:'+hVen+'px;background:#3498db;border-radius:2px 2px 0 0"></div>'+
+        '<div title="Ganancia: '+fmt(d.ganancia)+'" style="width:9px;height:'+hGan+'px;background:'+(d.ganancia>=0?'#27ae60':'#c0392b')+';border-radius:2px 2px 0 0"></div>'+
+      '</div>'+
+      '<div style="font-size:9px;color:#999">'+d.label+'</div>'+
+    '</div>';
+  }).join('');
+
+  // Ticket promedio de este mes vs hace 6 meses
+  var mesActualData=datos[11],mesHace6=datos[5];
+  var ticketActual=mesActualData.ventasMes.length?mesActualData.ventas/mesActualData.ventasMes.length:0;
+  var ticketHace6=mesHace6.ventasMes.length?mesHace6.ventas/mesHace6.ventasMes.length:0;
+  if(g('cre-ticket'))g('cre-ticket').textContent=fmt(ticketActual);
+  var cmpEl=g('cre-ticket-cmp');
+  if(cmpEl){
+    if(ticketHace6>0){
+      var cambio=((ticketActual-ticketHace6)/ticketHace6*100);
+      cmpEl.textContent=(cambio>=0?'▲ ':'▼ ')+Math.abs(cambio).toFixed(0)+'% vs hace 6 meses';
+      cmpEl.style.color=cambio>=0?'#1e8449':'#c0392b';
+    }else{cmpEl.textContent='';}
+  }
+
+  // Clientes nuevos vs recurrentes este mes
+  function idCliente(v){
+    var c=v.comprador||{};
+    return (c.cedula&&c.cedula!=='-'?c.cedula:[c.nombre,c.apellido].filter(Boolean).join(' '))||'';
+  }
+  var clientesMesActual=mesActualData.ventasMes.map(idCliente).filter(Boolean);
+  var clientesUnicosMes=Array.from(new Set(clientesMesActual));
+  var clientesAntes=new Set(ven.filter(function(v){return !enMes(v.fecha,mesActualData.mes,mesActualData.anio);}).map(idCliente));
+  var nuevos=clientesUnicosMes.filter(function(c){return !clientesAntes.has(c);});
+  if(g('cre-clientes'))g('cre-clientes').textContent=nuevos.length+' de '+clientesUnicosMes.length;
+  var pctEl=g('cre-clientes-pct');
+  if(pctEl)pctEl.textContent=clientesUnicosMes.length?Math.round(nuevos.length/clientesUnicosMes.length*100)+'% son clientes nuevos':'';
+
+  // Cartera pendiente vs cobrada (Credicontado + Sistecredito/Addi)
+  var credsCC=ven.filter(function(v){return esCredicontado(v)&&v.cuotas>0;});
+  var totCC=0,cobCC=0;
+  credsCC.forEach(function(v){
+    var montoCredito=creditoTotal(v);
+    var financiado=Math.max(0,montoCredito-(v.ci?v.ci.inicial||0:0));
+    var cuotasV=(v.cp||[]).reduce(function(s,c){return s+(c.monto||0);},0);
+    totCC+=financiado;cobCC+=cuotasV;
+  });
+  var finTodas=ven.filter(function(v){return esFinanciera(v)&&montoFinanciera(v)>0;});
+  var totFinBruto=0,pendFinNeto=0,cobFinNeto=0;
+  finTodas.forEach(function(v){
+    var empresa=empresaFinanciera(v);
+    var bruto=montoFinanciera(v);
+    var pct=v.finPagado?(v.finComisionUsada!=null?v.finComisionUsada:0):(comisionesFinanciera[empresa]!=null?comisionesFinanciera[empresa]:3);
+    var neto=Math.round(bruto*(1-pct/100));
+    if(v.finPagado)cobFinNeto+=(v.finMontoNeto!=null?v.finMontoNeto:neto);
+    else pendFinNeto+=neto;
+  });
+  var pendienteTotal=(totCC-cobCC)+pendFinNeto;
+  var cobradoTotal=cobCC+cobFinNeto;
+  var granTotal=pendienteTotal+cobradoTotal;
+  var pctPendiente=granTotal>0?(pendienteTotal/granTotal*100):0;
+  if(g('cre-cartera-barra'))g('cre-cartera-barra').style.width=Math.min(100,pctPendiente)+'%';
+  if(g('cre-cartera-monto'))g('cre-cartera-monto').textContent=fmt(pendienteTotal)+' pendiente';
+  if(g('cre-cartera-pct'))g('cre-cartera-pct').textContent=granTotal>0?pctPendiente.toFixed(0)+'% de tu cartera total todavia no se ha cobrado':'Sin ventas a credito registradas todavia';
+}
+
 function renderRes(){
   var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var hoy=new Date();
@@ -5142,16 +5285,19 @@ function renderRes(){
   var panelVend=g('res-vendedor-panel');
   var panelAdmin=g('res-admin-content');
   var panelBalance=g('res-balance-3m');
+  var panelCrecimiento=g('res-crecimiento');
   if(esVendedor){
     if(panelVend)panelVend.style.display='block';
     if(panelAdmin)panelAdmin.style.display='none';
     if(panelBalance)panelBalance.style.display='none';
+    if(panelCrecimiento)panelCrecimiento.style.display='none';
     renderResVendedor(MESES,hoy);
     return;
   }else{
     if(panelVend)panelVend.style.display='none';
     if(panelAdmin)panelAdmin.style.display='block';
     if(panelBalance)panelBalance.style.display='block';
+    if(panelCrecimiento)panelCrecimiento.style.display='block';
   }
 
   // Poblar selectores si aun no tienen opciones
@@ -5174,6 +5320,7 @@ function renderRes(){
 
   var mesActual=selMes?+selMes.value:hoy.getMonth();
   renderBalance3Meses(hoy);
+  renderCrecimientoNegocio(hoy);
   var anioActual=selAnio?+selAnio.value:hoy.getFullYear();
 
   // Label del mes seleccionado
@@ -5271,6 +5418,13 @@ function renderRes(){
   if(g('rg-ad'))g('rg-ad').textContent=fmt(Math.max(0,ganAd));
   if(g('rg'))g('rg').textContent=fmt(Math.max(0,ganTot));
   if(g('rg-op'))g('rg-op').textContent=fmt(gastosOperativos);
+  // Porcentaje de margen de cada grupo (ganancia / vendido en ese grupo)
+  function pctTxt(gan,base){return base>0?'('+((gan/base)*100).toFixed(0)+'% de margen)':'';}
+  if(g('rg-ef-pct'))g('rg-ef-pct').textContent=pctTxt(ganEf,ef);
+  if(g('rg-cc-pct'))g('rg-cc-pct').textContent=pctTxt(ganCc,cc);
+  if(g('rg-sc-pct'))g('rg-sc-pct').textContent=pctTxt(ganSc,sc);
+  if(g('rg-ad-pct'))g('rg-ad-pct').textContent=pctTxt(ganAd,ad);
+  if(g('rg-pct'))g('rg-pct').textContent=pctTxt(ganTot,tot);
   var opCard=g('rg-op-card');
   if(opCard){
     opCard.style.cursor='pointer';
@@ -5279,6 +5433,24 @@ function renderRes(){
   if(g('rg-neta')){
     g('rg-neta').textContent=fmt(ganNeta);
     g('rg-neta').style.color=ganNeta>=0?'#1a3a1a':'#e74c3c';
+  }
+  // Comparar con el mes anterior
+  var mesAnteriorNum=mesActual-1,anioAnteriorNum=anioActual;
+  if(mesAnteriorNum<0){mesAnteriorNum=11;anioAnteriorNum--;}
+  var ganNetaAnterior=calcularGananciaNetaMes(mesAnteriorNum,anioAnteriorNum);
+  var compEl=g('rg-neta-comp');
+  if(compEl){
+    if(ganNetaAnterior===0&&ganNeta===0){
+      compEl.textContent='';
+    }else if(ganNetaAnterior<=0){
+      compEl.textContent='El mes anterior no tuvo ganancia neta para comparar';
+      compEl.style.color='#888';
+    }else{
+      var diffPct=((ganNeta-ganNetaAnterior)/Math.abs(ganNetaAnterior))*100;
+      var subioOBajo=diffPct>=0?'▲ '+diffPct.toFixed(0)+'% mas que el mes anterior':'▼ '+Math.abs(diffPct).toFixed(0)+'% menos que el mes anterior';
+      compEl.textContent=subioOBajo+' (mes anterior: '+fmt(ganNetaAnterior)+')';
+      compEl.style.color=diffPct>=0?'#1e8449':'#c0392b';
+    }
   }
 
   // Por vendedor
@@ -6374,6 +6546,10 @@ function goTab(id,el){
     var sub=g('cartera-submenu'),caret=g('cartera-caret');
     if(sub)sub.style.display='block';
     if(caret)caret.style.transform='rotate(180deg)';
+  }else{
+    var subOtra=g('cartera-submenu'),caretOtra=g('cartera-caret');
+    if(subOtra)subOtra.style.display='none';
+    if(caretOtra)caretOtra.style.transform='rotate(0deg)';
   }
   // Reset buscadores al cambiar de tab
   ['inv-search','hist-search','cart-buscar','cont-buscar'].forEach(function(sid){
