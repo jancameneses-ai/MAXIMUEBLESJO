@@ -3444,6 +3444,12 @@ function guardarEdicionVenta(){
     if(ven[i].cuotas>0){
       ven[i].ci.cval=Math.round(nuevoSaldo/ven[i].cuotas);
     }
+    // Guardar la fecha del primer pago (antes se mostraba pero nunca se guardaba)
+    var rawFechaPago=(g('ev-fecha-pago')||{value:''}).value;
+    if(rawFechaPago){
+      var fpp=rawFechaPago.split('-');
+      ven[i].ci.fecha=fpp.length===3?fpp[2]+'/'+fpp[1]+'/'+fpp[0]:rawFechaPago;
+    }
   }
   // Actualizar el libro contable: buscar el movimiento con los datos VIEJOS (articulo y
   // cliente originales), y actualizarle tanto la descripcion (nuevo articulo) como la fecha
@@ -4843,6 +4849,27 @@ function mostrarGastosDetalle(mesGas,anioGas,soloOperativos){
   var buscador=g('res-detalle-buscar');if(buscador)buscador.value='';
   window.scrollTo({top:0,behavior:'smooth'});
 }
+function costoDeVenta(v){
+  var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
+  return it.reduce(function(s,item){
+    var art=inv.find(function(a){return a.art===item.art;});
+    return s+(art?art.costo*(item.qty||1):0);
+  },0);
+}
+function gananciaDeFila(x){
+  var v=x.v;
+  var costoTotal=costoDeVenta(v);
+  var propor=v.total>0?(x.montoMostrar/v.total):1;
+  var gananciaBruta=x.montoMostrar-(costoTotal*propor);
+  var esParteSC=v.pago==='SISTECREDITO'||(x.label&&x.label.indexOf('Sistecredito')>=0);
+  var esParteAD=v.pago==='ADDI';
+  if(esParteSC||esParteAD){
+    var empresaRow=esParteAD?'ADDI':'SISTECREDITO';
+    var pctRow=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[empresaRow]!=null)?comisionesFinanciera[empresaRow]:3;
+    gananciaBruta-=x.montoMostrar*(pctRow/100);
+  }
+  return gananciaBruta;
+}
 function abrirDetalleRes(tipo,vendedorFiltro){
   var subview=g('res-subview');
   var main=g('res-main');
@@ -4914,15 +4941,20 @@ function abrirDetalleRes(tipo,vendedorFiltro){
     if(thRowEmpty){
       thRowEmpty.innerHTML=esSCEmpty?
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
+        '<th style="text-align:right;color:#888">Costo</th>'+
         '<th style="text-align:right">Valor</th>'+
         '<th style="text-align:right;color:#e74c3c">Comision 3%</th>'+
         '<th style="text-align:right;color:#1e8449">Total neto</th>'+
+        '<th style="text-align:right;color:#3498db">Ganancia</th>'+
         '<th>Vendedor</th>'
         :
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
-        '<th style="text-align:right">Total</th><th>Vendedor</th>';
+        '<th style="text-align:right;color:#888">Costo</th>'+
+        '<th style="text-align:right">Total</th>'+
+        '<th style="text-align:right;color:#3498db">Ganancia</th>'+
+        '<th>Vendedor</th>';
     }
-    tb.innerHTML='<tr><td colspan="'+(esSCEmpty?8:6)+'" class="empty">Sin ventas este periodo</td></tr>';
+    tb.innerHTML='<tr><td colspan="'+(esSCEmpty?10:8)+'" class="empty">Sin ventas este periodo</td></tr>';
   }else{
     // Sort by date desc
     filtradas=filtradas.slice().sort(function(a,b){
@@ -4937,21 +4969,30 @@ function abrirDetalleRes(tipo,vendedorFiltro){
     if(thRow){
       thRow.innerHTML=esSC?
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
+        '<th style="text-align:right;color:#888">Costo</th>'+
         '<th style="text-align:right">Valor</th>'+
         '<th style="text-align:right;color:#e74c3c">Comision 3%</th>'+
         '<th style="text-align:right;color:#1e8449">Total neto</th>'+
+        '<th style="text-align:right;color:#3498db">Ganancia</th>'+
         '<th>Vendedor</th>'
         :
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
-        '<th style="text-align:right">Total</th><th>Vendedor</th>';
+        '<th style="text-align:right;color:#888">Costo</th>'+
+        '<th style="text-align:right">Total</th>'+
+        '<th style="text-align:right;color:#3498db">Ganancia</th>'+
+        '<th>Vendedor</th>';
     }
-    var totalComision=0,totalNeto=0;
+    var totalComision=0,totalNeto=0,totalGanancia=0,totalCosto=0;
     tb.innerHTML=filtradas.map(function(x){
       var v=x.v;
       var c=v.comprador||{};
       var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre';
       var esMixto=x.label!==v.pago;
       var pagoColor=v.pago==='EFECTIVO'?'color:#1e8449':v.pago==='CREDICONTADO'?'color:#9b59b6':esMixto?'color:#e67e22':'color:#3498db';
+      var costoFila=v.total>0?costoDeVenta(v)*(x.montoMostrar/v.total):0;
+      totalCosto+=costoFila;
+      var gananciaFila=gananciaDeFila(x);
+      totalGanancia+=gananciaFila;
       var extraCols='';
       if(esSC){
         var comision=x.montoMostrar*0.03;
@@ -4965,23 +5006,29 @@ function abrirDetalleRes(tipo,vendedorFiltro){
         '<td style="font-weight:600">'+v.art+'</td>'+
         '<td>'+cl+'</td>'+
         '<td style="'+pagoColor+';font-weight:600;font-size:11px">'+x.label+'</td>'+
+        '<td style="text-align:right;color:#888">'+fmt(costoFila)+'</td>'+
         '<td style="text-align:right;font-weight:700">'+fmt(x.montoMostrar)+'</td>'+
         extraCols+
+        '<td style="text-align:right;font-weight:700;color:'+(gananciaFila>=0?'#3498db':'#e74c3c')+'">'+fmt(gananciaFila)+'</td>'+
         '<td style="font-size:11px;color:#888">'+( v.vend||'-')+'</td>'+
       '</tr>';
     }).join('')+
     (esSC?
       '<tr class="total-row" style="background:#f0f7ff;font-weight:700">'+
         '<td colspan="4" style="text-align:right;padding-right:8px">Total:</td>'+
+        '<td style="text-align:right;color:#888">'+fmt(totalCosto)+'</td>'+
         '<td style="text-align:right;color:#1e8449">'+fmt(totalFil)+'</td>'+
         '<td style="text-align:right;color:#e74c3c">-'+fmt(totalComision)+'</td>'+
         '<td style="text-align:right;color:#1e8449">'+fmt(totalNeto)+'</td>'+
+        '<td style="text-align:right;color:#3498db">'+fmt(totalGanancia)+'</td>'+
         '<td></td>'+
       '</tr>'
       :
       '<tr class="total-row" style="background:#f0f7ff;font-weight:700">'+
         '<td colspan="4" style="text-align:right;padding-right:8px">Total:</td>'+
+        '<td style="text-align:right;color:#888">'+fmt(totalCosto)+'</td>'+
         '<td style="text-align:right;color:#1e8449">'+fmt(totalFil)+'</td>'+
+        '<td style="text-align:right;color:#3498db">'+fmt(totalGanancia)+'</td>'+
         '<td></td>'+
       '</tr>');
   }
@@ -5150,7 +5197,18 @@ function gananciaDeVenta(v){
     var art=inv.find(function(a){return a.art===item.art;});
     return s+(art?art.costo*(item.qty||1):0);
   },0);
-  return v.total-costo;
+  var gananciaBruta=v.total-costo;
+  // Si la venta (o una parte, en pagos mixtos) fue por Sistecredito/Addi, se le
+  // resta la comision que esa empresa cobra sobre lo que ellos pagan.
+  if(typeof esFinanciera==='function'&&esFinanciera(v)){
+    var montoFin=montoFinanciera(v);
+    if(montoFin>0){
+      var empresaFin=empresaFinanciera(v);
+      var pctFin=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[empresaFin]!=null)?comisionesFinanciera[empresaFin]:3;
+      gananciaBruta-=montoFin*(pctFin/100);
+    }
+  }
+  return gananciaBruta;
 }
 function renderBalance3Meses(hoy){
   var wrap=g('balance3m-chart');
@@ -5372,24 +5430,30 @@ function renderRes(){
     },0);
     return v.total-costo;
   }
+  function comisionFinancieraDe(monto,empresa){
+    if(!monto)return 0;
+    var pct=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[empresa]!=null)?comisionesFinanciera[empresa]:3;
+    return monto*(pct/100);
+  }
   var ganEf=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v);},0);
-  var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v);},0);
+  // A la ganancia de Sistecredito/Addi se le resta la comision que esa empresa cobra
+  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v)-comisionFinancieraDe(v.total,'SISTECREDITO');},0);
+  var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v)-comisionFinancieraDe(v.total,'ADDI');},0);
   // Repartir proporcionalmente la ganancia de ventas mixtas Sistecredito+Efectivo
   mixedSef.forEach(function(v){
     var gTotal=ganancia(v);
     var ratioEf=v.total>0?(v.sefEf||0)/v.total:0;
     var ratioSc=v.total>0?(v.sefSc||0)/v.total:0;
     ganEf+=gTotal*ratioEf;
-    ganSc+=gTotal*ratioSc;
+    ganSc+=gTotal*ratioSc-comisionFinancieraDe(v.sefSc,'SISTECREDITO');
   });
   // Repartir proporcionalmente la ganancia de ventas mixtas Sistecredito+Credicontado
   mixedScc.forEach(function(v){
     var gTotal=ganancia(v);
     var ratioSc=v.total>0?(v.sccSc||0)/v.total:0;
     var ratioCc=v.total>0?(v.sccCc||0)/v.total:0;
-    ganSc+=gTotal*ratioSc;
+    ganSc+=gTotal*ratioSc-comisionFinancieraDe(v.sccSc,'SISTECREDITO');
     ganCc+=gTotal*ratioCc;
   });
   var ganSca=ganSc+ganAd;
