@@ -727,6 +727,13 @@ tr:hover td{background:#f8f9ff}
           <div><label>Codigo</label><input type="text" id="ent-cod"></div>
           <div><label>Nombre del articulo</label><input type="text" id="ent-art"></div>
         </div>
+        <div style="margin-top:10px">
+          <label>Fotos del articulo <span style="color:#888;font-weight:400;text-transform:none">(opcional, puedes elegir varias)</span></label>
+          <div style="margin-top:6px">
+            <input type="file" id="ent-foto-input" accept="image/*" multiple onchange="previsualizarFotoArt(this,'ent')">
+            <div id="ent-foto-preview-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+          </div>
+        </div>
       </div>
       <div class="g4" style="margin-top:10px">
         <div><label>Cantidad que entro</label><input type="number" id="ent-cant" min="1" value="1" class="noup" oninput="calcEntrada()"></div>
@@ -1076,8 +1083,12 @@ tr:hover td{background:#f8f9ff}
       <div style="font-size:13px;font-weight:600;color:#2c3e50;text-transform:uppercase;letter-spacing:.3px">Libro Contable</div>
       <div style="font-size:11px;color:#aaa">Maximuebles Jo — Orito Putumayo</div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn bgreen" onclick="exportarExcelContable()" style="font-size:11px;padding:8px 16px">Exportar Excel</button>
+    <div style="display:flex;gap:0;align-items:stretch;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:4px;background:#fff;padding:6px 10px;border-radius:8px 0 0 8px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-right:1px solid #eee">
+        <select id="cont-exp-mes" style="border:none;background:transparent;font-size:11px;font-weight:600;color:#2c3e50;outline:none;cursor:pointer;padding:2px"></select>
+        <select id="cont-exp-anio" style="border:none;background:transparent;font-size:11px;font-weight:600;color:#2c3e50;outline:none;cursor:pointer;padding:2px"></select>
+      </div>
+      <button class="btn bgreen" onclick="exportarExcelContable()" style="font-size:11px;padding:6px 14px;border-radius:0 8px 8px 0;margin:0">Exportar Excel</button>
     </div>
   </div>
   <div class="card" style="margin-bottom:14px" id="cont-registrar-card">
@@ -2625,7 +2636,7 @@ function validarTelRef(input,errId){
 }
 function gestCuot(vi){
   var v=ven[vi];
-  if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null};});
+  if(!v.cp||v.cp.length!==v.cuotas)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null,abonos:[]};});
   var plan=calcularPlanCuotas(v);
   var cuotaBase=plan.cuotaBase;
   var cuotasVal=plan.cuotasVal;
@@ -2725,6 +2736,15 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
       h+='<span style="font-size:13px;font-weight:700;color:#e74c3c">'+fmt(faltaEsta)+'</span>';
       h+='</div>';
     }
+    if(cp.abonos&&cp.abonos.length>1){
+      h+='<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd">';
+      h+='<div style="font-size:9px;color:#888;text-transform:uppercase;margin-bottom:3px">Historial de abonos de esta cuota</div>';
+      cp.abonos.forEach(function(ab){
+        h+='<div style="display:flex;justify-content:space-between;font-size:10px;color:#555;padding:1px 0">';
+        h+='<span>'+(ab.fecha||'-')+'</span><span style="font-weight:700;color:#2ecc71">'+fmt(ab.monto||0)+'</span></div>';
+      });
+      h+='</div>';
+    }
     h+='</div>';
 
     h+='<div class="g2" style="gap:8px;margin-bottom:8px">';
@@ -2761,7 +2781,7 @@ h+='<div style="font-size:10px;font-weight:700;color:#1a3a1a;text-transform:uppe
 function togCuota(vi,ci){
   if(sinConexionActiva()){toast('Sin conexion a internet. No se puede realizar este movimiento en este momento.',1);return;}
   var v=ven[vi];
-  if(!v.cp)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null};});
+  if(!v.cp)v.cp=Array.from({length:v.cuotas},function(){return{pagado:false,monto:0,fecha:null,abonos:[]};});
   var montoNuevo=parseFloat(g('cm'+vi+'_'+ci).value)||0;
   var fecha=g('cf'+vi+'_'+ci).value||new Date().toISOString().split('T')[0];
   if(montoNuevo<=0){toast('Ingresa un monto valido',1);return;}
@@ -2770,7 +2790,10 @@ function togCuota(vi,ci){
   var yaAbonado=(!v.cp[ci].pagado)?(v.cp[ci].monto||0):0;
   var montoAcumulado=yaAbonado+montoNuevo;
   var completo=montoAcumulado>=(debeEsta-1); // tolerancia por redondeo
-  v.cp[ci]={pagado:completo,monto:montoAcumulado,fecha:fecha};
+  // Conservar el historial de cada abono de esta cuota (si ya habia uno sin historial previo, se rescata como primer abono)
+  var abonosPrev=(v.cp[ci]&&v.cp[ci].abonos)?v.cp[ci].abonos.slice():((yaAbonado>0&&v.cp[ci]&&v.cp[ci].fecha)?[{monto:yaAbonado,fecha:v.cp[ci].fecha}]:[]);
+  abonosPrev.push({monto:montoNuevo,fecha:fecha});
+  v.cp[ci]={pagado:completo,monto:montoAcumulado,fecha:fecha,abonos:abonosPrev};
   // Auto-registro contable abono Credicontado (solo por el monto recibido en este momento)
   var c2=v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
@@ -2797,7 +2820,7 @@ function desPagar(vi,ci){
     return true;
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
-  ven[vi].cp[ci]={pagado:false,monto:0,fecha:null};
+  ven[vi].cp[ci]={pagado:false,monto:0,fecha:null,abonos:[]};
   logActividad('Cartera','Deshizo abono de la cuota '+(ci+1)+' de '+cl2+' ('+v.art+')');
   save();gestCuot(vi);renderCart();renderCreditos();renderContable();toast('Abonos de esta cuota deshechos y eliminados del libro contable');
 }
@@ -3039,6 +3062,9 @@ function toggleEntNuevo(){
   sv('ent-idx',-1);
   sv('ent-buscar','');
   var res=g('ent-results');if(res)res.style.display='none';
+  // Limpiar fotos temporales del articulo nuevo (cada vez que se activa/desactiva queda un estado limpio)
+  _fotoArtTemp['ent']=[];
+  renderPreviewFotosArt('ent');
 }
 
 function filtrarArtsEntrada(){
@@ -3101,9 +3127,11 @@ function agregarItemFactura(){
     return;
   }
   var artNombreMostrar=esNuevo?artNombreNuevo:inv[idxSel].art;
+  var fotosNuevoArt=esNuevo?(_fotoArtTemp['ent']||[]).slice():[];
   _carritoEntrada.push({
     esNuevo:esNuevo,idxSel:idxSel,artCodNuevo:artCodNuevo,artNombreNuevo:artNombreNuevo,
-    artNombreMostrar:artNombreMostrar,cant:cant,costo:costo,venta:venta,subtotal:cant*costo
+    artNombreMostrar:artNombreMostrar,cant:cant,costo:costo,venta:venta,subtotal:cant*costo,
+    fotosNuevo:fotosNuevoArt
   });
   // Limpiar solo los campos del articulo, dejar proveedor/fecha intactos para el siguiente
   sv('ent-cant',1);sv('ent-costo','');sv('ent-venta','');sv('ent-total','');
@@ -3124,7 +3152,7 @@ function renderCarritoEntrada(){
     tb.innerHTML='<tr><td colspan="5" class="empty">Aun no has agregado articulos a esta factura</td></tr>';
   }else{
     tb.innerHTML=_carritoEntrada.map(function(it,i){
-      return '<tr><td>'+it.artNombreMostrar+(it.esNuevo?' <span style="color:#3498db;font-size:9px;font-weight:700">(NUEVO)</span>':'')+'</td>'+
+      return '<tr><td>'+it.artNombreMostrar+(it.esNuevo?' <span style="color:#3498db;font-size:9px;font-weight:700">(NUEVO)</span>':'')+(it.fotosNuevo&&it.fotosNuevo.length?' <span style="color:#888;font-size:9px">('+it.fotosNuevo.length+' foto'+(it.fotosNuevo.length>1?'s':'')+')</span>':'')+'</td>'+
         '<td style="text-align:center">'+it.cant+'</td>'+
         '<td style="text-align:right">'+fmt(it.costo)+'</td>'+
         '<td style="text-align:right;font-weight:700">'+fmt(it.subtotal)+'</td>'+
@@ -3152,7 +3180,7 @@ function registrarFacturaCompleta(){
     var artNombre,artCod,idx;
     if(it.esNuevo){
       artCod=it.artCodNuevo;artNombre=it.artNombreNuevo;
-      inv.push({cod:artCod,art:artNombre,costo:it.costo,venta:it.venta,stk:it.cant,fotos:[]});
+      inv.push({cod:artCod,art:artNombre,costo:it.costo,venta:it.venta,stk:it.cant,fotos:(it.fotosNuevo||[]).slice()});
       idx=inv.length-1;
     }else{
       idx=it.idxSel;
@@ -3191,6 +3219,8 @@ function registrarFacturaCompleta(){
   _carritoEntrada=[];
   renderCarritoEntrada();
   sv('ent-prov','');
+  _fotoArtTemp['ent']=[];
+  renderPreviewFotosArt('ent');
   var msg='Factura registrada: '+cantidadItems+' articulo(s) por '+fmt(totalFactura);
   if(subieronCosto.length){
     msg+='. Se actualizo el costo y precio de venta de: '+subieronCosto.join(', ');
@@ -3427,6 +3457,14 @@ function guardarEdicionVenta(){
   ven[i].art=items.map(function(it){return it.art+(it.qty>1?' x'+it.qty:'');}).join(', ');
   ven[i].total=total;
   ven[i].vend=document.getElementById('ev-vend').value;
+  // Actualizar los datos del comprador (antes se mostraban en el formulario pero nunca se guardaban)
+  ven[i].comprador=Object.assign({},cViejo,{
+    nombre:(g('ev-nombre')||{value:''}).value.trim(),
+    apellido:(g('ev-apellido')||{value:''}).value.trim(),
+    cedula:(g('ev-cedula')||{value:''}).value.trim(),
+    tel:(g('ev-tel')||{value:''}).value.trim(),
+    barrio:(g('ev-barrio')||{value:''}).value.trim()
+  });
   var rawFecha=document.getElementById('ev-fecha').value;
   if(rawFecha){var fp=rawFecha.split('-');ven[i].fecha=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;}
   var pago=g('ev-pago').value;
@@ -3437,6 +3475,11 @@ function guardarEdicionVenta(){
   // Si es una venta a credito, recalcular el saldo y el valor de cada cuota
   // con el NUEVO total (por ejemplo, si se le dio un descuento al editar la factura)
   if(ven[i].ci){
+    // Guardar el valor de la inicial editado (antes se mostraba en el formulario pero nunca se guardaba)
+    var rawIni=g('ev-ini')?g('ev-ini').value:null;
+    if(rawIni!==null&&rawIni!==''){
+      ven[i].ci.inicial=Math.max(0,+rawIni||0);
+    }
     var montoCreditoNuevo=creditoTotal(ven[i]);
     var inicialActual=ven[i].ci.inicial||0;
     var nuevoSaldo=Math.max(0,montoCreditoNuevo-inicialActual);
@@ -3477,7 +3520,7 @@ function guardarEdicionVenta(){
         if(rawFecha){c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,esCuotaInicial?1:0);}
       }
       // Abonos de cuotas: no cambian de fecha, pero si el articulo/cliente cambiaron, tambien se actualiza el texto
-      else if(desc.indexOf('Abono Credicontado:')>=0){
+      else if(desc.indexOf('Abono Credicontado:')>=0||desc.indexOf('Pago recibido de ')===0){
         var descNueva2=desc.split(artViejo).join(ven[i].art);
         if(clViejo&&clNuevo&&clViejo!==clNuevo){
           descNueva2=descNueva2.split(clViejo).join(clNuevo);
@@ -5801,6 +5844,10 @@ function addContable(){
 function exportarExcelContable(){
   if(typeof XLSX==='undefined'){toast('La libreria de Excel aun esta cargando, intenta de nuevo en un momento',1);return;}
   try{
+    var MESES_EXP=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var selMesExp=g('cont-exp-mes'),selAnioExp=g('cont-exp-anio');
+    var mesExp=selMesExp?+selMesExp.value:-1; // -1 = todos los meses
+    var anioExp=selAnioExp?+selAnioExp.value:new Date().getFullYear();
     // Ordenar igual que se ve en pantalla: mas reciente primero, con saldo acumulado
     function normFecha(f){
       if(!f)return '';
@@ -5812,7 +5859,13 @@ function exportarExcelContable(){
       if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]).getTime();
       return 0;
     }
-    var ordenado=cont.map(function(c){return Object.assign({},c,{fecha:normFecha(c.fecha)});})
+    function esDelMesExp(f){
+      if(mesExp<0)return true; // "Todos los meses"
+      var p=normFecha(f).split('/');
+      return p.length===3&&(+p[1]-1)===mesExp&&+p[2]===anioExp;
+    }
+    var contFiltrado=mesExp<0?cont:cont.filter(function(c){return esDelMesExp(c.fecha);});
+    var ordenado=contFiltrado.map(function(c){return Object.assign({},c,{fecha:normFecha(c.fecha)});})
       .sort(function(a,b){
         var da=fechaToMs(a.fecha),db=fechaToMs(b.fecha);
         if(da!==db)return da-db; // mas antiguo primero para acumular bien
@@ -5833,21 +5886,36 @@ function exportarExcelContable(){
         'Tipo':c.tipo==='auto'?'Automatico':'Manual'
       };
     });
-    var totalIng=cont.reduce(function(s,c){return s+(c.ing||0);},0);
-    var totalEgr=cont.reduce(function(s,c){return s+(c.egr||0);},0);
+    var totalIng=contFiltrado.reduce(function(s,c){return s+(c.ing||0);},0);
+    var totalEgr=contFiltrado.reduce(function(s,c){return s+(c.egr||0);},0);
+    var etiquetaPeriodo=mesExp<0?'TOTAL HISTORICO':'TOTAL DEL MES';
+    var etiquetaSaldo=mesExp<0?'SALDO ACTUAL':'SALDO DEL MES';
     rows.push({});
-    rows.push({'Fecha':'','Descripcion':'TOTAL INGRESOS','Ingreso':totalIng});
-    rows.push({'Fecha':'','Descripcion':'TOTAL EGRESOS','Egreso':totalEgr});
-    rows.push({'Fecha':'','Descripcion':'SALDO ACTUAL','Total acumulado':totalIng-totalEgr});
+    rows.push({'Fecha':'','Descripcion':'TOTAL INGRESOS ('+etiquetaPeriodo+')','Ingreso':totalIng});
+    rows.push({'Fecha':'','Descripcion':'TOTAL EGRESOS ('+etiquetaPeriodo+')','Egreso':totalEgr});
+    rows.push({'Fecha':'','Descripcion':etiquetaSaldo,'Total acumulado':totalIng-totalEgr});
 
     var wb=XLSX.utils.book_new();
-    var ws=XLSX.utils.json_to_sheet(rows.length?rows:[{Info:'Sin movimientos registrados'}]);
-    ws['!cols']=[{wch:12},{wch:45},{wch:22},{wch:14},{wch:14},{wch:16},{wch:16},{wch:8},{wch:12}];
-    XLSX.utils.book_append_sheet(wb,ws,'Libro Contable');
+    var ws=XLSX.utils.json_to_sheet(rows.length?rows:[{Info:'Sin movimientos registrados en ese periodo'}]);
+    ws['!cols']=[{wch:12},{wch:45},{wch:22},{wch:16},{wch:16},{wch:18},{wch:16},{wch:8},{wch:12}];
+    // Formato de moneda colombiana (con separador de miles) para Ingreso, Egreso y Total acumulado
+    if(rows.length){
+      var formatoCOP='"$" #,##0';
+      var colsMoneda=[3,4,5]; // D=Ingreso, E=Egreso, F=Total acumulado
+      for(var rIdx=1;rIdx<=rows.length;rIdx++){
+        colsMoneda.forEach(function(cIdx){
+          var addr=XLSX.utils.encode_cell({r:rIdx,c:cIdx});
+          if(ws[addr]&&typeof ws[addr].v==='number')ws[addr].z=formatoCOP;
+        });
+      }
+    }
+    var nombreHoja=(mesExp<0?'Historico completo':MESES_EXP[mesExp]+' '+anioExp).substring(0,31);
+    XLSX.utils.book_append_sheet(wb,ws,nombreHoja);
 
+    var etiquetaArchivo=mesExp<0?'Historico':MESES_EXP[mesExp]+'_'+anioExp;
     var fechaArchivo=fmtFechaDDMMYYYY().split('/').join('-');
-    XLSX.writeFile(wb,'Maximuebles_Jo_Libro_Contable_'+fechaArchivo+'.xlsx');
-    toast('Excel del libro contable descargado');
+    XLSX.writeFile(wb,'Maximuebles_Jo_Libro_Contable_'+etiquetaArchivo+'_'+fechaArchivo+'.xlsx');
+    toast('Excel descargado: '+(mesExp<0?'historico completo':MESES_EXP[mesExp]+' '+anioExp));
   }catch(e){
     console.error('Error exportando Excel:',e);
     toast('Error al generar el Excel',1);
@@ -6028,14 +6096,20 @@ function delContable(i){
         var cpEntry=ventaAbono.cp[cuotaNum];
         var montoRestar=mov.ing||0;
         var nuevoMonto=Math.max(0,(cpEntry.monto||0)-montoRestar);
+        // Quitar tambien el abono especifico borrado del historial (se busca por monto y fecha exactos del movimiento eliminado)
+        var abonosRest=(cpEntry.abonos||[]).slice();
+        var idxAb=abonosRest.findIndex(function(a){return a.monto===montoRestar&&a.fecha===mov.fecha;});
+        if(idxAb===-1)idxAb=abonosRest.findIndex(function(a){return a.monto===montoRestar;});
+        if(idxAb!==-1)abonosRest.splice(idxAb,1);
         if(nuevoMonto<=0){
-          ventaAbono.cp[cuotaNum]={pagado:false,monto:0,fecha:null};
+          ventaAbono.cp[cuotaNum]={pagado:false,monto:0,fecha:null,abonos:[]};
           extra=' La cuota '+(cuotaNum+1)+' de '+clienteBuscado+' quedo sin abonos.';
         }else{
           var planRev=calcularPlanCuotas(ventaAbono);
           var debeRev=planRev.cuotasVal[cuotaNum];
           var completoRev=nuevoMonto>=(debeRev-1);
-          ventaAbono.cp[cuotaNum]={pagado:completoRev,monto:nuevoMonto,fecha:cpEntry.fecha};
+          var fechaRev=abonosRest.length?abonosRest[abonosRest.length-1].fecha:cpEntry.fecha;
+          ventaAbono.cp[cuotaNum]={pagado:completoRev,monto:nuevoMonto,fecha:fechaRev,abonos:abonosRest};
           extra=' La cuota '+(cuotaNum+1)+' de '+clienteBuscado+' quedo con '+fmt(nuevoMonto)+' abonado'+(completoRev?' (queda completa).':', faltan '+fmt(debeRev-nuevoMonto)+'.');
         }
       }
@@ -6127,6 +6201,28 @@ function renderContable(){
   contActualizarBotones();
   var q=((g('cont-buscar')||{value:''}).value||'').toLowerCase().trim();
   if(q)contPage=1;
+
+  // Poblar selectores de mes/anio para exportar (una sola vez), igual que en Resumen
+  var MESES_CE=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var hoyCE=new Date();
+  var selMesE=g('cont-exp-mes'),selAnioE=g('cont-exp-anio');
+  if(selMesE&&selMesE.options.length===0){
+    var oTodos=document.createElement('option');oTodos.value='-1';oTodos.textContent='Todos los meses (historico completo)';
+    selMesE.appendChild(oTodos);
+    MESES_CE.forEach(function(m,i){
+      var o=document.createElement('option');o.value=i;o.textContent=m;
+      selMesE.appendChild(o);
+    });
+    selMesE.value=hoyCE.getMonth();
+  }
+  if(selAnioE&&selAnioE.options.length===0){
+    var aniBaseE=hoyCE.getFullYear();
+    for(var aE=aniBaseE-3;aE<=aniBaseE;aE++){
+      var oE=document.createElement('option');oE.value=aE;oE.textContent=aE;
+      selAnioE.appendChild(oE);
+    }
+    selAnioE.value=aniBaseE;
+  }
 
   // Normalizar fechas a DD/MM/YYYY
   function normFecha(f){
@@ -6375,7 +6471,8 @@ function dlReciboCuota(vi,ci){
   var saldo=Math.max(0,montoCredito-totalDado);
   var esteCp=(v.cp||[])[ci]||{};
   var estePago=esteCp.monto||0;
-  var fechaPago=esteCp.fecha||v.fecha||'';
+  var esteAbonos=(esteCp.abonos&&esteCp.abonos.length)?esteCp.abonos:(estePago>0?[{monto:estePago,fecha:esteCp.fecha}]:[]);
+  var fechaPago=esteAbonos.length?esteAbonos[esteAbonos.length-1].fecha:(esteCp.fecha||v.fecha||'');
   var ahora=new Date();
   var fechaHoy=fmtFechaDDMMYYYY(ahora);
   var horaHoy=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
@@ -6428,29 +6525,36 @@ function dlReciboCuota(vi,ci){
     doc.setFillColor(245,245,245);doc.rect(6,y-0.5,W-12,3,'F');y+=3;
   }
   var pagadas=(v.cp||[]).map(function(p,i){return{idx:i,p:p};}).filter(function(x){return(x.p.monto||0)>0;});
-  pagadas.forEach(function(x,ri){
-    var bg=ri%2===0?[255,255,255]:[250,250,255];
-    doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(6,y-3,W-12,7,'F');
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
+  var filaHist=0;
+  pagadas.forEach(function(x){
     var debe=cuotasVal[x.idx]||cuotaBase;
     var falta=debe-(x.p.monto||0);
     var esParcialHist=!x.p.pagado&&falta>0;
-    var lbl='Cuota '+(x.idx+1)+(esParcialHist?' (abono parcial)':(Math.abs(falta)>0?' *':''));
-    doc.text(lbl,9,y+1);doc.text(x.p.fecha||'-',W/2,y+1,{align:'center'});
-    doc.setFont('helvetica','bold');doc.text(fmt(x.p.monto||0),W-9,y+1,{align:'right'});
-    doc.setTextColor(BL[0],BL[1],BL[2]);y+=7;
-    if(esParcialHist){
-      doc.setFontSize(6.5);doc.setFont('helvetica','italic');
-      doc.setTextColor(200,80,0);
-      doc.text('* Cuota aun no completa — faltan '+fmt(falta)+' de esta misma cuota',9,y-3);
-      doc.setTextColor(BL[0],BL[1],BL[2]);doc.setFontSize(9);doc.setFont('helvetica','normal');
-    }else if(x.p.pagado&&Math.abs(falta)>0){
-      doc.setFontSize(6.5);doc.setFont('helvetica','italic');
-      doc.setTextColor(falta>0?180:30,falta>0?60:130,0);
-      doc.text(falta>0?'* Faltaron '+fmt(falta)+' sumados a cuota sig.':'* Exceso '+fmt(Math.abs(falta))+' restados de cuota sig.',9,y-3);
-      doc.setTextColor(BL[0],BL[1],BL[2]);doc.setFontSize(9);doc.setFont('helvetica','normal');
-    }
-    doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-0.5,W-6,y-0.5);
+    // Historial real de abonos de esta cuota (si viene de datos antiguos sin historial, se muestra como un solo abono)
+    var abonosCuota=(x.p.abonos&&x.p.abonos.length)?x.p.abonos:[{monto:x.p.monto,fecha:x.p.fecha}];
+    abonosCuota.forEach(function(ab,ai){
+      var esUltimoAbono=ai===abonosCuota.length-1;
+      var bg=filaHist%2===0?[255,255,255]:[250,250,255];
+      doc.setFillColor(bg[0],bg[1],bg[2]);doc.rect(6,y-3,W-12,7,'F');
+      doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
+      var lbl='Cuota '+(x.idx+1)+(ai>0?' (abono pendiente)':'')+(esUltimoAbono&&esParcialHist?' (abono parcial)':(esUltimoAbono&&Math.abs(falta)>0?' *':''));
+      doc.text(lbl,9,y+1);doc.text(ab.fecha||'-',W/2,y+1,{align:'center'});
+      doc.setFont('helvetica','bold');doc.text(fmt(ab.monto||0),W-9,y+1,{align:'right'});
+      doc.setTextColor(BL[0],BL[1],BL[2]);y+=7;
+      if(esUltimoAbono&&esParcialHist){
+        doc.setFontSize(6.5);doc.setFont('helvetica','italic');
+        doc.setTextColor(200,80,0);
+        doc.text('* Cuota aun no completa — faltan '+fmt(falta)+' de esta misma cuota',9,y-3);
+        doc.setTextColor(BL[0],BL[1],BL[2]);doc.setFontSize(9);doc.setFont('helvetica','normal');
+      }else if(esUltimoAbono&&x.p.pagado&&Math.abs(falta)>0){
+        doc.setFontSize(6.5);doc.setFont('helvetica','italic');
+        doc.setTextColor(falta>0?180:30,falta>0?60:130,0);
+        doc.text(falta>0?'* Faltaron '+fmt(falta)+' sumados a cuota sig.':'* Exceso '+fmt(Math.abs(falta))+' restados de cuota sig.',9,y-3);
+        doc.setTextColor(BL[0],BL[1],BL[2]);doc.setFontSize(9);doc.setFont('helvetica','normal');
+      }
+      doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(6,y-0.5,W-6,y-0.5);
+      filaHist++;
+    });
   });
   y+=5;
   var boxH=50;
@@ -6474,7 +6578,7 @@ function dlReciboCuota(vi,ci){
   doc.text(fmt(saldo),W-8,y+2,{align:'right'});y+=12;
   doc.setDrawColor(200,200,200);doc.setLineWidth(0.4);doc.line(6,y-4,W-6,y-4);
   doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor(BL[0],BL[1],BL[2]);
-  doc.text('Abono recibido',8,y+2);
+  doc.text(esteAbonos.length>1?'Total abonado a esta cuota':'Abono recibido',8,y+2);
   doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(GR[0],GR[1],GR[2]);
   doc.text('Cuota '+(ci+1)+(fechaPago?' — '+fechaPago:''),8,y+7);
   doc.setFontSize(18);doc.setFont('helvetica','bold');doc.setTextColor(26,92,26);
