@@ -98,8 +98,8 @@ html,body{max-width:100%;overflow-x:hidden}
 body{font-family:'Poppins',Arial,sans-serif;background:#f0f2f5;color:#333;font-size:13px}
 
 /* ── SIDEBAR ── */
-.app-layout{display:flex;min-height:calc(100vh - 52px)}
-.sidebar{width:210px;min-width:210px;background:#2c3e50;display:flex;flex-direction:column;transition:width .25s;box-shadow:3px 0 10px rgba(0,0,0,.15)}
+.app-layout{display:flex;height:calc(100vh - 52px);overflow:hidden}
+.sidebar{width:210px;min-width:210px;background:#2c3e50;display:flex;flex-direction:column;transition:width .25s;box-shadow:3px 0 10px rgba(0,0,0,.15);height:100%;overflow-y:auto}
 .sidebar.collapsed{width:56px;min-width:56px}
 .stog{display:flex;align-items:center;justify-content:flex-end;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.06)}
 .stog-btn{color:#fff;font-size:13px;background:rgba(255,255,255,.1);border:none;border-radius:4px;padding:4px 9px;cursor:pointer}
@@ -126,7 +126,7 @@ body.offline-banner-visible header{margin-top:34px}
 .ra{background:#e74c3c;color:#fff}.rv{background:#2ecc71;color:#fff}
 
 /* ── MAIN ── */
-.main-content{flex:1;overflow:auto}
+.main-content{flex:1;overflow:auto;height:100%}
 .sec{display:none;padding:18px}
 .sec.active{display:block}
 
@@ -158,7 +158,7 @@ body.offline-banner-visible header{margin-top:34px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}.app-layout{flex-direction:column}.sidebar{width:100%!important;min-width:unset;flex-direction:row;flex-wrap:wrap}.sitem{flex:1;justify-content:center;padding:8px}.slbl{display:none!important}.sidebar.collapsed{width:100%!important}.sitem-sub{padding-left:8px!important}}
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}.app-layout{flex-direction:column;height:auto;overflow:visible}.sidebar{width:100%!important;min-width:unset;flex-direction:row;flex-wrap:wrap;height:auto;overflow-y:visible}.sitem{flex:1;justify-content:center;padding:8px}.slbl{display:none!important}.sidebar.collapsed{width:100%!important}.sitem-sub{padding-left:8px!important}.main-content{height:auto!important}}
 
 /* ── MOVIL (celulares) ── */
 @media(max-width:480px){
@@ -677,7 +677,6 @@ tr:hover td{background:#f8f9ff}
       <button class="btn bg" id="btn-reg-venta" onclick="regVenta()" style="font-size:13px;padding:13px">Registrar venta</button>
       <button class="btn bpdf" id="btnpdf" onclick="dlPDF()" style="display:none;width:100%;padding:10px;font-size:12px">Descargar factura PDF</button>
     </div>
-  </div>
 </div>
 
 <!-- TAB INVENTARIO -->
@@ -1744,6 +1743,8 @@ function procesarDatos(data){
   if(data.actividad&&Array.isArray(data.actividad))actividad=data.actividad;
   if(data.clientes&&Array.isArray(data.clientes))clientes=data.clientes;
   asegurarDueno();
+  asegurarIdsVenta();
+  vincularContableConVentas();
   migrarClientesDesdeVentas();
   renderAll();
   renderSV();
@@ -1766,6 +1767,79 @@ function asegurarDueno(){
 // Se ejecuta cada vez que llegan datos: es incremental y segura de repetir, asi que
 // tambien "rescata" con el tiempo cualquier compra que quedara suelta, incluidas
 // las de creditos Credicontado ya pagados en su totalidad.
+// Asegura que cada venta tenga un id unico y estable, para poder vincularla de forma
+// exacta (y no por texto/nombre, que es fragil) con sus movimientos del libro contable.
+function asegurarIdsVenta(){
+  var huboCambios=false;
+  ven.forEach(function(v){
+    if(!v.id){
+      v.id='v_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      huboCambios=true;
+    }
+  });
+  if(huboCambios)save();
+}
+
+// Vincula (una sola vez por movimiento) los movimientos del libro contable que sean de
+// ANTES de que existiera el id de venta, usando el mismo texto que ya usaban para
+// encontrarlos, y les asigna el refVentaId correspondiente. De ahi en adelante, cualquier
+// edicion/eliminacion los encuentra por id exacto, sin depender del texto.
+function vincularContableConVentas(){
+  var huboCambios=false;
+  var prefijosRaiz=['Venta efectivo:','Cuota inicial Credicontado (Sistecredito+Credicontado):','Cuota inicial Credicontado:','Efectivo complementario Sistecredito:'];
+  cont.forEach(function(c){
+    if(c.refVentaId||c.tipo!=='auto')return;
+    var desc=c.desc||'';
+    var esRaiz=prefijosRaiz.some(function(p){return desc.indexOf(p)===0;});
+    var esAbono=desc.indexOf('Abono Credicontado:')>=0;
+    var esFin=desc.indexOf('Pago recibido de ')===0;
+    if(!esRaiz&&!esAbono&&!esFin)return;
+    var vMatch=null;
+    if(esAbono){
+      var mAb=desc.match(/^Abono Credicontado: (.+) \((.+)\) Cuota \d+$/);
+      if(mAb){
+        var cliAb=mAb[1],artAb=mAb[2];
+        vMatch=ven.find(function(v){
+          if(v.art!==artAb)return false;
+          var cc=v.comprador||{};
+          return [cc.nombre,cc.apellido].filter(Boolean).join(' ')===cliAb;
+        });
+      }
+    }else if(esFin){
+      var mFin=desc.match(/^Pago recibido de [A-Za-z]+: (.+?) — (.+?) \(comision/);
+      if(mFin){
+        var artFin=mFin[1],cliFin=mFin[2];
+        vMatch=ven.find(function(v){
+          if(v.art!==artFin)return false;
+          var cc=v.comprador||{};
+          return [cc.nombre,cc.apellido].filter(Boolean).join(' ')===cliFin;
+        });
+      }
+    }else if(esRaiz){
+      var restante=desc;
+      prefijosRaiz.forEach(function(p){if(restante.indexOf(p)===0)restante=restante.slice(p.length).trim();});
+      var partes=restante.split(' — ');
+      var artRaiz=partes[0].trim();
+      var cliRaiz=partes.length>1?partes[1].trim():'';
+      vMatch=ven.find(function(v){
+        if(v.art!==artRaiz)return false;
+        var cc=v.comprador||{};
+        var clV=[cc.nombre,cc.apellido].filter(Boolean).join(' ');
+        return cliRaiz?clV===cliRaiz:true;
+      });
+    }
+    if(vMatch){
+      if(!vMatch.id)vMatch.id='v_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      c.refVentaId=vMatch.id;
+      huboCambios=true;
+    }
+  });
+  if(huboCambios){
+    try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+    save();
+  }
+}
+
 function migrarClientesDesdeVentas(){
   if(!ven.length)return;
   var mapaCedula={},mapaNombre={};
@@ -2928,7 +3002,7 @@ function togCuota(vi,ci){
   // Auto-registro contable abono Credicontado (solo por el monto recibido en este momento)
   var c2=v.comprador||{};
   var cl2=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'Cliente';
-  addContableAuto(fecha||fmtFechaDDMMYYYY(),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),montoNuevo,0,'auto');
+  addContableAuto(fecha||fmtFechaDDMMYYYY(),'Abono Credicontado: '+cl2+' ('+v.art+') Cuota '+(ci+1),montoNuevo,0,'auto','',v.id);
   logActividad('Cartera',(completo?'Completo':'Abono parcial de')+' la cuota '+(ci+1)+' de '+cl2+' ('+v.art+'): '+fmt(montoNuevo));
   save();gestCuot(vi);renderCart();renderCreditos();
   if(completo){
@@ -3583,6 +3657,14 @@ function guardarEdicionVenta(){
   var artViejo=ven[i].art||'';
   var cViejo=ven[i].comprador||{};
   var clViejo=[cViejo.nombre,cViejo.apellido].filter(Boolean).join(' ')||'';
+  var pagoViejo=ven[i].pago||'EFECTIVO';
+  var pago=g('ev-pago').value;
+  var cambioTipoPago=pago!==pagoViejo;
+  // Si ya tenia cuotas con algun abono registrado, cambiar el tipo de pago perderia
+  // esa informacion (los abonos quedarian sueltos): se pide confirmar antes de continuar.
+  if(cambioTipoPago&&ven[i].cp&&ven[i].cp.some(function(c){return (c.monto||0)>0;})){
+    if(!confirm('Esta venta ya tiene abonos registrados en sus cuotas. Cambiar el medio de pago puede dejar esos abonos desincronizados. Continuar de todas formas?'))return;
+  }
 
   ven[i].items=JSON.parse(JSON.stringify(items));
   ven[i].art=items.map(function(it){return it.art+(it.qty>1?' x'+it.qty:'');}).join(', ');
@@ -3598,67 +3680,86 @@ function guardarEdicionVenta(){
   });
   var rawFecha=document.getElementById('ev-fecha').value;
   if(rawFecha){var fp=rawFecha.split('-');ven[i].fecha=fp.length===3?fp[2]+'/'+fp[1]+'/'+fp[0]:rawFecha;}
-  var pago=g('ev-pago').value;
   ven[i].pago=pago;
   if(pago==='CREDICONTADO'||pago==='SISTECREDITO'||pago==='ADDI'||pago==='SISTECREDITO+CREDICONTADO'){
     ven[i].cuotas=+g('ev-cuotas').value||0;
+  }else{
+    ven[i].cuotas=0;
   }
-  // Si es una venta a credito, recalcular el saldo y el valor de cada cuota
-  // con el NUEVO total (por ejemplo, si se le dio un descuento al editar la factura)
-  if(ven[i].ci){
-    // Guardar el valor de la inicial editado (antes se mostraba en el formulario pero nunca se guardaba)
+  // Credito con cuota inicial (Credicontado puro o combinado con Sistecredito): crear o
+  // recalcular ven[i].ci con el NUEVO total (por ejemplo, si hubo descuento) y la inicial indicada
+  var esCreditoConInicial=(pago==='CREDICONTADO'||pago==='SISTECREDITO+CREDICONTADO');
+  if(esCreditoConInicial){
     var rawIni=g('ev-ini')?g('ev-ini').value:null;
-    if(rawIni!==null&&rawIni!==''){
-      ven[i].ci.inicial=Math.max(0,+rawIni||0);
-    }
-    var montoCreditoNuevo=creditoTotal(ven[i]);
-    var inicialActual=ven[i].ci.inicial||0;
-    var nuevoSaldo=Math.max(0,montoCreditoNuevo-inicialActual);
-    ven[i].ci.saldo=nuevoSaldo;
-    if(ven[i].cuotas>0){
-      ven[i].ci.cval=Math.round(nuevoSaldo/ven[i].cuotas);
-    }
-    // Guardar la fecha del primer pago (antes se mostraba pero nunca se guardaba)
+    var inicialNueva=(rawIni!==null&&rawIni!=='')?Math.max(0,+rawIni||0):(ven[i].ci?ven[i].ci.inicial||0:0);
     var rawFechaPago=(g('ev-fecha-pago')||{value:''}).value;
-    if(rawFechaPago){
-      var fpp=rawFechaPago.split('-');
-      ven[i].ci.fecha=fpp.length===3?fpp[2]+'/'+fpp[1]+'/'+fpp[0]:rawFechaPago;
-    }
+    var fechaCi=ven[i].ci?ven[i].ci.fecha:'';
+    if(rawFechaPago){var fpp=rawFechaPago.split('-');fechaCi=fpp.length===3?fpp[2]+'/'+fpp[1]+'/'+fpp[0]:rawFechaPago;}
+    var montoCreditoNuevo=creditoTotal(ven[i]);
+    var nuevoSaldo=Math.max(0,montoCreditoNuevo-inicialNueva);
+    ven[i].ci={cuotas:ven[i].cuotas,inicial:inicialNueva,saldo:nuevoSaldo,cval:ven[i].cuotas>0?Math.round(nuevoSaldo/ven[i].cuotas):0,fecha:fechaCi};
+  }else{
+    ven[i].ci=null; // ya no es un credito con cuota inicial (efectivo, sistecredito/addi puro, o sistecredito+efectivo)
   }
-  // Actualizar el libro contable: buscar el movimiento con los datos VIEJOS (articulo y
-  // cliente originales), y actualizarle tanto la descripcion (nuevo articulo) como la fecha
+  // Asegurar que el arreglo de cuotas del cliente (cp) tenga el tamano correcto para el nuevo tipo de pago
+  var esConCuotasCliente=['SISTECREDITO','ADDI','CREDICONTADO','SISTECREDITO+CREDICONTADO'].indexOf(pago)>=0;
+  if(esConCuotasCliente){
+    if(!ven[i].cp||ven[i].cp.length!==ven[i].cuotas){
+      ven[i].cp=Array.from({length:ven[i].cuotas},function(){return{pagado:false,monto:0,fecha:null,abonos:[]};});
+    }
+  }else{
+    ven[i].cp=[];
+  }
+  // Asegurar que esta venta tenga id (por si es una venta muy antigua de antes de esta funcion)
+  if(!ven[i].id)ven[i].id='v_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  var ventaId=ven[i].id;
+  // Actualizar el libro contable: TODOS los movimientos que ya estan vinculados a esta
+  // venta se encuentran por su id exacto (ya no por texto), asi que esto funciona sin
+  // importar como haya quedado escrita la descripcion antes.
   {
     var v2=ven[i];
     var c2=v2.comprador||{};
     var clNuevo=[c2.nombre,c2.apellido].filter(Boolean).join(' ')||'';
     var fechaNueva=ven[i].fecha;
-    cont.forEach(function(c){
-      if(c.tipo!=='auto')return;
-      var desc=c.desc||'';
-      var matchArt=artViejo&&desc.indexOf(artViejo)>=0;
-      var matchCli=clViejo&&desc.indexOf(clViejo)>=0;
-      var matchExacto=matchArt&&(matchCli||!clViejo);
-      if(!matchExacto)return;
-      var esVentaEfectivo=desc.indexOf('Venta efectivo:')>=0;
-      var esCuotaInicial=desc.indexOf('Cuota inicial Credicontado:')>=0;
-      if(esVentaEfectivo||esCuotaInicial){
-        // Reemplazar el articulo (y cliente, si cambio) viejo por el nuevo en la descripcion
-        var descNueva=desc.split(artViejo).join(ven[i].art);
+    var movsDeEstaVenta=cont.filter(function(c){return c.refVentaId===ventaId;});
+    var prefijosVenta=['Venta efectivo:','Cuota inicial Credicontado (Sistecredito+Credicontado):','Cuota inicial Credicontado:','Efectivo complementario Sistecredito:'];
+    if(cambioTipoPago){
+      // Cambio el TIPO de pago (ej: de Efectivo a Credicontado): el movimiento de
+      // registro original ya no corresponde. Se elimina (por id exacto) y se crea
+      // el que corresponde al nuevo tipo de pago, segun lo que se dio de inicial.
+      cont=cont.filter(function(c){
+        if(c.refVentaId!==ventaId)return true;
+        var esPrefijoVenta=prefijosVenta.some(function(p){return (c.desc||'').indexOf(p)===0;});
+        return !esPrefijoVenta; // se elimina solo el movimiento "raiz" de esta venta
+      });
+      if(pago==='EFECTIVO'){
+        addContableAuto(fechaNueva,'Venta efectivo: '+ven[i].art+(clNuevo?' — '+clNuevo:''),total,0,'auto','',ventaId);
+      }else if(pago==='CREDICONTADO'){
+        if(ven[i].ci&&ven[i].ci.inicial>0)addContableAuto(fechaNueva,'Cuota inicial Credicontado: '+ven[i].art+(clNuevo?' — '+clNuevo:''),ven[i].ci.inicial,0,'auto','',ventaId);
+      }else if(pago==='SISTECREDITO+CREDICONTADO'){
+        if(ven[i].ci&&ven[i].ci.inicial>0)addContableAuto(fechaNueva,'Cuota inicial Credicontado (Sistecredito+Credicontado): '+ven[i].art+(clNuevo?' — '+clNuevo:''),ven[i].ci.inicial,0,'auto','',ventaId);
+      }
+      // Sistecredito/Addi puros y Sistecredito+Efectivo no generan movimiento automatico al editar
+      // (esos montos no se conocen aqui); si aplica, registralo manualmente en el Libro Contable.
+    }else{
+      // Mismo tipo de pago: actualizar el texto (articulo/cliente nuevo) y, en el
+      // movimiento raiz, tambien el monto (por si hubo descuento o cambio de inicial)
+      movsDeEstaVenta.forEach(function(c){
+        var desc=c.desc||'';
+        var esRaiz=prefijosVenta.some(function(p){return desc.indexOf(p)===0;});
+        // Reconstruir la descripcion reemplazando SOLO la parte del articulo/cliente viejos
+        var descNueva=artViejo?desc.split(artViejo).join(ven[i].art):desc;
         if(clViejo&&clNuevo&&clViejo!==clNuevo){
           descNueva=descNueva.split(clViejo).join(clNuevo);
         }
         c.desc=descNueva;
-        if(rawFecha){c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,esCuotaInicial?1:0);}
-      }
-      // Abonos de cuotas: no cambian de fecha, pero si el articulo/cliente cambiaron, tambien se actualiza el texto
-      else if(desc.indexOf('Abono Credicontado:')>=0||desc.indexOf('Pago recibido de ')===0){
-        var descNueva2=desc.split(artViejo).join(ven[i].art);
-        if(clViejo&&clNuevo&&clViejo!==clNuevo){
-          descNueva2=descNueva2.split(clViejo).join(clNuevo);
+        if(esRaiz){
+          if(rawFecha){c.fecha=fechaNueva;c.ts=parseTS(fechaNueva,0);}
+          if(pago==='EFECTIVO')c.ing=total;
+          else if(esCreditoConInicial&&ven[i].ci)c.ing=ven[i].ci.inicial;
         }
-        c.desc=descNueva2;
-      }
-    });
+      });
+    }
     try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   }
   logActividad('Venta','Edito venta: '+ven[i].art+' — '+fmt(ven[i].total));
@@ -3682,15 +3783,17 @@ function delVenta(i,artIdx,qty){
     inv[artIdx].stk+=qty;
   }
   ven.splice(i,1);
-  // Eliminar entradas auto del libro contable - debe coincidir articulo Y cliente
+  // Eliminar del libro contable TODO lo vinculado a esta venta (por id exacto; si es
+  // una venta muy vieja sin id, se usa como respaldo la coincidencia por texto)
+  var idBorrada=v&&v.id;
   cont=cont.filter(function(c){
+    if(idBorrada&&c.refVentaId===idBorrada)return false;
+    if(idBorrada)return true; // ya tiene id: si no coincidio arriba, no es de esta venta
     if(c.tipo!=='auto')return true;
     var d=c.desc||'';
     var matchArt=art&&d.indexOf(art)>=0;
     var matchCli=cl2?d.indexOf(cl2)>=0:true;
-    // Solo eliminar si coinciden AMBOS (articulo y cliente)
-    if(matchArt&&matchCli)return false;
-    return true;
+    return !(matchArt&&matchCli);
   });
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   logActividad('Venta','Elimino venta: '+art+(cl2?' — '+cl2:''));
@@ -3880,7 +3983,7 @@ function regVenta(){
   // Nombre del articulo: si hay varios, listarlos
   var artNombre=carrito.length===1?carrito[0].art:carrito.map(function(it){return it.art+' x'+it.qty;}).join(', ');
   var primerIdx=carrito[0].idx;
-  var v={idx:primerIdx,art:artNombre,fechaIni:fechaHoy,items:JSON.parse(JSON.stringify(carrito)),
+  var v={id:'v_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),idx:primerIdx,art:artNombre,fechaIni:fechaHoy,items:JSON.parse(JSON.stringify(carrito)),
     qty:carrito.reduce(function(s,it){return s+it.qty;},0),
     precio:total,desc:0,total:total,
     comprador:{nombre:nom,apellido:ap,cedula:ced,tel:tel,barrio:bar},
@@ -3896,13 +3999,13 @@ function regVenta(){
   var artNombreV=artNombre;
   var cNom=[nom,ap].filter(Boolean).join(' ');
   if(pagoV2==='EFECTIVO'){
-    addContableAuto(fechaVenta2,'Venta efectivo: '+artNombreV+(cNom?' — '+cNom:''),total,0,'auto');
+    addContableAuto(fechaVenta2,'Venta efectivo: '+artNombreV+(cNom?' — '+cNom:''),total,0,'auto','',v.id);
   }else if(pagoV2==='CREDICONTADO'){
-    if(ccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado: '+artNombreV+(cNom?' — '+cNom:''),ccIni,0,'auto');
+    if(ccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado: '+artNombreV+(cNom?' — '+cNom:''),ccIni,0,'auto','',v.id);
   }else if(pagoV2==='SISTECREDITO+EFECTIVO'){
-    if(_sefEf>0)addContableAuto(fechaVenta2,'Efectivo complementario Sistecredito: '+artNombreV+(cNom?' — '+cNom:''),_sefEf,0,'auto');
+    if(_sefEf>0)addContableAuto(fechaVenta2,'Efectivo complementario Sistecredito: '+artNombreV+(cNom?' — '+cNom:''),_sefEf,0,'auto','',v.id);
   }else if(pagoV2==='SISTECREDITO+CREDICONTADO'){
-    if(sccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado (Sistecredito+Credicontado): '+artNombreV+(cNom?' — '+cNom:''),sccIni,0,'auto');
+    if(sccIni>0)addContableAuto(fechaVenta2,'Cuota inicial Credicontado (Sistecredito+Credicontado): '+artNombreV+(cNom?' — '+cNom:''),sccIni,0,'auto','',v.id);
   }
   logActividad('Venta','Registro venta '+pago+': '+artNombre+' — '+fmt(total));
   // Limpiar carrito
@@ -4665,7 +4768,7 @@ function marcarPagadoFinanciera(vi){
     v.finComisionUsada=pct;
     var c=v.comprador||{};
     var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Cliente';
-    addContableAuto(fmtFechaDDMMYYYY(),'Pago recibido de '+empresa+': '+v.art+' — '+cl+' (comision '+pct+'%)',neto,0,'auto','Ingreso por ventas');
+    addContableAuto(fmtFechaDDMMYYYY(),'Pago recibido de '+empresa+': '+v.art+' — '+cl+' (comision '+pct+'%)',neto,0,'auto','Ingreso por ventas',v.id);
     logActividad('Cartera','Marco como pagado por '+empresa+': '+v.art+' — '+cl+' (neto '+fmt(neto)+')');
     save();
     renderAll();
@@ -6220,11 +6323,11 @@ function normFechaGlobal(f){
   return f;
 }
 
-function addContableAuto(fecha,desc,ing,egr,tipo,categoria){
+function addContableAuto(fecha,desc,ing,egr,tipo,categoria,refVentaId){
   var ahora=new Date();
   var hora=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   var quien=currentUser?(currentUser.nombre||currentUser.uname):'Sistema';
-  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,categoria:categoria||(ing>0?'Ingreso por ventas':''),tipo:tipo||'auto',ts:Date.now(),quien:quien,hora:hora});
+  cont.push({fecha:fecha,desc:desc,ing:ing||0,egr:egr||0,categoria:categoria||(ing>0?'Ingreso por ventas':''),tipo:tipo||'auto',ts:Date.now(),quien:quien,hora:hora,refVentaId:refVentaId||null});
   try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
   save();
   renderContable();
@@ -6290,22 +6393,28 @@ function guardarEditContable(){
 }
 function delContable(i){
   if(!getPerm('contable-edit')){toast('No tienes permiso para modificar el libro contable',1);return;}
-  if(!confirm('Eliminar este movimiento? Si viene de una cuota o entrada de inventario, tambien se revertira alli.'))return;
+  if(!confirm('Eliminar este movimiento? Si viene de una cuota, de un pago de financiera, o es el registro de una venta, tambien se revertira/eliminara alli.'))return;
   var mov=cont[i];
   var extra='';
   if(mov){
     var desc=mov.desc||'';
+    // Venta vinculada a este movimiento (se busca por id exacto; si es un movimiento
+    // muy viejo sin id todavia, vincularContableConVentas() ya deberia haberlo resuelto,
+    // pero por seguridad tambien se deja el respaldo por texto mas abajo)
+    var ventaVinc=mov.refVentaId?ven.find(function(v){return v.id===mov.refVentaId;}):null;
+
     // Reversar abono de cuota Credicontado (togCuota crea: 'Abono Credicontado: CLIENTE (ARTICULO) Cuota N')
     var mAbono=desc.match(/^Abono Credicontado: (.+) \((.+)\) Cuota (\d+)$/);
     if(mAbono){
-      var clienteBuscado=mAbono[1],artBuscado=mAbono[2],cuotaNum=+mAbono[3]-1;
-      var ventaAbono=ven.find(function(v){
+      var cuotaNum=+mAbono[3]-1;
+      var clienteBuscado=mAbono[1],artBuscado=mAbono[2];
+      var ventaAbono=ventaVinc||ven.find(function(v){
         if(v.art!==artBuscado||!v.cp||!v.cp[cuotaNum])return false;
         var c=v.comprador||{};
         var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
         return cl===clienteBuscado;
       });
-      if(ventaAbono){
+      if(ventaAbono&&ventaAbono.cp&&ventaAbono.cp[cuotaNum]){
         var cpEntry=ventaAbono.cp[cuotaNum];
         var montoRestar=mov.ing||0;
         var nuevoMonto=Math.max(0,(cpEntry.monto||0)-montoRestar);
@@ -6346,27 +6455,31 @@ function delContable(i){
     var mPagoFin=desc.match(/^Pago recibido de (SISTECREDITO|ADDI): (.+?) — (.+?) \(comision ([\d.]+)%\)$/);
     if(mPagoFin){
       var artFinBuscado=mPagoFin[2],clienteFinBuscado=mPagoFin[3];
-      var viFin=ven.findIndex(function(v){
+      var vFin=ventaVinc||ven.find(function(v){
         if(v.art!==artFinBuscado||!v.finPagado)return false;
         var c=v.comprador||{};
         var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
         return cl===clienteFinBuscado;
       });
-      if(viFin>=0){
-        ven[viFin].finPagado=false;
-        delete ven[viFin].finFecha;
-        delete ven[viFin].finMontoNeto;
-        delete ven[viFin].finComisionUsada;
+      if(vFin&&vFin.finPagado){
+        vFin.finPagado=false;
+        delete vFin.finFecha;
+        delete vFin.finMontoNeto;
+        delete vFin.finComisionUsada;
         logActividad('Cartera','Deshizo el pago de '+mPagoFin[1]+' de '+artFinBuscado+' — '+clienteFinBuscado+' (desde el libro contable)');
         extra=' Esa venta volvio a quedar pendiente en Sistecredito/Addi.';
       }
     }
-    // Si el movimiento eliminado es el ingreso de una venta (efectivo, cuota inicial, etc.),
-    // eliminar tambien la venta completa para que quede igual en todas partes (Historial, Cartera, Metas)
-    var mVentaIngreso=desc.match(/^(Venta efectivo|Cuota inicial Credicontado|Efectivo complementario Sistecredito|Cuota inicial Credicontado \(Sistecredito\+Credicontado\)): (.+?)(?: — (.+))?$/);
-    if(mVentaIngreso){
-      var artVentaBuscado=mVentaIngreso[2],clienteVentaBuscado=mVentaIngreso[3]||'';
-      var viVenta=ven.findIndex(function(v){
+    // Si el movimiento eliminado es el ingreso RAIZ de una venta (venta efectivo, cuota
+    // inicial, etc.), eliminar tambien la venta completa para que quede igual en todas
+    // partes (Historial, Cartera, Metas). Se busca por id exacto (o, si es muy vieja, por texto).
+    var prefijosVentaDel=['Venta efectivo:','Cuota inicial Credicontado (Sistecredito+Credicontado):','Cuota inicial Credicontado:','Efectivo complementario Sistecredito:'];
+    var esMovRaizVenta=prefijosVentaDel.some(function(p){return desc.indexOf(p)===0;});
+    if(esMovRaizVenta){
+      var mVentaIngreso=desc.match(/^(Venta efectivo|Cuota inicial Credicontado|Efectivo complementario Sistecredito|Cuota inicial Credicontado \(Sistecredito\+Credicontado\)): (.+?)(?: — (.+))?$/);
+      var artVentaBuscado=mVentaIngreso?mVentaIngreso[2]:'';
+      var clienteVentaBuscado=mVentaIngreso?(mVentaIngreso[3]||''):'';
+      var viVenta=ventaVinc?ven.indexOf(ventaVinc):ven.findIndex(function(v){
         if(v.art!==artVentaBuscado)return false;
         var c=v.comprador||{};
         var cl=[c.nombre,c.apellido].filter(Boolean).join(' ');
@@ -6381,15 +6494,19 @@ function delContable(i){
             if(af)af.stk+=it.qty||1;
           });
         }
+        var idEliminada=ventaAEliminar.id;
         ven.splice(viVenta,1);
         // Eliminar CUALQUIER otro registro contable relacionado con esta misma venta (cuotas, abonos, etc.)
         cont=cont.filter(function(c2){
           if(c2===mov)return false; // este ya se elimina abajo de todas formas
-          if(c2.tipo!=='auto')return true;
-          var d2=c2.desc||'';
-          var matchArt2=artVentaBuscado&&d2.indexOf(artVentaBuscado)>=0;
-          var matchCli2=clienteVentaBuscado?d2.indexOf(clienteVentaBuscado)>=0:true;
-          return !(matchArt2&&matchCli2);
+          if(idEliminada&&c2.refVentaId===idEliminada)return false;
+          if(!idEliminada&&c2.tipo==='auto'){
+            var d2=c2.desc||'';
+            var matchArt2=artVentaBuscado&&d2.indexOf(artVentaBuscado)>=0;
+            var matchCli2=clienteVentaBuscado?d2.indexOf(clienteVentaBuscado)>=0:true;
+            return !(matchArt2&&matchCli2);
+          }
+          return true;
         });
         logActividad('Venta','Elimino venta (desde libro contable): '+artVentaBuscado+(clienteVentaBuscado?' — '+clienteVentaBuscado:''));
         extra=' Se elimino tambien la venta completa de '+artVentaBuscado+(clienteVentaBuscado?' ('+clienteVentaBuscado+')':'')+' y se restauro el stock.';
@@ -6958,16 +7075,29 @@ function guardarClienteForm(){
   if(id){
     var c=clientes.find(function(x){return x.id===id;});
     if(c){
+      var clViejoCli=[c.nombre,c.apellido].filter(Boolean).join(' ');
+      var clNuevoCli=[nombre,apellido].filter(Boolean).join(' ');
       c.nombre=nombre;c.apellido=apellido;c.cedula=cedula;c.tel=tel;c.barrio=barrio;
       // Reflejar el cambio en TODAS las compras ya vinculadas a este cliente
       // (asi se actualiza tambien en Cartera, Creditos, Recibos, etc., que leen v.comprador directamente)
+      var idsVentasCliente=[];
       ven.forEach(function(v){
         if(v.clienteId===id){
           v.comprador=v.comprador||{};
           v.comprador.nombre=nombre;v.comprador.apellido=apellido;
           v.comprador.cedula=cedula;v.comprador.tel=tel;v.comprador.barrio=barrio;
+          if(v.id)idsVentasCliente.push(v.id);
         }
       });
+      // Reflejar tambien el cambio de nombre en el texto del libro contable de esas compras
+      if(clViejoCli&&clNuevoCli&&clViejoCli!==clNuevoCli&&idsVentasCliente.length){
+        cont.forEach(function(mc){
+          if(mc.refVentaId&&idsVentasCliente.indexOf(mc.refVentaId)>=0&&mc.desc&&mc.desc.indexOf(clViejoCli)>=0){
+            mc.desc=mc.desc.split(clViejoCli).join(clNuevoCli);
+          }
+        });
+        try{localStorage.setItem(CK,JSON.stringify(cont));}catch(e){}
+      }
     }
     toast('Cliente actualizado en todas sus compras');
   }else{
