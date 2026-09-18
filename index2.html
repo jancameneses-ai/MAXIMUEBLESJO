@@ -5218,10 +5218,21 @@ function costoDeVenta(v){
 function gananciaDeFila(x){
   var v=x.v;
   var costoTotal=costoDeVenta(v);
+  var esMixtoSEF=v.pago==='SISTECREDITO+EFECTIVO';
+  var esMixtoSCC=v.pago==='SISTECREDITO+CREDICONTADO';
+  var esFilaSinDividir=(esMixtoSEF||esMixtoSCC)&&x.montoMostrar===v.total;
+  if(esFilaSinDividir){
+    // Vista general (sin filtrar por tipo de pago): la fila muestra el total completo
+    // de la venta, pero la comision SOLO debe descontarse sobre la parte que
+    // realmente paso por Sistecredito/Addi, no sobre el total de la venta.
+    var scPortion=esMixtoSEF?(v.sefSc||0):(v.sccSc||0);
+    var pctGen=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera['SISTECREDITO']!=null)?comisionesFinanciera['SISTECREDITO']:3;
+    return (v.total-costoTotal)-scPortion*(pctGen/100);
+  }
   var propor=v.total>0?(x.montoMostrar/v.total):1;
   var gananciaBruta=x.montoMostrar-(costoTotal*propor);
-  var esParteSC=v.pago==='SISTECREDITO'||(x.label&&x.label.indexOf('Sistecredito')>=0);
-  var esParteAD=v.pago==='ADDI';
+  var esParteAD=v.pago==='ADDI'||(x.label&&/addi/i.test(x.label));
+  var esParteSC=v.pago==='SISTECREDITO'||(x.label&&/sistecredito/i.test(x.label));
   if(esParteSC||esParteAD){
     var empresaRow=esParteAD?'ADDI':'SISTECREDITO';
     var pctRow=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[empresaRow]!=null)?comisionesFinanciera[empresaRow]:3;
