@@ -483,8 +483,7 @@ tr:hover td{background:#f8f9ff}
   <div class="main-content">
 <!-- TAB VENTA -->
 <div id="tab-venta" class="sec active">
-  <div class="g2" style="align-items:start;gap:14px">
-    <div style="display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;flex-direction:column;gap:12px">
       <div class="card">
         <h2>Productos</h2>
         <div style="display:flex;flex-direction:column;gap:9px">
@@ -676,14 +675,7 @@ tr:hover td{background:#f8f9ff}
         <div><label>Vendedor responsable</label><select id="sv"></select></div>
       </div>
       <button class="btn bg" id="btn-reg-venta" onclick="regVenta()" style="font-size:13px;padding:13px">Registrar venta</button>
-    </div>
-    <div class="card" style="position:sticky;top:10px">
-      <h2>Factura</h2>
-      <div id="fac"><div class="empty">Registra una venta para ver la factura</div></div>
-      <div id="btnpdf" style="display:none;margin-top:10px">
-        <button class="btn bpdf" onclick="dlPDF()" style="width:100%;padding:10px;font-size:12px;margin-bottom:6px">Descargar factura PDF</button>
-
-      </div>
+      <button class="btn bpdf" id="btnpdf" onclick="dlPDF()" style="display:none;width:100%;padding:10px;font-size:12px">Descargar factura PDF</button>
     </div>
   </div>
 </div>
@@ -3933,6 +3925,7 @@ function regVenta(){
 }
 
 function showFac(v){
+  if(!v)return; // ya no hay vista previa visual; se deja la funcion solo por compatibilidad con quien la llama
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'SIN NOMBRE';
   var cc=v.pago==='CREDICONTADO'||v.pago==='SISTECREDITO+CREDICONTADO';
@@ -3993,7 +3986,7 @@ function showFac(v){
   h+='<div class="fac-row"><span>Responsable</span><span style="font-weight:700">'+v.vend+'</span></div>';
   h+='<div class="fac-foot">&#10003; Gracias por su compra &mdash; Conserve este documento</div>';
   h+='</div></div>';
-  g('fac').innerHTML=h;
+  var facEl=g('fac');if(facEl)facEl.innerHTML=h;
 }
 
 function dlPDF(){
