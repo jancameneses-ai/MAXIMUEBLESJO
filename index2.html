@@ -1769,33 +1769,41 @@ function asegurarDueno(){
   }
 }
 
-// Construye el registro de clientes a partir del historial de ventas ya existente
-// (solo se ejecuta una vez, la primera vez que llegan datos y todavia no hay clientes).
-// Agrupa por cedula (si la tiene) o por nombre completo, y vincula cada venta con
-// el cliente correspondiente via v.clienteId, para que "Clientes" muestre su historial real.
+// Vincula con el registro de clientes cualquier venta que aun no tenga clienteId
+// (ventas antiguas antes de esta funcion, o ventas cuyo cliente fue borrado).
+// Se ejecuta cada vez que llegan datos: es incremental y segura de repetir, asi que
+// tambien "rescata" con el tiempo cualquier compra que quedara suelta, incluidas
+// las de creditos Credicontado ya pagados en su totalidad.
 function migrarClientesDesdeVentas(){
-  if(_clientesMigrados)return;
-  if(clientes.length>0){_clientesMigrados=true;return;}
-  if(!ven.length)return; // todavia no han llegado las ventas, se reintenta en el siguiente snapshot
-  var mapa={};
+  if(!ven.length)return;
+  var mapaCedula={},mapaNombre={};
+  clientes.forEach(function(c){
+    if(c.cedula&&c.cedula.trim())mapaCedula['CC:'+c.cedula.trim()]=c;
+    var keyN='NOM:'+[c.nombre,c.apellido].filter(Boolean).join(' ').toUpperCase();
+    if(keyN!=='NOM:'&&!mapaNombre[keyN])mapaNombre[keyN]=c;
+  });
+  var huboCambios=false;
   ven.forEach(function(v){
+    if(v.clienteId&&clientes.some(function(c){return c.id===v.clienteId;}))return; // ya vinculada a un cliente que existe
     var c=v.comprador;
-    if(!c||(!c.nombre&&!c.cedula))return;
-    var key=(c.cedula&&c.cedula.trim())?('CC:'+c.cedula.trim()):('NOM:'+[c.nombre,c.apellido].filter(Boolean).join(' ').toUpperCase());
-    var cli=mapa[key];
+    if(!c||(!c.nombre&&!c.cedula))return; // sin datos de comprador, no se puede vincular
+    var keyCC=(c.cedula&&c.cedula.trim())?('CC:'+c.cedula.trim()):null;
+    var keyN='NOM:'+[c.nombre,c.apellido].filter(Boolean).join(' ').toUpperCase();
+    var cli=(keyCC&&mapaCedula[keyCC])||mapaNombre[keyN];
     if(!cli){
       cli={id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),nombre:c.nombre||'',apellido:c.apellido||'',cedula:c.cedula||'',tel:c.tel||'',barrio:c.barrio||'',fechaRegistro:v.fecha||''};
-      mapa[key]=cli;
       clientes.push(cli);
+      if(keyCC)mapaCedula[keyCC]=cli;
+      mapaNombre[keyN]=cli;
     }else{
       if(!cli.tel&&c.tel)cli.tel=c.tel;
       if(!cli.barrio&&c.barrio)cli.barrio=c.barrio;
       if(!cli.cedula&&c.cedula)cli.cedula=c.cedula;
     }
     v.clienteId=cli.id;
+    huboCambios=true;
   });
-  _clientesMigrados=true;
-  if(clientes.length>0)save();
+  if(huboCambios)save();
 }
 
 // Total historico comprado por un cliente (suma de todas sus ventas vinculadas)
@@ -6956,8 +6964,19 @@ function guardarClienteForm(){
   if(tel&&(tel.length!==10||tel.charAt(0)!=='3')){toast('El telefono debe tener 10 digitos y empezar por 3',1);return;}
   if(id){
     var c=clientes.find(function(x){return x.id===id;});
-    if(c){c.nombre=nombre;c.apellido=apellido;c.cedula=cedula;c.tel=tel;c.barrio=barrio;}
-    toast('Cliente actualizado');
+    if(c){
+      c.nombre=nombre;c.apellido=apellido;c.cedula=cedula;c.tel=tel;c.barrio=barrio;
+      // Reflejar el cambio en TODAS las compras ya vinculadas a este cliente
+      // (asi se actualiza tambien en Cartera, Creditos, Recibos, etc., que leen v.comprador directamente)
+      ven.forEach(function(v){
+        if(v.clienteId===id){
+          v.comprador=v.comprador||{};
+          v.comprador.nombre=nombre;v.comprador.apellido=apellido;
+          v.comprador.cedula=cedula;v.comprador.tel=tel;v.comprador.barrio=barrio;
+        }
+      });
+    }
+    toast('Cliente actualizado en todas sus compras');
   }else{
     clientes.push({id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),nombre:nombre,apellido:apellido,cedula:cedula,tel:tel,barrio:barrio,fechaRegistro:fmtFechaDDMMYYYY()});
     toast('Cliente agregado');
@@ -7143,42 +7162,30 @@ window.addEventListener('load',function(){
   var dogScreen=g('dog-screen');
   var loginForm=g('login-form-wrap');
   var lo=g('login-overlay');
+  if(dogScreen)dogScreen.style.display='none';
   function mostrarLogin(){
     if(lo)lo.classList.remove('hidden');
     if(dogScreen)dogScreen.style.display='none';
     if(loginForm)loginForm.style.display='flex';
   }
-  function mostrarAppConBarra(){
-    var bar=g('dog-bar');var pctEl=g('dog-pct');var msg=g('dog-msg');
-    var pct=0;
-    var dogInt=setInterval(function(){
-      pct=Math.min(pct+3,99);
-      if(bar)bar.style.width=pct+'%';
-      if(pctEl)pctEl.textContent=pct+'%';
-    },20);
-    setTimeout(function(){
-      clearInterval(dogInt);
-      if(bar)bar.style.width='100%';
-      if(pctEl)pctEl.textContent='100%';
-      if(msg)msg.textContent='Bienvenido!';
-      if(lo)lo.classList.add('hidden');
-      renderAll();renderSV();
-      var cf=g('cont-fecha');
-      if(cf)cf.value=fechaHoyISO();
-    },800);
+  function mostrarAppInstant(){
+    if(lo)lo.classList.add('hidden');
+    renderAll();renderSV();
+    var cf=g('cont-fecha');
+    if(cf)cf.value=fechaHoyISO();
   }
 
   var sesionPendiente=leerSesionValida();
   if(sesionPendiente){
-    // Hay un token de sesion valido: NO decidir nada todavia, esperar a que
-    // Firebase traiga los datos reales (incluyendo el usuario) antes de sacar a login.
+    // Hay un token de sesion valido: mientras se confirma con los datos reales,
+    // se muestra el formulario de login (sin pantalla de carga) para que la app
+    // nunca se vea "esperando"; si el token resulta valido, se pasa directo a la app.
+    mostrarLogin();
     cargar(function(exito){
       if(exito&&aplicarSesion(sesionPendiente)){
-        mostrarAppConBarra();
-      }else{
-        // De verdad no existe ese usuario (o Firebase nunca conecto): recien ahi a login
-        mostrarLogin();
+        mostrarAppInstant();
       }
+      // Si no es valido, el formulario de login ya esta visible; no hay que hacer nada mas.
     });
   }else{
     cargar();
