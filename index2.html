@@ -1822,6 +1822,7 @@ function procesarDatos(data){
   vincularEntradasConContable();
   migrarClientesDesdeVentas();
   if(migrarContrasenas())save(); // cifra contrasenas que aun esten en texto plano
+  if(migrarCostosExactos())save(); // lotes de costo y costo fijo de ventas viejas
   renderAll();
   renderSV();
   renderUsuarios();
@@ -3194,10 +3195,117 @@ function desPagar(vi,ci){
   save();gestCuot(vi);renderCart();renderCreditos();renderContable();toast('Abonos de esta cuota deshechos y eliminados del libro contable');
 }
 
+// ── COSTO EXACTO POR UNIDAD (lotes de compra, se vende primero lo mas viejo) ──
+// Cada articulo guarda a.lotes=[{id,fecha,costo,cant}] en orden de llegada. La suma de
+// cant siempre es igual a a.stk. Al vender se sacan las unidades de los lotes mas viejos
+// y la venta guarda el costo EXACTO de lo que se llevo (it.costoTotal / it.costoUnit / it.lotes),
+// asi la ganancia de cada venta queda fija aunque despues cambie el costo de compra.
+var _seqLote=0;
+function nuevoIdLote(){_seqLote++;return 'l_'+Date.now().toString(36)+'_'+_seqLote+'_'+Math.random().toString(36).slice(2,5);}
+function asegurarLotes(a){
+  if(!a)return;
+  var stk=Math.max(0,+a.stk||0);
+  if(!Array.isArray(a.lotes)){
+    a.lotes=stk>0?[{id:nuevoIdLote(),fecha:'',costo:+a.costo||0,cant:stk,inicial:true}]:[];
+    return;
+  }
+  a.lotes=a.lotes.filter(function(l){return l&&l.cant>0;});
+  var suma=a.lotes.reduce(function(s,l){return s+l.cant;},0);
+  if(suma<stk){
+    // Llegaron unidades sin lote (ajuste manual de stock): entran al costo actual
+    a.lotes.push({id:nuevoIdLote(),fecha:fmtFechaDDMMYYYY(),costo:+a.costo||0,cant:stk-suma,ajuste:true});
+  }else if(suma>stk){
+    // Salieron unidades sin venta (ajuste manual): se quitan de las mas viejas
+    var sobra=suma-stk;
+    a.lotes.forEach(function(l){var q=Math.min(l.cant,sobra);l.cant-=q;sobra-=q;});
+    a.lotes=a.lotes.filter(function(l){return l.cant>0;});
+  }
+}
+// Saca qty unidades (las mas viejas primero). No toca a.stk: eso lo hace quien llama.
+function tomarDeLotes(a,qty){
+  asegurarLotes(a);
+  var usados=[],total=0,falta=qty;
+  a.lotes.forEach(function(l){
+    if(falta<=0||l.cant<=0)return;
+    var q=Math.min(l.cant,falta);
+    l.cant-=q;falta-=q;total+=q*l.costo;
+    usados.push({id:l.id,costo:l.costo,cant:q});
+  });
+  if(falta>0){total+=falta*(+a.costo||0);usados.push({id:null,costo:+a.costo||0,cant:falta});}
+  a.lotes=a.lotes.filter(function(l){return l.cant>0;});
+  return {total:total,usados:usados};
+}
+// Devuelve unidades a sus lotes originales (cuando se borra o se edita una venta)
+function devolverALotes(a,usados){
+  if(!a||!usados||!usados.length)return;
+  asegurarLotes(a);
+  usados.slice().reverse().forEach(function(u){
+    if(!(u.cant>0))return;
+    var l=u.id?a.lotes.find(function(x){return x.id===u.id;}):null;
+    if(l)l.cant+=u.cant;
+    else a.lotes.unshift({id:u.id||nuevoIdLote(),fecha:'',costo:u.costo,cant:u.cant,devuelto:true}); // vuelve de primeras: era de lo mas viejo
+  });
+}
+function agregarLote(a,cant,costo,fecha,ref){
+  asegurarLotes(a);
+  a.lotes.push({id:nuevoIdLote(),fecha:fecha||fmtFechaDDMMYYYY(),costo:+costo||0,cant:cant,ref:ref||null});
+}
+// Quita del stock las unidades de una entrada que se elimina (de su propio lote si aun estan)
+function quitarLoteDeEntrada(a,ref,cant){
+  if(!a)return;
+  asegurarLotes(a);
+  var l=ref!=null?a.lotes.find(function(x){return x.ref===ref;}):null;
+  if(l){var q=Math.min(l.cant,cant);l.cant-=q;}
+  a.lotes=a.lotes.filter(function(x){return x.cant>0;});
+}
+// Costo de un renglon de venta: el exacto guardado al vender; si es una venta vieja, el costo del articulo
+function costoItemVenta(item){
+  if(typeof item.costoTotal==='number')return item.costoTotal;
+  if(typeof item.costoUnit==='number')return item.costoUnit*(item.qty||1);
+  var art=inv.find(function(a){return a.art===item.art;});
+  return art?(+art.costo||0)*(item.qty||1):0;
+}
+function costoExactoVenta(v){
+  if(!v.items&&typeof v.costoFijo==='number')return v.costoFijo;
+  var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
+  return it.reduce(function(s,item){return s+costoItemVenta(item);},0);
+}
+// Costo de la proxima unidad que se va a vender (la mas vieja en bodega)
+function costoSiguiente(a){asegurarLotes(a);return a.lotes.length?a.lotes[0].costo:(+a.costo||0);}
+function valorCostoStock(a){asegurarLotes(a);return a.lotes.reduce(function(s,l){return s+l.cant*l.costo;},0);}
+// Migracion: crea los lotes del stock actual y "congela" el costo de las ventas viejas
+// con el costo que tienen hoy, para que su ganancia ya no cambie mas.
+function migrarCostosExactos(){
+  var cambio=false;
+  inv.forEach(function(a){if(!Array.isArray(a.lotes)){asegurarLotes(a);cambio=true;}});
+  ven.forEach(function(v){
+    if(!v.items){
+      // Venta muy vieja sin renglones: se guarda su costo total aparte, sin cambiar su estructura
+      if(typeof v.costoFijo!=='number'){
+        var artV=inv.find(function(a){return a.art===v.art;});
+        v.costoFijo=artV?(+artV.costo||0)*(v.qty||1):0;cambio=true;
+      }
+      return;
+    }
+    v.items.forEach(function(it){
+      if(typeof it.costoTotal!=='number'){
+        var art=inv.find(function(a){return a.art===it.art;});
+        it.costoUnit=art?(+art.costo||0):0;
+        it.costoTotal=it.costoUnit*(it.qty||1);
+        it.costoEstimado=true; // venta de antes de los lotes: se uso el costo que tenia el articulo
+        cambio=true;
+      }
+    });
+  });
+  return cambio;
+}
+
 function updStk(i,val){
   var nuevoStk=Math.max(0,+val||0);
   var artNom=inv[i]?inv[i].art:'';
+  asegurarLotes(inv[i]);
   inv[i].stk=nuevoStk;
+  asegurarLotes(inv[i]); // si subio entra al costo actual; si bajo salen las mas viejas
   logActividad('Inventario','Actualizo stock de '+artNom+' a '+nuevoStk+' unidades');
   save();toast('Stock actualizado');
 }
@@ -3364,7 +3472,12 @@ function saveArt(){
   if(!art){toast('Escribe el nombre del articulo',1);return;}
   if(i>=0&&i<inv.length){
     var fotosActuales=_fotoArtTemp['ea']||[];
-    inv[i]={cod:cod,art:art,costo:costo,venta:venta,stk:stk,fotos:fotosActuales.slice()};
+    var viejoA=inv[i];asegurarLotes(viejoA);
+    var costoCambio=(+viejoA.costo||0)!==costo;
+    inv[i]=Object.assign({},viejoA,{cod:cod,art:art,costo:costo,venta:venta,stk:stk,fotos:fotosActuales.slice()});
+    // Si corrigio el costo, las unidades que estaban sin costo conocido (de antes de los lotes) toman el nuevo
+    if(costoCambio)(inv[i].lotes||[]).forEach(function(l){if(l.inicial)l.costo=costo;});
+    asegurarLotes(inv[i]);
   }
   logActividad('Inventario','Edito articulo: '+art+' ('+cod+')');
   save();cm('med');renderInv();toast('Articulo actualizado');
@@ -3593,10 +3706,12 @@ function registrarFacturaCompleta(){
     var artNombre,artCod,idx;
     if(it.esNuevo){
       artCod=it.artCodNuevo;artNombre=it.artNombreNuevo;
-      inv.push({cod:artCod,art:artNombre,costo:it.costo,venta:it.venta,stk:it.cant,fotos:(it.fotosNuevo||[]).slice()});
+      inv.push({cod:artCod,art:artNombre,costo:it.costo,venta:it.venta,stk:it.cant,fotos:(it.fotosNuevo||[]).slice(),
+        lotes:[{id:nuevoIdLote(),fecha:fechaFmt,costo:it.costo,cant:it.cant,ref:tsBase+k}]});
       idx=inv.length-1;
     }else{
       idx=it.idxSel;
+      agregarLote(inv[idx],it.cant,it.costo,fechaFmt,tsBase+k);
       inv[idx].stk=(inv[idx].stk||0)+it.cant;
       // El costo (y el precio de venta) solo se actualizan si el nuevo costo es MAYOR
       // al que ya tenia registrado. Si compraste mas barato esta vez, se deja igual
@@ -3678,10 +3793,13 @@ function registrarEntrada(){
   var artNombre,artCod,idx;
   if(esNuevo){
     artCod=artCodNuevo;artNombre=artNombreNuevo;
-    inv.push({cod:artCod,art:artNombre,costo:costo,venta:venta,stk:cant});
+    var tsEnt=Date.now();
+    inv.push({cod:artCod,art:artNombre,costo:costo,venta:venta,stk:cant,lotes:[{id:nuevoIdLote(),fecha:fechaFmt,costo:costo,cant:cant,ref:tsEnt}]});
     idx=inv.length-1;
   }else{
     idx=idxSel;
+    var tsEnt=Date.now();
+    agregarLote(inv[idx],cant,costo,fechaFmt,tsEnt);
     inv[idx].stk=(inv[idx].stk||0)+cant;
     inv[idx].costo=costo;
     if(venta>0)inv[idx].venta=venta;
@@ -3695,7 +3813,7 @@ function registrarEntrada(){
   entradas.unshift({
     fecha:fechaFmt,articulo:artNombre,codigo:artCod,cantidad:cant,
     costoUnitario:costo,total:total,proveedor:prov||'-',
-    quien:quien,hora:horaHoy,ts:Date.now()
+    quien:quien,hora:horaHoy,ts:tsEnt
   });
   // Registro automatico en el libro contable como egreso
   if(g('ent-egreso').checked){
@@ -3757,7 +3875,7 @@ function eliminarEntrada(ts){
   if(!confirm('Eliminar esta entrada de '+ent.cantidad+' unidad(es) de '+ent.articulo+'? Se descontara del stock y del libro contable.'))return;
   contGuardarEstado();
   var artFound=inv.find(function(a){return a.art===ent.articulo;});
-  if(artFound)artFound.stk=Math.max(0,(artFound.stk||0)-ent.cantidad);
+  if(artFound){quitarLoteDeEntrada(artFound,ent.ts,ent.cantidad);artFound.stk=Math.max(0,(artFound.stk||0)-ent.cantidad);asegurarLotes(artFound);}
   entradas.splice(idx,1);
   var movFac=ent.facturaId?cont.find(function(c){return c.refFacturaId===ent.facturaId;}):null;
   if(movFac){
@@ -3880,10 +3998,45 @@ function guardarEdicionVenta(){
     return a&&(a.stk||0)<dif;
   });
   if(faltaStock.length){toast('Stock insuficiente para: '+faltaStock.join(', '),1);return;}
+  // Costo exacto por articulo: lo que ya tenia la venta, mas/menos las unidades que cambian
+  var costoPorArt={};
+  itemsViejos.forEach(function(it){
+    var o=costoPorArt[it.art]=costoPorArt[it.art]||{costo:0,usados:[],estimado:true};
+    var q=it.qty||1,ct=costoItemVenta(it);
+    o.costo+=ct;
+    o.usados=o.usados.concat(it.lotes||[{id:null,costo:q?ct/q:0,cant:q}]);
+    if(!it.costoEstimado)o.estimado=false;
+  });
   Object.keys(cantPorArt).forEach(function(art){
     var dif=cantPorArt[art];if(!dif)return;
     var a=inv.find(function(x){return x.art===art;});
+    var o=costoPorArt[art]=costoPorArt[art]||{costo:0,usados:[],estimado:false};
+    o.estimado=false;
+    if(dif>0){
+      // Se vendieron mas unidades: salen de los lotes mas viejos
+      if(a){var rl=tomarDeLotes(a,dif);o.costo+=rl.total;o.usados=o.usados.concat(rl.usados);}
+    }else{
+      // Se devolvieron unidades: regresan las ultimas que se habian tomado, a su mismo lote
+      var falta=-dif,devueltas=[];
+      while(falta>0&&o.usados.length){
+        var u=o.usados[o.usados.length-1],q=Math.min(u.cant,falta);
+        devueltas.push({id:u.id,costo:u.costo,cant:q});o.costo-=q*u.costo;falta-=q;
+        if(q>=u.cant)o.usados.pop();else o.usados[o.usados.length-1]=Object.assign({},u,{cant:u.cant-q});
+      }
+      if(a)devolverALotes(a,devueltas);
+    }
     if(a)a.stk=Math.max(0,(a.stk||0)-dif);
+  });
+  // Repartir el costo exacto entre los renglones nuevos de cada articulo
+  var qtyNuevaPorArt={};items.forEach(function(it){qtyNuevaPorArt[it.art]=(qtyNuevaPorArt[it.art]||0)+(it.qty||1);});
+  var yaAsignado={};
+  items.forEach(function(it){
+    var o=costoPorArt[it.art];
+    if(!o){var aN=inv.find(function(x){return x.art===it.art;});o={costo:aN?(+aN.costo||0)*(it.qty||1):0,usados:[],estimado:true};costoPorArt[it.art]=o;}
+    var q=it.qty||1,parte=qtyNuevaPorArt[it.art]?q/qtyNuevaPorArt[it.art]:1;
+    it.costoTotal=Math.round(Math.max(0,o.costo)*parte);it.costoUnit=q?it.costoTotal/q:0;
+    it.lotes=yaAsignado[it.art]?[]:o.usados.slice();yaAsignado[it.art]=true;
+    if(o.estimado)it.costoEstimado=true;else delete it.costoEstimado;
   });
 
   ven[i].items=JSON.parse(JSON.stringify(items));
@@ -3998,9 +4151,10 @@ function delVenta(i,artIdx,qty){
   if(v&&v.items){
     v.items.forEach(function(it){
       var artFound=inv.find(function(a){return a.art===it.art;});
-      if(artFound)artFound.stk+=it.qty||1;
+      if(artFound){devolverALotes(artFound,it.lotes||[{id:null,costo:it.costoUnit!=null?it.costoUnit:(+artFound.costo||0),cant:it.qty||1}]);artFound.stk+=it.qty||1;}
     });
   }else if(artIdx>=0&&artIdx<inv.length){
+    devolverALotes(inv[artIdx],[{id:null,costo:v&&typeof v.costoFijo==='number'&&qty?v.costoFijo/qty:(+inv[artIdx].costo||0),cant:qty}]);
     inv[artIdx].stk+=qty;
   }
   ven.splice(i,1);
@@ -4166,7 +4320,11 @@ function regVenta(){
     var cit=carrito[ci];
     if(cit.qty>inv[cit.idx].stk){toast('Stock insuficiente para '+cit.art,1);return;}
   }
-  carrito.forEach(function(cit){inv[cit.idx].stk-=cit.qty;});
+  carrito.forEach(function(cit){
+    var rl=tomarDeLotes(inv[cit.idx],cit.qty);
+    cit.costoTotal=rl.total;cit.costoUnit=cit.qty?rl.total/cit.qty:0;cit.lotes=rl.usados;
+    inv[cit.idx].stk-=cit.qty;
+  });
   var refs=(cc||isSCC)?[
     {nom:uv('r1n'),tel:g('r1t').value.trim(),bar:uv('r1b')},
     {nom:uv('r2n'),tel:g('r2t').value.trim(),bar:uv('r2b')},
@@ -4841,7 +4999,14 @@ function renderInv(){
     var col=a.stk<=0?'#e74c3c':a.stk<=2?'#e67e22':'#1e8449';
     var puedeEditarInv=admin||getPerm('inv-edit');
     var puedeStock=admin||getPerm('inv-stock');
-    var costoTd=admin?'<td style="text-align:right">'+fmt(a.costo)+'</td>':'';
+    var costoTd='';
+    if(admin){
+      asegurarLotes(a);
+      // Si hay unidades compradas a distintos costos, se muestra el detalle por lote (las de arriba se venden primero)
+      var grupos=[];a.lotes.forEach(function(l){var gr=grupos.length?grupos[grupos.length-1]:null;if(gr&&gr.costo===l.costo)gr.cant+=l.cant;else grupos.push({costo:l.costo,cant:l.cant});});
+      var detLotes=grupos.length>1?'<div style="font-size:9px;color:#888;line-height:1.35;margin-top:2px" title="Las primeras se venden primero">'+grupos.map(function(gr){return gr.cant+' a '+fmt(gr.costo);}).join('<br>')+'</div>':'';
+      costoTd='<td style="text-align:right">'+fmt(a.costo)+detLotes+'</td>';
+    }
     var margenTd=admin?'<td style="text-align:right;font-weight:700;color:#2c3e50">'+mg+'%</td>':'';
     var accionesTd=puedeEditarInv?'<td style="white-space:nowrap">'+
         '<button class="btn borg" onclick="openEA('+i+')" style="margin-right:3px">Editar</button>'+
@@ -5452,11 +5617,7 @@ function mostrarGastosDetalle(mesGas,anioGas,soloOperativos){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function costoDeVenta(v){
-  var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
-  return it.reduce(function(s,item){
-    var art=inv.find(function(a){return a.art===item.art;});
-    return s+(art?art.costo*(item.qty||1):0);
-  },0);
+  return costoExactoVenta(v); // costo exacto de las unidades que se llevo esa venta
 }
 function gananciaDeFila(x){
   var v=x.v;
@@ -5851,11 +6012,7 @@ function calcularGananciaNetaMes(mes,anio){
   return ganTotalM-gastosM;
 }
 function gananciaDeVenta(v){
-  var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
-  var costo=it.reduce(function(s,item){
-    var art=inv.find(function(a){return a.art===item.art;});
-    return s+(art?art.costo*(item.qty||1):0);
-  },0);
+  var costo=costoExactoVenta(v);
   var gananciaBruta=v.total-costo;
   // Si la venta (o una parte, en pagos mixtos) fue por Sistecredito/Addi, se le
   // resta la comision que esa empresa cobra sobre lo que ellos pagan.
@@ -6255,12 +6412,7 @@ function renderRes(){
 
   // Ganancias por tipo de pago
   function ganancia(v){
-    var it=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
-    var costo=it.reduce(function(s,item){
-      var art=inv.find(function(a){return a.art===item.art;});
-      return s+(art?art.costo*(item.qty||1):0);
-    },0);
-    return v.total-costo;
+    return v.total-costoExactoVenta(v);
   }
   function comisionFinancieraDe(monto,empresa){
     if(!monto)return 0;
@@ -6422,14 +6574,14 @@ var contHistIdx=-1;   // posicion actual en el historial
 // NO se deshace, para no borrar esos cambios por accidente.
 function contFotoEstado(){
   return JSON.stringify({cont:cont,ven:ven,entradas:entradas,clientes:clientes,
-    stk:inv.map(function(a){return [a.cod,a.art,a.stk];})});
+    stk:inv.map(function(a){return [a.cod,a.art,a.stk,a.lotes||null];})});
 }
 function contRestaurarFoto(foto){
   var f=JSON.parse(foto);
   cont=f.cont;ven=f.ven;entradas=f.entradas;clientes=f.clientes;
   f.stk.forEach(function(x){
     var a=inv.find(function(it){return it.cod===x[0]&&it.art===x[1];})||inv.find(function(it){return it.art===x[1];});
-    if(a)a.stk=x[2];
+    if(a){a.stk=x[2];if(x[3])a.lotes=x[3];else delete a.lotes;}
   });
 }
 // Llamar ANTES de hacer un cambio; la foto de "despues" se toma sola en el siguiente save()
@@ -7006,7 +7158,7 @@ function delContable(i){
       var entsFac=entradas.filter(function(e){return e.facturaId===mov.refFacturaId;});
       entsFac.forEach(function(ent){
         var af2=inv.find(function(a){return a.art===ent.articulo;});
-        if(af2)af2.stk=Math.max(0,(af2.stk||0)-ent.cantidad);
+        if(af2){quitarLoteDeEntrada(af2,ent.ts,ent.cantidad);af2.stk=Math.max(0,(af2.stk||0)-ent.cantidad);asegurarLotes(af2);}
       });
       entradas=entradas.filter(function(e){return e.facturaId!==mov.refFacturaId;});
       if(entsFac.length)extra=' Se quitaron del stock los '+entsFac.length+' articulo(s) de esa factura: '+entsFac.map(function(e){return e.cantidad+' '+e.articulo;}).join(', ')+'.';
@@ -7020,7 +7172,7 @@ function delContable(i){
       if(eIdx>=0){
         var ent=entradas[eIdx];
         var artFound=inv.find(function(a){return a.art===ent.articulo;});
-        if(artFound)artFound.stk=Math.max(0,(artFound.stk||0)-ent.cantidad);
+        if(artFound){quitarLoteDeEntrada(artFound,ent.ts,ent.cantidad);artFound.stk=Math.max(0,(artFound.stk||0)-ent.cantidad);asegurarLotes(artFound);}
         entradas.splice(eIdx,1);
         extra=' Se descontaron '+ent.cantidad+' unidades del stock de '+ent.articulo+'.';
       }
@@ -7066,7 +7218,7 @@ function delContable(i){
         if(ventaAEliminar.items){
           ventaAEliminar.items.forEach(function(it){
             var af=inv.find(function(a){return a.art===it.art;});
-            if(af)af.stk+=it.qty||1;
+            if(af){devolverALotes(af,it.lotes||[{id:null,costo:it.costoUnit!=null?it.costoUnit:(+af.costo||0),cant:it.qty||1}]);af.stk+=it.qty||1;}
           });
         }
         var idEliminada=ventaAEliminar.id;
@@ -7871,8 +8023,8 @@ function calcPromoInfo(){
     var ahorro=a.venta-precio;
     h+=' · Precio promo: <b style="color:#1e8449">'+fmt(precio)+'</b>'+(ahorro>0?' (el cliente ahorra '+fmt(ahorro)+', '+Math.round(ahorro/a.venta*100)+'% menos)':'');
     if(isAdmin()){
-      var gan=precio-(a.costo||0);
-      h+='<br>Costo: '+fmt(a.costo||0)+' · Con la promo '+(gan>=0?'ganas':'pierdes')+' <b style="color:'+(gan>0?'#1e8449':'#c0392b')+'">'+fmt(Math.abs(gan))+'</b> por unidad'+(precio>0?' ('+Math.round(gan/precio*100)+'%)':'');
+      var cSig=costoSiguiente(a);var gan=precio-cSig;
+      h+='<br>Costo de la proxima unidad: '+fmt(cSig)+' · Con la promo '+(gan>=0?'ganas':'pierdes')+' <b style="color:'+(gan>0?'#1e8449':'#c0392b')+'">'+fmt(Math.abs(gan))+'</b> por unidad'+(precio>0?' ('+Math.round(gan/precio*100)+'%)':'');
       if(gan<=0)h+='<div style="margin-top:6px;color:#c0392b;font-weight:700">&#9888; Con ese precio vendes por debajo del costo: pierdes plata en cada unidad.</div>';
     }
     if(ahorro<=0)h+='<div style="margin-top:6px;color:#c0392b;font-weight:700">El precio de promocion debe ser menor que el precio normal.</div>';
@@ -7887,7 +8039,7 @@ function guardarPromo(){
   if(precio>=a.venta){toast('El precio de promocion debe ser menor que el precio normal ('+fmt(a.venta)+')',1);return;}
   if(!hasta){toast('Elige hasta cuando va la promocion',1);return;}
   if(hasta<hoyISO()){toast('La fecha final ya paso',1);return;}
-  if(isAdmin()&&precio<=(a.costo||0)&&!confirm('Ese precio es igual o menor que el costo ('+fmt(a.costo||0)+'). Vas a perder plata en cada unidad. Guardar de todas formas?'))return;
+  if(isAdmin()&&precio<=costoSiguiente(a)&&!confirm('Ese precio es igual o menor que el costo ('+fmt(costoSiguiente(a))+'). Vas a perder plata en cada unidad. Guardar de todas formas?'))return;
   var desde=(a.promo&&promoActiva(a)&&a.promo.desde)?a.promo.desde:hoyISO();
   a.promo={precio:precio,tipo:tipo,desde:desde,hasta:hasta,por:currentUser?(currentUser.nombre||currentUser.uname):''};
   logActividad('Inventario','Puso en '+PROMO_TIPOS[tipo].toLowerCase()+' '+a.art+': '+fmt(precio)+' (normal '+fmt(a.venta)+') hasta '+fechaISOaCorta(hasta));
