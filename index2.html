@@ -2104,6 +2104,7 @@ function setPermsToForm(prefix,perms){
   });
 }
 
+function esRolVendedor(){return !!currentUser&&currentUser.rol==='vendedor'&&!currentUser.esDueno;}
 function applyRol(){
   if(!currentUser) return;
   var esAdmin=isAdmin();
@@ -2118,8 +2119,9 @@ function applyRol(){
     'historial': getPerm('his-ver'),
     'clientes': getPerm('his-ver'),
     'cartera': getPerm('cart-ver'),
-    'financiera': getPerm('cart-ver'),
-    'carteraglobal': getPerm('cart-ver'),
+    // Sistecredito/Addi y Cartera global: nunca para vendedores, aunque tengan permiso de ver cartera
+    'financiera': getPerm('cart-ver')&&!esRolVendedor(),
+    'carteraglobal': getPerm('cart-ver')&&!esRolVendedor(),
     'creditos': getPerm('cred-ver'),
     'resumen': getPerm('res-ver'),
     'usuarios': getPerm('usuarios'),
@@ -8152,6 +8154,7 @@ function toggleCarteraMenu(){
   if(caret)caret.style.transform=abierto?'rotate(0deg)':'rotate(180deg)';
 }
 function goTab(id,el){
+  if((id==='financiera'||id==='carteraglobal')&&esRolVendedor()){toast('Esta seccion es solo para administradores',1);id='cartera';el=null;}
   document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('active');});
   document.querySelectorAll('.sitem').forEach(function(t){t.classList.remove('active');});
   var tab=document.getElementById('tab-'+id);
