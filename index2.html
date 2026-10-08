@@ -2037,7 +2037,7 @@ function save(){
   }
 }
 
-const fmt=n=>'$'+Math.round(n).toLocaleString('es-CO');
+const fmt=n=>{var r=Math.round(+n||0);return (r<0?'-$':'$')+Math.abs(r).toLocaleString('es-CO');};
 const g=id=>document.getElementById(id);
 const uv=id=>g(id).value.trim().toUpperCase();
 let sc2=false;
@@ -2272,6 +2272,7 @@ function doLogin(){
 
 function doLogout(){
   logActividad('Sesion','Cierre de sesion');
+  try{limpiarFormVenta(true);}catch(e){}
   currentUser=null;
   try{localStorage.removeItem('maxi_sess');}catch(e){}
   try{localStorage.removeItem('maxi_sess');}catch(e){}
@@ -3233,7 +3234,7 @@ function tomarDeLotes(a,qty){
     if(falta<=0||l.cant<=0)return;
     var q=Math.min(l.cant,falta);
     l.cant-=q;falta-=q;total+=q*l.costo;
-    usados.push({id:l.id,costo:l.costo,cant:q});
+    usados.push({id:l.id,costo:l.costo,cant:q,ref:l.ref||null,sinFactura:!l.ref});
   });
   if(falta>0){total+=falta*(+a.costo||0);usados.push({id:null,costo:+a.costo||0,cant:falta});}
   a.lotes=a.lotes.filter(function(l){return l.cant>0;});
@@ -3246,8 +3247,12 @@ function devolverALotes(a,usados){
   usados.slice().reverse().forEach(function(u){
     if(!(u.cant>0))return;
     var l=u.id?a.lotes.find(function(x){return x.id===u.id;}):null;
-    if(l)l.cant+=u.cant;
-    else a.lotes.unshift({id:u.id||nuevoIdLote(),fecha:'',costo:u.costo,cant:u.cant,devuelto:true}); // vuelve de primeras: era de lo mas viejo
+    if(l){l.cant+=u.cant;return;}
+    // El lote ya no existe. Si la unidad venia de una compra registrada (factura), vuelve con ese costo real;
+    // si no (stock inicial, ajuste a mano o venta vieja), vuelve con el costo que tiene HOY el articulo,
+    // asi una correccion de costo hecha en Inventario si se respeta al volver a vender.
+    var deFactura=u.ref?true:(u.sinFactura?false:entradas.some(function(e){return e.articulo===a.art&&Math.round(e.costoUnitario||0)===Math.round(u.costo||0);}));
+    a.lotes.unshift({id:u.id||nuevoIdLote(),fecha:'',costo:deFactura?u.costo:(+a.costo||u.costo||0),cant:u.cant,devuelto:true,ref:u.ref||null}); // vuelve de primeras: era de lo mas viejo
   });
 }
 function agregarLote(a,cant,costo,fecha,ref){
@@ -3480,11 +3485,43 @@ function saveArt(){
     var costoCambio=(+viejoA.costo||0)!==costo;
     inv[i]=Object.assign({},viejoA,{cod:cod,art:art,costo:costo,venta:venta,stk:stk,fotos:fotosActuales.slice()});
     // Si corrigio el costo, las unidades que estaban sin costo conocido (de antes de los lotes) toman el nuevo
-    if(costoCambio)(inv[i].lotes||[]).forEach(function(l){if(l.inicial)l.costo=costo;});
+    // (las del stock inicial y las que se sumaron a mano: ninguna de esas tiene una factura con su costo real)
+    (inv[i].lotes||[]).forEach(function(l){if(!l.ref&&(l.inicial||l.ajuste||l.devuelto))l.costo=costo;});
     asegurarLotes(inv[i]);
   }
   logActividad('Inventario','Edito articulo: '+art+' ('+cod+')');
   save();cm('med');renderInv();toast('Articulo actualizado');
+  if(costoCambio&&isAdmin())setTimeout(function(){ofrecerCostoAVentas(viejoA.art,art,costo);},50);
+}
+// Al corregir el costo de un articulo, ofrece aplicarlo tambien a las ventas que YA salieron con otro costo
+function ofrecerCostoAVentas(nombreViejo,nombreNuevo,costo){
+  var afectadas=[];
+  ven.forEach(function(v,vi){
+    if(!v.items)return;
+    var its=v.items.filter(function(it){
+      if(it.art!==nombreViejo&&it.art!==nombreNuevo)return false;
+      var q=it.qty||1;return Math.round(costoItemVenta(it)/q)!==Math.round(costo);
+    });
+    if(its.length)afectadas.push({v:v,its:its});
+  });
+  if(!afectadas.length)return;
+  afectadas.sort(function(x,y){return (y.v.ts||0)-(x.v.ts||0);});
+  var cambio=0;
+  var lineas=afectadas.slice(0,6).map(function(x){
+    var c=x.v.comprador||{};
+    var cu=costoItemVenta(x.its[0])/(x.its[0].qty||1);
+    return '- '+x.v.fecha+' '+([c.nombre,c.apellido].filter(Boolean).join(' ')||'Sin nombre')+': salio a '+fmt(cu);
+  });
+  afectadas.forEach(function(x){x.its.forEach(function(it){cambio+=costo*(it.qty||1)-costoItemVenta(it);});});
+  var msg='Hay '+afectadas.length+' venta(s) de '+nombreNuevo+' que ya salieron con otro costo:\n'+lineas.join('\n')+(afectadas.length>6?'\n... y '+(afectadas.length-6)+' mas':'')+
+    '\n\n¿Les pongo tambien el costo nuevo de '+fmt(costo)+'?\nLa ganancia de esas ventas '+(cambio>0?'baja':'sube')+' '+fmt(Math.abs(cambio))+' en total.\n\n(Si esas unidades de verdad se compraron mas baratas o mas caras, dale Cancelar)';
+  if(!confirm(msg))return;
+  afectadas.forEach(function(x){x.its.forEach(function(it){
+    it.costoUnit=costo;it.costoTotal=costo*(it.qty||1);it.costoCorregido=true;delete it.costoEstimado;
+  });});
+  logActividad('Inventario','Aplico el costo '+fmt(costo)+' de '+nombreNuevo+' a '+afectadas.length+' venta(s) ya hechas');
+  save();renderAll();
+  toast('Costo corregido tambien en '+afectadas.length+' venta(s)');
 }
 function addArt(){
   var cod=(g('nc')||{value:''}).value.trim().toUpperCase();
@@ -4421,7 +4458,22 @@ function regVenta(){
   var vcAnon=g('vc-anonimo');if(vcAnon)vcAnon.checked=false;
   var compCard=g('comprador-card');if(compCard)compCard.style.display='block';
   var vcWrap=g('vc-buscar-wrap');if(vcWrap)vcWrap.style.display='block';
+  limpiarFormVenta(false);
   calc();calcCC();calcSCC();
+}
+// Deja el formulario de venta listo para la siguiente (medio de pago en Efectivo, sin valores del pago anterior).
+// Con todo=true tambien vacia el carrito y los datos del comprador (al cerrar sesion).
+function limpiarFormVenta(todo){
+  ['sef-sc','sef-ef','buscar-art','sa','ipr'].forEach(function(id){var el=g(id);if(el)el.value='';});
+  var br=g('buscar-results');if(br)br.style.display='none';
+  var pn=g('promo-nota');if(pn)pn.style.display='none';
+  var sp=g('sp');if(sp&&sp.value!=='EFECTIVO'){sp.value='EFECTIVO';if(typeof onPago==='function')onPago();}
+  if(todo){
+    carrito=[];if(typeof renderCarrito==='function')renderCarrito();
+    ['inm','iap','icc','itel','ibar','r1n','r1t','r1b','r2n','r2t','r2b','r3n','r3t','r3b','vc-buscar'].forEach(function(id){var el=g(id);if(el)el.value='';});
+    _clienteSelVenta=null;var vcSel=g('vc-seleccionado');if(vcSel)vcSel.style.display='none';
+    var fw=g('fac');if(fw)fw.style.display='none';
+  }
 }
 
 function showFac(v){
@@ -4816,8 +4868,61 @@ function showDet(i){
     });
   }
   h+='</div>';
+  if(isAdmin())h+=htmlCostoVenta(i);
   var dc=g('detc');if(dc)dc.innerHTML=h;
   var md=g('mdet');if(md)md.classList.add('open');
+}
+// Detalle de costo y ganancia de una venta (solo administradores): con que costo salio cada articulo
+function htmlCostoVenta(i){
+  var v=ven[i];if(!v)return '';
+  var items=v.items||[{art:v.art,qty:v.qty||1,precio:v.precio||v.total,subtotal:v.total}];
+  var costoTot=costoExactoVenta(v);
+  var montoFin=montoFinanciera(v),com=montoFin>0?comisionRealVenta(v,montoFin):0;
+  var listaTot=items.reduce(function(s,it){return s+(it.subtotal||0);},0);
+  var hayDif=false;
+  var filas=items.map(function(it){
+    var q=it.qty||1,ct=costoItemVenta(it),cu=q?ct/q:0;
+    var a=inv.find(function(x){return x.art===it.art;});
+    var hoy=a?(+a.costo||0):null;
+    var dif=hoy!==null&&Math.round(hoy)!==Math.round(cu);if(dif)hayDif=true;
+    var det=(it.lotes&&it.lotes.length>1)?'<div style="font-size:9px;color:#888">'+it.lotes.map(function(l){return l.cant+' a '+fmt(l.costo);}).join(' + ')+'</div>':'';
+    return '<tr><td style="padding:4px 6px">'+it.art+(q>1?' x'+q:'')+det+'</td>'+
+      '<td style="padding:4px 6px;text-align:right">'+fmt(it.subtotal||0)+'</td>'+
+      '<td style="padding:4px 6px;text-align:right">'+fmt(cu)+(it.costoEstimado?' <span title="Venta de antes del costo exacto: se tomo el costo que tenia el articulo" style="color:#aaa">(est.)</span>':'')+
+        (dif?'<div style="font-size:9px;color:#d35400">hoy en inventario: '+fmt(hoy)+'</div>':'')+'</td></tr>';
+  }).join('');
+  var gan=v.total-costoTot-com;
+  var h='<div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px;font-size:12px">'+
+    '<div style="font-weight:700;color:#2c3e50;margin-bottom:6px">Costo y ganancia de esta venta</div>'+
+    '<table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr style="background:#f6f8fa"><th style="padding:4px 6px;text-align:left">Articulo</th><th style="padding:4px 6px;text-align:right">Precio</th><th style="padding:4px 6px;text-align:right">Costo unit.</th></tr></thead><tbody>'+filas+'</tbody></table>'+
+    '<div style="display:grid;grid-template-columns:1fr auto;gap:2px 12px;margin-top:8px">'+
+      (listaTot>v.total+0.5?'<span style="color:#888">Precio de lista</span><span style="text-align:right;color:#888">'+fmt(listaTot)+'</span><span style="color:#888">Descuento dado</span><span style="text-align:right;color:#888">-'+fmt(listaTot-v.total)+'</span>':'')+
+      '<span>Vendido en</span><span style="text-align:right;font-weight:700">'+fmt(v.total)+'</span>'+
+      '<span>Costo de lo que se llevo</span><span style="text-align:right;color:#888">-'+fmt(costoTot)+'</span>'+
+      (com>0?'<span>Comision '+empresaFinanciera(v)+' '+(v.finPagado?'(real)':'(estimada)')+'</span><span style="text-align:right;color:#c0392b">-'+fmt(com)+'</span>':'')+
+      '<span style="font-weight:700">Ganancia</span><span style="text-align:right;font-weight:700;color:'+(gan>=0?'#1e8449':'#c0392b')+'">'+fmt(gan)+'</span>'+
+    '</div>'+
+    (hayDif?'<div style="margin-top:8px;font-size:11px;background:#fef5e7;color:#9a5b0a;border-radius:8px;padding:8px 10px">Algunos articulos salieron con un costo distinto al que tienen hoy en Inventario: es el costo de la unidad que se llevo (de una compra anterior). Si ese costo estaba mal, puedes usar el de hoy.'+
+      '<div style="margin-top:6px"><button class="btn" onclick="usarCostoActualVenta('+i+')" style="background:#d68910;color:#fff;font-size:10px;padding:5px 10px">Usar el costo de hoy en esta venta</button></div></div>':'')+
+  '</div>';
+  return h;
+}
+// Corrige el costo guardado de una venta poniendo el costo que tienen hoy los articulos en Inventario
+function usarCostoActualVenta(i){
+  var v=ven[i];if(!v||!isAdmin())return;
+  var antes=costoExactoVenta(v);
+  var costoHoy=function(art){var a=inv.find(function(x){return x.art===art;});return a?(+a.costo||0):null;};
+  var despues=v.items?v.items.reduce(function(s,it){var c=costoHoy(it.art);return s+(c===null?costoItemVenta(it):c*(it.qty||1));},0)
+    :(costoHoy(v.art)===null?antes:costoHoy(v.art)*(v.qty||1));
+  if(!confirm('El costo de esta venta pasa de '+fmt(antes)+' a '+fmt(despues)+' (costo de hoy en Inventario).\nLa ganancia '+(despues>antes?'baja':'sube')+' '+fmt(Math.abs(despues-antes))+'. ¿Aplicar?'))return;
+  if(!v.items)v.costoFijo=despues;
+  else v.items.forEach(function(it){
+    var c=costoHoy(it.art);if(c===null)return;
+    it.costoUnit=c;it.costoTotal=c*(it.qty||1);it.costoCorregido=true;delete it.costoEstimado;
+  });
+  logActividad('Historial','Corrigio el costo de la venta '+v.art+': '+fmt(antes)+' -> '+fmt(despues));
+  save();renderAll();showDet(i);
+  toast('Costo de la venta actualizado');
 }
 
 function dlPDFi(i){lv=ven[i];showFac(ven[i]);dlPDF();}
@@ -5168,8 +5273,14 @@ function marcarPagadoFinanciera(vi){
     if(!v){toast('No se encontro esa venta',1);return;}
     var empresa=empresaFinanciera(v);
     var bruto=montoFinanciera(v);
-    var pct=comisionesFinanciera[empresa]!=null?comisionesFinanciera[empresa]:3;
-    var neto=Math.round(bruto*(1-pct/100));
+    var pctConf=comisionesFinanciera[empresa]!=null?comisionesFinanciera[empresa]:3;
+    var netoEst=Math.round(bruto*(1-pctConf/100));
+    // Se pregunta lo que la empresa consigno DE VERDAD (segun su factura), para que la ganancia quede exacta
+    var resp=prompt('¿Cuanto te consigno '+empresa+' por esta venta?\n\nValor de la venta: '+fmt(bruto)+'\nCon el '+pctConf+'% configurado serian: '+fmt(netoEst)+'\n\nEscribe el valor que aparece en la factura de '+empresa+' (o deja este si es igual):',String(netoEst));
+    if(resp===null)return;
+    var neto=+String(resp).replace(/[^0-9]/g,'')||0;
+    if(neto<=0||neto>bruto){toast('Valor no valido: debe ser mayor que 0 y no mas que '+fmt(bruto),1);return;}
+    var pct=Math.round((bruto-neto)/bruto*10000)/100; // descuento real en %
     v.finPagado=true;
     v.finFecha=fechaHoyISO().split('-').reverse().join('/');
     v.finMontoNeto=neto;
@@ -5204,10 +5315,12 @@ function editarPagoFinanciera(vi){
   if(!v||!v.finPagado)return;
   var empresa=empresaFinanciera(v);
   var bruto=montoFinanciera(v);
-  var nuevaPct=prompt('Nuevo porcentaje de comision para este pago de '+empresa+':',v.finComisionUsada!=null?v.finComisionUsada:0);
-  if(nuevaPct===null)return;
-  nuevaPct=Math.max(0,Math.min(100,+nuevaPct||0));
-  var nuevoNeto=Math.round(bruto*(1-nuevaPct/100));
+  var netoActual=v.finMontoNeto!=null?v.finMontoNeto:Math.round(bruto*(1-(v.finComisionUsada||0)/100));
+  var resp=prompt('¿Cuanto te consigno '+empresa+' de verdad por esta venta?\n\nValor de la venta: '+fmt(bruto)+'\nRegistrado ahora: '+fmt(netoActual)+'\n\nEscribe el valor que aparece en la factura de '+empresa+':',String(netoActual));
+  if(resp===null)return;
+  var nuevoNeto=+String(resp).replace(/[^0-9]/g,'')||0;
+  if(nuevoNeto<=0||nuevoNeto>bruto){toast('Valor no valido: debe ser mayor que 0 y no mas que '+fmt(bruto),1);return;}
+  var nuevaPct=Math.round((bruto-nuevoNeto)/bruto*10000)/100;
   var idxMov=buscarMovContableFinanciera(v);
   var c=v.comprador||{};
   var cl=[c.nombre,c.apellido].filter(Boolean).join(' ')||'Cliente';
@@ -5623,30 +5736,30 @@ function mostrarGastosDetalle(mesGas,anioGas,soloOperativos){
 function costoDeVenta(v){
   return costoExactoVenta(v); // costo exacto de las unidades que se llevo esa venta
 }
+// Comision de Sistecredito/Addi sobre una parte (montoParte) de lo financiado de la venta v.
+// Si la empresa YA pago y se registro lo que consigno de verdad, se usa ese descuento real;
+// si aun no ha pagado, se estima con el % configurado.
+function comisionRealVenta(v,montoParte){
+  var montoFin=montoFinanciera(v);
+  if(!montoFin||!montoParte)return 0;
+  if(v.finPagado&&v.finMontoNeto!=null)return Math.max(0,montoFin-v.finMontoNeto)*(montoParte/montoFin);
+  var emp=empresaFinanciera(v);
+  var pct=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[emp]!=null)?comisionesFinanciera[emp]:3;
+  return montoParte*(pct/100);
+}
+// Comision que le toca a una fila del detalle de Resumen (puede ser solo la parte Sistecredito de una venta mixta)
+function comisionDeFila(x){
+  var v=x.v;
+  var esMixto=v.pago==='SISTECREDITO+EFECTIVO'||v.pago==='SISTECREDITO+CREDICONTADO';
+  if(esMixto&&x.montoMostrar===v.total)return comisionRealVenta(v,montoFinanciera(v));
+  var esParteFin=v.pago==='ADDI'||v.pago==='SISTECREDITO'||(x.label&&/addi|sistecredito/i.test(x.label));
+  return esParteFin?comisionRealVenta(v,x.montoMostrar):0;
+}
 function gananciaDeFila(x){
   var v=x.v;
   var costoTotal=costoDeVenta(v);
-  var esMixtoSEF=v.pago==='SISTECREDITO+EFECTIVO';
-  var esMixtoSCC=v.pago==='SISTECREDITO+CREDICONTADO';
-  var esFilaSinDividir=(esMixtoSEF||esMixtoSCC)&&x.montoMostrar===v.total;
-  if(esFilaSinDividir){
-    // Vista general (sin filtrar por tipo de pago): la fila muestra el total completo
-    // de la venta, pero la comision SOLO debe descontarse sobre la parte que
-    // realmente paso por Sistecredito/Addi, no sobre el total de la venta.
-    var scPortion=esMixtoSEF?(v.sefSc||0):(v.sccSc||0);
-    var pctGen=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera['SISTECREDITO']!=null)?comisionesFinanciera['SISTECREDITO']:3;
-    return (v.total-costoTotal)-scPortion*(pctGen/100);
-  }
   var propor=v.total>0?(x.montoMostrar/v.total):1;
-  var gananciaBruta=x.montoMostrar-(costoTotal*propor);
-  var esParteAD=v.pago==='ADDI'||(x.label&&/addi/i.test(x.label));
-  var esParteSC=v.pago==='SISTECREDITO'||(x.label&&/sistecredito/i.test(x.label));
-  if(esParteSC||esParteAD){
-    var empresaRow=esParteAD?'ADDI':'SISTECREDITO';
-    var pctRow=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[empresaRow]!=null)?comisionesFinanciera[empresaRow]:3;
-    gananciaBruta-=x.montoMostrar*(pctRow/100);
-  }
-  return gananciaBruta;
+  return x.montoMostrar-(costoTotal*propor)-comisionDeFila(x);
 }
 function abrirDetalleRes(tipo,vendedorFiltro){
   var subview=g('res-subview');
@@ -5721,7 +5834,7 @@ function abrirDetalleRes(tipo,vendedorFiltro){
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
         '<th style="text-align:right;color:#888">Costo</th>'+
         '<th style="text-align:right">Valor</th>'+
-        '<th style="text-align:right;color:#e74c3c">Comision 3%</th>'+
+        '<th style="text-align:right;color:#e74c3c">Comision</th>'+
         '<th style="text-align:right;color:#1e8449">Total neto</th>'+
         '<th style="text-align:right;color:#3498db">Ganancia</th>'+
         '<th>Vendedor</th>'
@@ -5729,10 +5842,11 @@ function abrirDetalleRes(tipo,vendedorFiltro){
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
         '<th style="text-align:right;color:#888">Costo</th>'+
         '<th style="text-align:right">Total</th>'+
+        '<th style="text-align:right;color:#e74c3c" title="Lo que descuenta Sistecredito/Addi">Comision</th>'+
         '<th style="text-align:right;color:#3498db">Ganancia</th>'+
         '<th>Vendedor</th>';
     }
-    tb.innerHTML='<tr><td colspan="'+(esSCEmpty?10:8)+'" class="empty">Sin ventas este periodo</td></tr>';
+    tb.innerHTML='<tr><td colspan="'+(esSCEmpty?10:9)+'" class="empty">Sin ventas este periodo</td></tr>';
   }else{
     // Sort by date desc
     filtradas=filtradas.slice().sort(function(a,b){
@@ -5749,7 +5863,7 @@ function abrirDetalleRes(tipo,vendedorFiltro){
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
         '<th style="text-align:right;color:#888">Costo</th>'+
         '<th style="text-align:right">Valor</th>'+
-        '<th style="text-align:right;color:#e74c3c">Comision 3%</th>'+
+        '<th style="text-align:right;color:#e74c3c">Comision</th>'+
         '<th style="text-align:right;color:#1e8449">Total neto</th>'+
         '<th style="text-align:right;color:#3498db">Ganancia</th>'+
         '<th>Vendedor</th>'
@@ -5757,6 +5871,7 @@ function abrirDetalleRes(tipo,vendedorFiltro){
         '<th>Fecha</th><th>Articulo</th><th>Cliente</th><th>Pago</th>'+
         '<th style="text-align:right;color:#888">Costo</th>'+
         '<th style="text-align:right">Total</th>'+
+        '<th style="text-align:right;color:#e74c3c" title="Lo que descuenta Sistecredito/Addi">Comision</th>'+
         '<th style="text-align:right;color:#3498db">Ganancia</th>'+
         '<th>Vendedor</th>';
     }
@@ -5772,12 +5887,16 @@ function abrirDetalleRes(tipo,vendedorFiltro){
       var gananciaFila=gananciaDeFila(x);
       totalGanancia+=gananciaFila;
       var extraCols='';
+      var comision=comisionDeFila(x);
+      totalComision+=comision;
+      var pctCom=comision>0&&montoFinanciera(v)>0?(comision/(x.montoMostrar===v.total&&v.pago.indexOf('+')>=0?montoFinanciera(v):x.montoMostrar)*100):0;
+      var tdCom='<td style="text-align:right;color:'+(comision>0?'#e74c3c':'#ccc')+'" title="'+(v.finPagado?'Descuento real registrado al recibir el pago':'Estimado con el % configurado (aun no ha pagado)')+'">'+(comision>0?'-'+fmt(comision)+'<div style="font-size:9px;color:#aaa">'+pctCom.toFixed(2).replace(/\.?0+$/,'')+'%'+(v.finPagado?' real':' est.')+'</div>':'-')+'</td>';
       if(esSC){
-        var comision=x.montoMostrar*0.03;
         var neto=x.montoMostrar-comision;
-        totalComision+=comision;totalNeto+=neto;
-        extraCols='<td style="text-align:right;color:#e74c3c">-'+fmt(comision)+'</td>'+
-                   '<td style="text-align:right;font-weight:700;color:#1e8449">'+fmt(neto)+'</td>';
+        totalNeto+=neto;
+        extraCols=tdCom+'<td style="text-align:right;font-weight:700;color:#1e8449">'+fmt(neto)+'</td>';
+      }else{
+        extraCols=tdCom;
       }
       return '<tr>'+
         '<td style="font-size:11px;color:#888">'+v.fecha+'</td>'+
@@ -5806,6 +5925,7 @@ function abrirDetalleRes(tipo,vendedorFiltro){
         '<td colspan="4" style="text-align:right;padding-right:8px">Total:</td>'+
         '<td style="text-align:right;color:#888">'+fmt(totalCosto)+'</td>'+
         '<td style="text-align:right;color:#1e8449">'+fmt(totalFil)+'</td>'+
+        '<td style="text-align:right;color:#e74c3c">'+(totalComision>0?'-'+fmt(totalComision):'-')+'</td>'+
         '<td style="text-align:right;color:#3498db">'+fmt(totalGanancia)+'</td>'+
         '<td></td>'+
       '</tr>');
@@ -6022,11 +6142,7 @@ function gananciaDeVenta(v){
   // resta la comision que esa empresa cobra sobre lo que ellos pagan.
   if(typeof esFinanciera==='function'&&esFinanciera(v)){
     var montoFin=montoFinanciera(v);
-    if(montoFin>0){
-      var empresaFin=empresaFinanciera(v);
-      var pctFin=(typeof comisionesFinanciera!=='undefined'&&comisionesFinanciera&&comisionesFinanciera[empresaFin]!=null)?comisionesFinanciera[empresaFin]:3;
-      gananciaBruta-=montoFin*(pctFin/100);
-    }
+    if(montoFin>0)gananciaBruta-=comisionRealVenta(v,montoFin); // descuento real si ya pago, si no el % configurado
   }
   return gananciaBruta;
 }
@@ -6426,22 +6542,22 @@ function renderRes(){
   var ganEf=venMes.filter(function(v){return v.pago==='EFECTIVO';}).reduce(function(s,v){return s+ganancia(v);},0);
   var ganCc=venMes.filter(function(v){return v.pago==='CREDICONTADO';}).reduce(function(s,v){return s+ganancia(v);},0);
   // A la ganancia de Sistecredito/Addi se le resta la comision que esa empresa cobra
-  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v)-comisionFinancieraDe(v.total,'SISTECREDITO');},0);
-  var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v)-comisionFinancieraDe(v.total,'ADDI');},0);
+  var ganSc=venMes.filter(function(v){return v.pago==='SISTECREDITO';}).reduce(function(s,v){return s+ganancia(v)-comisionRealVenta(v,v.total);},0);
+  var ganAd=venMes.filter(function(v){return v.pago==='ADDI';}).reduce(function(s,v){return s+ganancia(v)-comisionRealVenta(v,v.total);},0);
   // Repartir proporcionalmente la ganancia de ventas mixtas Sistecredito+Efectivo
   mixedSef.forEach(function(v){
     var gTotal=ganancia(v);
     var ratioEf=v.total>0?(v.sefEf||0)/v.total:0;
     var ratioSc=v.total>0?(v.sefSc||0)/v.total:0;
     ganEf+=gTotal*ratioEf;
-    ganSc+=gTotal*ratioSc-comisionFinancieraDe(v.sefSc,'SISTECREDITO');
+    ganSc+=gTotal*ratioSc-comisionRealVenta(v,v.sefSc||0);
   });
   // Repartir proporcionalmente la ganancia de ventas mixtas Sistecredito+Credicontado
   mixedScc.forEach(function(v){
     var gTotal=ganancia(v);
     var ratioSc=v.total>0?(v.sccSc||0)/v.total:0;
     var ratioCc=v.total>0?(v.sccCc||0)/v.total:0;
-    ganSc+=gTotal*ratioSc-comisionFinancieraDe(v.sccSc,'SISTECREDITO');
+    ganSc+=gTotal*ratioSc-comisionRealVenta(v,v.sccSc||0);
     ganCc+=gTotal*ratioCc;
   });
   var ganSca=ganSc+ganAd;
@@ -8285,7 +8401,7 @@ document.addEventListener('click',function(e){
     res.style.display='none';
   }
   var res2=document.getElementById('ev-results');
-  var inp2=document.getElementById('ev-buscar');
+  var inp2=document.getElementById('ev-search-art');
   if(res2&&inp2&&!res2.contains(e.target)&&e.target!==inp2){
     res2.style.display='none';
   }
