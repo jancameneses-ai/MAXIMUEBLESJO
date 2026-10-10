@@ -1792,36 +1792,27 @@ function procesarDatos(data){
   if(data.inv)inv=data.inv;
   if(data.ven)ven=data.ven;
   if(data.users){
-    // Firebase guarda users como objeto o array
-    var fbUsers=Array.isArray(data.users)?data.users:Object.values(data.users);
-    fbUsers.forEach(function(fu){
-      if(!fu||!fu.uname)return;
-      var existe=users.find(function(u){return u.uname===fu.uname;});
-      if(!existe){ users.push(fu); }
-      else{
-        if(fu.passHash){existe.passHash=fu.passHash;delete existe.pass;}
-        else if(fu.pass){existe.pass=fu.pass;delete existe.passHash;} // viene de un equipo con la version vieja
-        if(fu.respuestaHash){existe.respuestaHash=fu.respuestaHash;delete existe.respuesta;}
-        if(fu.nombre)existe.nombre=fu.nombre;
-        if(fu.rol)existe.rol=fu.rol;
-        if(fu.permisos)existe.permisos=fu.permisos;
-        if(fu.pregunta)existe.pregunta=fu.pregunta;
-        if(fu.respuesta&&!fu.respuestaHash){existe.respuesta=fu.respuesta;delete existe.respuestaHash;}
-        if(fu.esDueno!==undefined)existe.esDueno=fu.esDueno;
-        if(fu.metas)existe.metas=fu.metas;
-      }
-    });
+    // Firebase guarda users como objeto o array. Firebase es la fuente de verdad: la lista se
+    // REEMPLAZA (ya no se mezcla con el usuario de fabrica del codigo). Asi, si al Admin Soporte
+    // le cambiaron el usuario o la clave, el "admin / admin123" de fabrica no vuelve a aparecer.
+    var fbUsers=(Array.isArray(data.users)?data.users:Object.values(data.users)).filter(function(fu){return fu&&fu.uname;});
+    if(fbUsers.length){
+      users=fbUsers.map(function(fu){return Object.assign({},fu);});
+      if(currentUser){var yo=users.find(function(u){return u.uname===currentUser.uname;});if(yo)currentUser=yo;}
+    }
+    window._usuariosReales=true;
   }
   if(data.cont&&Array.isArray(data.cont))cont=data.cont;
   if(data.entradas&&Array.isArray(data.entradas))entradas=data.entradas;
   if(data.actividad&&Array.isArray(data.actividad))actividad=data.actividad;
   if(data.clientes&&Array.isArray(data.clientes))clientes=data.clientes;
-  asegurarDueno();
+  if(asegurarDueno())window._limpioDuenos=true;
   asegurarIdsVenta();
   vincularContableConVentas();
   vincularEntradasConContable();
   migrarClientesDesdeVentas();
   if(migrarContrasenas())save(); // cifra contrasenas que aun esten en texto plano
+  if(window._limpioDuenos){window._limpioDuenos=false;save();}
   if(migrarCostosExactos())save(); // lotes de costo y costo fijo de ventas viejas
   renderAll();
   renderSV();
@@ -1832,11 +1823,24 @@ function procesarDatos(data){
 // Garantiza que exista exactamente un usuario "Dueno" (perfil unico protegido).
 // Si por alguna razon no hay ninguno marcado, se asigna automaticamente al primer administrador.
 function asegurarDueno(){
-  var yaHayDueno=users.some(function(u){return u.esDueno;});
-  if(!yaHayDueno){
-    var primerAdmin=users.find(function(u){return u.rol==='admin';})||users[0];
-    if(primerAdmin)primerAdmin.esDueno=true;
+  var cambio=false;
+  var duenos=users.filter(function(u){return u.esDueno;});
+  if(duenos.length>1){
+    // Sobra algun Admin Soporte: primero se quita la copia del usuario de fabrica (admin / admin123)
+    // que se pudo haber colado, siempre que quede otro Admin Soporte de verdad
+    var copiasFabrica=duenos.filter(function(u){return u.uname==='admin'&&passOk(u,'admin123');});
+    copiasFabrica.forEach(function(u){
+      if(users.filter(function(x){return x.esDueno;}).length>1){users.splice(users.indexOf(u),1);cambio=true;}
+    });
+    // Si aun quedan varios, se deja el primero como Admin Soporte y los demas siguen como administradores normales
+    var resto=users.filter(function(u){return u.esDueno;});
+    resto.slice(1).forEach(function(u){u.esDueno=false;cambio=true;});
   }
+  if(!users.some(function(u){return u.esDueno;})){
+    var primerAdmin=users.find(function(u){return u.rol==='admin';})||users[0];
+    if(primerAdmin){primerAdmin.esDueno=true;cambio=true;}
+  }
+  return cambio;
 }
 
 // Vincula con el registro de clientes cualquier venta que aun no tenga clienteId
@@ -1974,6 +1978,7 @@ function cargar(onPrimeraCarga){
   try{var le=localStorage.getItem(EK);if(le)entradas=JSON.parse(le);}catch(e){}
   try{var la=localStorage.getItem(AK);if(la)actividad=JSON.parse(la);}catch(e){}
   try{var lm=localStorage.getItem(MK);if(lm)clientes=JSON.parse(lm);}catch(e){}
+  try{var lu=localStorage.getItem('maxi_users');if(lu){var luA=JSON.parse(lu);if(Array.isArray(luA)&&luA.length){users=luA;window._usuariosReales=true;}}}catch(e){}
   var yaAvisoPrimeraCarga=false;
   function avisarUnaVez(exito){
     if(yaAvisoPrimeraCarga)return;
@@ -1992,6 +1997,7 @@ function cargar(onPrimeraCarga){
           return;
         }
         procesarDatos(data);
+        if(!window._usuariosReales)window._fbSinUsuarios=true; // base de datos nueva: se usa el usuario de fabrica para configurar
         var b=g('sbadge');if(b){b.textContent='Conectado';b.style.background='#27ae60';}
         avisarUnaVez(true);
       });
@@ -2016,6 +2022,7 @@ function save(){
   try{localStorage.setItem(EK,JSON.stringify(entradas));}catch(e){}
   try{localStorage.setItem(AK,JSON.stringify(actividad));}catch(e){}
   try{localStorage.setItem(MK,JSON.stringify(clientes));}catch(e){}
+  try{if(window._usuariosReales)localStorage.setItem('maxi_users',JSON.stringify(users));}catch(e){}
   // Guardar en Firebase
   if(typeof window.fbSet==='function'){
     b.textContent='Guardando...';b.style.background='#f39c12';
@@ -2237,10 +2244,17 @@ function revisarAvisoPass(){
 }
 
 function doLogin(){
+  // Mientras no hayan llegado los usuarios reales (de Firebase o guardados en este equipo) no se deja entrar:
+  // si no, el usuario de fabrica del codigo (admin / admin123) serviria en esos segundos o sin internet
+  if(!window._usuariosReales&&!window._fbSinUsuarios){
+    var le=g('login-err');if(le){le.style.display='block';le.textContent='Conectando con la base de datos... intenta de nuevo en unos segundos.';}
+    return;
+  }
   var uname=g('login-user').value.trim();
   var pass=g('login-pass').value;
   var user=users.find(function(u){return u.uname===uname&&passOk(u,pass);});
   if(!user){
+    g('login-err').textContent='Usuario o contrasena incorrectos';
     g('login-err').style.display='block';
     g('login-pass').value='';
     return;
