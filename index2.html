@@ -4380,6 +4380,16 @@ function regVenta(){
     cit.costoTotal=rl.total;cit.costoUnit=cit.qty?rl.total/cit.qty:0;cit.lotes=rl.usados;
     inv[cit.idx].stk-=cit.qty;
   });
+  // Si con esta venta se acabo el stock de un articulo en promocion, la promocion se termina sola
+  var promosAgotadas=[];
+  carrito.forEach(function(cit){
+    var aP=inv[cit.idx];
+    if(aP&&aP.promo&&!((+aP.stk||0)>0)&&promosAgotadas.indexOf(aP.art)<0){
+      promosAgotadas.push(aP.art);
+      logActividad('Inventario','La promocion de '+aP.art+' termino porque se agoto el stock');
+      delete aP.promo;
+    }
+  });
   var refs=(cc||isSCC)?[
     {nom:uv('r1n'),tel:g('r1t').value.trim(),bar:uv('r1b')},
     {nom:uv('r2n'),tel:g('r2t').value.trim(),bar:uv('r2b')},
@@ -4460,7 +4470,7 @@ function regVenta(){
   carrito=[];renderCarrito();
   save();renderAll();showFac(v);
   var bpv=g('btnpdf');if(bpv)bpv.style.display=getPerm('pdf')?'block':'none';
-  toast('Venta registrada y guardada');
+  toast(promosAgotadas.length?'Venta registrada. Se agoto la promocion de '+promosAgotadas.join(', ')+' y se quito de Venta':'Venta registrada y guardada');
   g('iq').value=1;g('id').value=0;
   if(g('cc-ini'))g('cc-ini').value=0;
   if(g('scc-ini'))g('scc-ini').value=0;
@@ -8116,6 +8126,7 @@ function promoActiva(a){
   if(a.promo.hasta&&a.promo.hasta<hoyISO())return null; // ya se vencio
   if(a.promo.desde&&a.promo.desde>hoyISO())return null;  // aun no empieza
   if(a.promo.precio>=a.venta)return null;
+  if(!((+a.stk||0)>0))return null; // se agoto: deja de mostrarse en Venta
   return a.promo;
 }
 function precioVentaActual(a){var p=promoActiva(a);return p?p.precio:a.venta;}
