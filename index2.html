@@ -201,13 +201,62 @@ body.offline-banner-visible header{margin-top:34px}
   .sec table tbody{display:block}
   .sec table tbody tr{display:block;background:#fff;border:1px solid #d3c1a8;border-radius:10px;padding:8px 10px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
   .sec table tbody tr.total-row{background:#f7f9fc;font-weight:700}
-  .sec table tbody tr td{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 2px!important;border:none!important;text-align:left!important;width:100%}
+  .sec table tbody tr td{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 2px!important;border:none!important;text-align:left!important;width:100%;min-width:0!important;white-space:normal!important;overflow-wrap:anywhere}
   .sec table tbody tr td:not(:last-child){border-bottom:1px dashed #ede4d7!important}
   .sec table tbody tr td:empty,.sec table tbody tr td:has(>*:only-child:empty:not(input):not(select):not(textarea)){display:none}
-  .sec table tbody tr td[data-l]::before{content:attr(data-l);font-size:10px;color:#999;font-weight:600;text-transform:uppercase;white-space:nowrap}
+  .sec table tbody tr td[data-l]::before{content:attr(data-l);font-size:10px;color:#999;font-weight:600;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
   .sec table tbody tr td.empty{display:block;text-align:center!important;padding:14px 0!important}
   .sec table tbody tr td img,.sec table tbody tr td .btn{margin-left:auto}
   .sec table tbody tr td input,.sec table tbody tr td select{width:auto;max-width:130px;margin-left:auto}
+  .sec table tbody tr td:has(.btn+.btn),.sec table tbody tr td:has(button+button){flex-wrap:wrap;justify-content:flex-end}
+  .sec table tbody tr td:has(.btn+.btn) .btn,.sec table tbody tr td:has(button+button) button{margin-left:0}
+}
+
+
+/* ── RESPONSIVE: tablas que no caben (tablet / portatil) se vuelven tarjetas en cuadricula ── */
+@media(min-width:481px){
+  .sec table.tbl-cards{border:none;width:100%}
+  .sec table.tbl-cards thead{display:none}
+  .sec table.tbl-cards tbody{display:block}
+  .sec table.tbl-cards tbody tr{display:block;background:#fff;border:1px solid #d3c1a8;border-radius:10px;padding:8px 10px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .sec table.tbl-cards tbody tr.total-row{background:#f7f9fc;font-weight:700}
+  .sec table.tbl-cards tbody tr td{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 2px!important;border:none!important;text-align:left!important;width:100%;min-width:0!important;white-space:normal!important;overflow-wrap:anywhere}
+  .sec table.tbl-cards tbody tr td:not(:last-child){border-bottom:1px dashed #ede4d7!important}
+  .sec table.tbl-cards tbody tr td:empty,.sec table.tbl-cards tbody tr td:has(>*:only-child:empty:not(input):not(select):not(textarea)){display:none}
+  .sec table.tbl-cards tbody tr td[data-l]::before{content:attr(data-l);font-size:10px;color:#999;font-weight:600;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+  .sec table.tbl-cards tbody tr td.empty{display:block;text-align:center!important;padding:14px 0!important}
+  .sec table.tbl-cards tbody tr td img,.sec table.tbl-cards tbody tr td .btn{margin-left:auto}
+  .sec table.tbl-cards tbody tr td input,.sec table.tbl-cards tbody tr td select{width:auto;max-width:130px;margin-left:auto}
+  .sec table.tbl-cards tbody tr td:has(.btn+.btn),.sec table.tbl-cards tbody tr td:has(button+button){flex-wrap:wrap;justify-content:flex-end}
+  .sec table.tbl-cards tbody tr td:has(.btn+.btn) .btn,.sec table.tbl-cards tbody tr td:has(button+button) button{margin-left:0}
+  .sec table.tbl-cards tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+  .sec table.tbl-cards tbody tr{margin-bottom:0}
+  .sec table.tbl-cards tbody tr.total-row,.sec table.tbl-cards tbody tr:has(td.empty){grid-column:1/-1}
+}
+.sec table.tbl-compact{font-size:11px}
+.sec table.tbl-compact th{padding:8px 6px}
+.sec table.tbl-compact td{padding:7px 6px}
+.sec table.tbl-compact .btn{padding:6px 9px;font-size:10px}
+
+/* ── RESPONSIVE: pantalla de venta en 2 columnas en pantallas grandes ── */
+@media(min-width:1200px){
+  .venta-grid{display:grid!important;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:repeat(6,auto) 1fr;column-gap:16px;row-gap:0!important;align-items:start}
+  .venta-grid>*{grid-column:2}
+  .venta-grid>.card:first-child{grid-column:1;grid-row:1/-1}
+  .venta-grid>.card{margin-bottom:12px}
+}
+/* ── RESPONSIVE: pantallas muy grandes, que no se estire de lado a lado ── */
+@media(min-width:1700px){.sec{max-width:1560px}}
+
+/* ── RESPONSIVE: celular, menu de iconos en una sola fila deslizable y fija arriba ── */
+@media(max-width:700px){
+  .sidebar{flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden!important;position:sticky;top:0;z-index:60;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 4px}
+  .sidebar::-webkit-scrollbar{display:none}
+  .sidebar .stog{display:none}
+  .sidebar .sitem{flex:0 0 auto!important;min-width:46px;padding:8px 6px!important;border-left:none!important;border-bottom:3px solid transparent;margin:0}
+  .sidebar .sitem.active{border-bottom-color:#d4a373}
+  #cartera-submenu[style*="block"]{display:flex!important;flex:0 0 auto}
+  .md{max-width:calc(100vw - 16px)}
 }
 
 /* ── FORMS ── */
@@ -493,7 +542,7 @@ tr:hover td{background:#f8f9ff}
 <!-- TAB VENTA -->
 <div id="tab-venta" class="sec active">
   <div id="promos-venta" style="display:none;grid-template-columns:repeat(auto-fill,minmax(150px,175px));gap:8px;margin-bottom:12px"></div>
-  <div style="display:flex;flex-direction:column;gap:12px">
+  <div class="venta-grid" style="display:flex;flex-direction:column;gap:12px">
       <div class="card">
         <h2>Productos</h2>
         <div style="display:flex;flex-direction:column;gap:9px">
@@ -1002,8 +1051,8 @@ tr:hover td{background:#f8f9ff}
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:8px;background:#fff;padding:8px 14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #d3c1a8">
       <label style="font-size:11px;color:#666;font-weight:600;text-transform:uppercase;margin:0">Mes:</label>
-      <select id="res-mes" onchange="renderRes()" style="border:none;background:transparent;font-size:13px;font-weight:600;color:#252627;outline:none;cursor:pointer"></select>
-      <select id="res-anio" onchange="renderRes()" style="border:none;background:transparent;font-size:13px;font-weight:600;color:#252627;outline:none;cursor:pointer"></select>
+      <select id="res-mes" onchange="renderRes()" style="width:auto;min-width:130px;border:none;background:transparent;font-size:13px;font-weight:600;color:#252627;outline:none;cursor:pointer"></select>
+      <select id="res-anio" onchange="renderRes()" style="width:auto;min-width:80px;border:none;background:transparent;font-size:13px;font-weight:600;color:#252627;outline:none;cursor:pointer"></select>
     </div>
     <div id="res-mes-lbl" style="font-size:12px;color:#888"></div>
   </div>
@@ -2647,7 +2696,14 @@ function renderUsuarios(){
   }).join('');
 }
 
+var _sideManual=false;
+function sideAuto(){
+  if(_sideManual)return;
+  var quiere=window.innerWidth>700&&window.innerWidth<=1100;
+  if(quiere!==sc2){sc2=quiere;var sb=g('sidebar');if(sb)sb.classList.toggle('collapsed',sc2);var tb=g('stogb');if(tb)tb.innerHTML=sc2?'&#8594;':'&#8592;';}
+}
 function togSide(){
+  _sideManual=true;
   sc2=!sc2;
   g('sidebar').classList.toggle('collapsed',sc2);
   g('stogb').innerHTML=sc2?'&#8594;':'&#8592;';
@@ -8481,6 +8537,45 @@ window.addEventListener('load',function(){
     mostrarLogin();
   }
 });
+
+// ── RESPONSIVE: adapta cada tabla al espacio disponible ──
+// 1) pone a cada celda el nombre de su columna (para verlo cuando la tabla se vuelve tarjetas)
+// 2) si la tabla no cabe: primero la compacta y, si aun no cabe, la muestra como tarjetas
+function ajustarTablas(){
+  var W=window.innerWidth;
+  document.querySelectorAll('.sec.active table').forEach(function(t){
+    try{
+      if(t.tHead&&t.tHead.rows.length&&t.tBodies[0]){
+        var labs=[].map.call(t.tHead.rows[t.tHead.rows.length-1].cells,function(th){return (th.textContent||'').replace(/[\u25B2\u25BC\u21C5\u2191\u2193]/g,'').trim();});
+        [].forEach.call(t.tBodies[0].rows,function(r){
+          if(r.cells.length!==labs.length)return;
+          [].forEach.call(r.cells,function(td,k){if(!td.hasAttribute('data-l')&&labs[k])td.setAttribute('data-l',labs[k]);});
+        });
+      }
+      if(W<=480){t.classList.remove('tbl-cards','tbl-compact');return;}
+      var w=t.parentElement;
+      t.classList.remove('tbl-cards','tbl-compact');
+      if(!t.offsetParent)return;
+      if(w.scrollWidth<=w.clientWidth+4)return;
+      t.classList.add('tbl-compact');
+      if(w.scrollWidth<=w.clientWidth+4)return;
+      t.classList.remove('tbl-compact');t.classList.add('tbl-cards');
+    }catch(e){}
+  });
+}
+var _ajTabT=null;
+function ajustarTablasLuego(){clearTimeout(_ajTabT);_ajTabT=setTimeout(function(){sideAuto();ajustarTablas();},60);}
+(function(){
+  try{
+    var mo=new MutationObserver(function(muts){
+      for(var i=0;i<muts.length;i++){var m=muts[i];if(m.type==='childList'||(m.target.classList&&(m.target.classList.contains('sec')||m.target.id==='sidebar'))){ajustarTablasLuego();return;}}
+    });
+    var arrancar=function(){mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});sideAuto();ajustarTablasLuego();};
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arrancar);else arrancar();
+    window.addEventListener('resize',ajustarTablasLuego);
+    window.addEventListener('orientationchange',ajustarTablasLuego);
+  }catch(e){}
+})();
 </script>
 <script>
 if('serviceWorker' in navigator){
