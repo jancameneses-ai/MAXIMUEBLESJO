@@ -1111,10 +1111,11 @@ tr:hover td{background:#f8f9ff}
       <div class="met" onclick="abrirDetalleRes('SISTECREDITO')" style="cursor:pointer"><div class="ml">Ganancia en ventas Sistecredito</div><div class="mv" id="rg-sc">$0</div><div class="ml" id="rg-sc-pct" style="margin-top:2px;font-weight:600"></div></div>
       <div class="met" onclick="abrirDetalleRes('ADDI')" style="cursor:pointer"><div class="ml">Ganancia en ventas Addi</div><div class="mv" id="rg-ad">$0</div><div class="ml" id="rg-ad-pct" style="margin-top:2px;font-weight:600"></div></div>
       <div class="met" onclick="abrirDetalleRes('todas')" style="background:#f0f7ff;cursor:pointer"><div class="ml">Ganancia bruta (ventas - costo)</div><div class="mv" id="rg" style="color:#252627">$0</div><div class="ml" id="rg-pct" style="margin-top:2px;font-weight:600;color:#3498db"></div></div>
-      <div class="met" id="rg-op-card" style="background:#fff5f5"><div class="ml">Gastos operativos del mes</div><div class="mv" id="rg-op" style="color:#c0392b">$0</div><div style="font-size:9px;color:#aaa;margin-top:2px;line-height:1.3">No incluye compra de mercancia — esa ya esta descontada en el costo de cada articulo, arriba</div></div>
+      <div class="met" id="rg-op-card" style="background:#fff5f5"><div class="ml">Gastos operativos del mes</div><div class="mv" id="rg-op" style="color:#c0392b">$0</div><div style="font-size:9px;color:#aaa;margin-top:2px;line-height:1.3">Sueldos, acarreos, herramientas, servicios... No incluye compra de mercancia (ya esta en el costo de cada articulo) ni prestamos a socios</div></div>
       <div class="met" style="background:#eafaf1;grid-column:span 2">
-        <div class="ml">Ganancia neta real (bruta - gastos operativos)</div>
+        <div class="ml">Ganancia neta real (bruta - gastos del mes)</div>
         <div class="mv" id="rg-neta" style="color:#252627;font-size:22px">$0</div>
+        <div id="rg-neta-desglose" style="font-size:10px;color:#777;margin-top:3px;line-height:1.4"></div>
         <div class="ml" id="rg-neta-comp" style="margin-top:4px;font-weight:600"></div>
       </div>
     </div>
@@ -1133,7 +1134,7 @@ tr:hover td{background:#f8f9ff}
   <div class="card">
     <h2>Ventas de meses anteriores</h2>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Mes</th><th style="text-align:center">Ventas</th><th style="text-align:right">Efectivo</th><th style="text-align:right">Credicontado</th><th style="text-align:right">Sistecredito/Addi</th><th style="text-align:right">Total</th><th style="text-align:right">Gastos</th></tr></thead>
+      <thead><tr><th>Mes</th><th style="text-align:center">Ventas</th><th style="text-align:right">Efectivo</th><th style="text-align:right">Credicontado</th><th style="text-align:right">Sistecredito/Addi</th><th style="text-align:right">Total</th><th style="text-align:right">Gastos</th><th style="text-align:right" title="Ganancia de las ventas menos los gastos del mes">Ganancia neta</th></tr></thead>
       <tbody id="res-hist-meses"></tbody>
     </table></div>
   </div>
@@ -1215,6 +1216,8 @@ tr:hover td{background:#f8f9ff}
         <option value="Servicio Energia">Servicio Energia</option>
         <option value="Acueducto">Acueducto</option>
         <option value="Compra de mercancia">Compra de mercancia</option>
+        <option value="Herramientas y equipo">Herramientas y equipo</option>
+        <option value="Prestamos o adelantos a socios">Prestamos o adelantos a socios</option>
         <option value="Otras compras">Otras compras</option>
         <option value="Otros servicios">Otros servicios</option>
       </select>
@@ -1696,7 +1699,9 @@ tr:hover td{background:#f8f9ff}
           <option value="Servicio Energia">Servicio Energia</option>
           <option value="Acueducto">Acueducto</option>
           <option value="Compra de mercancia">Compra de mercancia</option>
-          <option value="Otras compras">Otras compras</option>
+          <option value="Herramientas y equipo">Herramientas y equipo</option>
+        <option value="Prestamos o adelantos a socios">Prestamos o adelantos a socios</option>
+        <option value="Otras compras">Otras compras</option>
           <option value="Otros servicios">Otros servicios</option>
           <option value="Ingreso por ventas">Ingreso por ventas</option>
         </select>
@@ -5765,12 +5770,35 @@ function filtrarDetalleRes(){
     tr.style.display=(!q||texto.indexOf(q)>=0)?'':'none';
   });
 }
+// Formato de pesos colombianos para Excel: signo $ marcado como moneda de Colombia (240A = es-CO), sin decimales
+var FORMATO_COP='[$$-240A] #,##0;-[$$-240A] #,##0';
 function exportarDetalleResExcel(){
   if(typeof XLSX==='undefined'){toast('La libreria de Excel aun esta cargando, intenta de nuevo en un momento',1);return;}
   try{
     var tabla=document.querySelector('#res-detalle-tb').closest('table');
     var wb=XLSX.utils.book_new();
-    var ws=XLSX.utils.table_to_sheet(tabla,{display:true});
+    // raw:true = no dejar que Excel "adivine" (convertia 13.000 en 13 y 09/10/2026 en otra fecha)
+    // copia de la tabla con espacios entre textos pegados (ej: "-$6.000" y "3% est.")
+    tabla=tabla.cloneNode(true);
+    tabla.querySelectorAll('td *,th *').forEach(function(e){if(e.previousSibling)e.parentNode.insertBefore(document.createTextNode(' '),e);if(e.nextSibling)e.parentNode.insertBefore(document.createTextNode(' '),e.nextSibling);});
+    tabla.querySelectorAll('td,th').forEach(function(c){c.textContent=(c.textContent||'').replace(/\s+/g,' ').trim();});
+    var ws=XLSX.utils.table_to_sheet(tabla,{display:true,raw:true});
+    var anchos=[];
+    Object.keys(ws).forEach(function(k){
+      if(k.charAt(0)==='!')return;var c=ws[k];if(!c)return;
+      if(typeof c.v==='string'){
+        var t=c.v.replace(/\s+/g,' ').trim();c.v=t;
+        // "-$6.000 3% est." (comision con su porcentaje) -> solo el valor en pesos
+        var mCom=t.match(/^(-?\$ ?\d{1,3}(?:\.\d{3})*) \d+(?:[.,]\d+)?% ?(?:est\.?|real)?$/i);
+        if(mCom)t=mCom[1];
+        if(/^-?\$? ?\d{1,3}(\.\d{3})*$/.test(t)){c.t='n';c.v=+t.replace(/[^\d-]/g,'');c.z=FORMATO_COP;}
+        else if(/^\d+$/.test(t)&&t.length<7){c.t='n';c.v=+t;}
+      }
+      var col=XLSX.utils.decode_cell(k).c;
+      var largo=c.t==='n'?String(Math.round(Math.abs(c.v))).length+5:String(c.v).length;
+      anchos[col]=Math.min(60,Math.max(anchos[col]||8,largo+2));
+    });
+    ws['!cols']=anchos.map(function(w){return {wch:w||10};});
     var tituloTxt=(g('res-detalle-titulo').textContent||'Detalle').replace(/[\\/*?:\[\]]/g,'').substring(0,28);
     XLSX.utils.book_append_sheet(wb,ws,tituloTxt||'Detalle');
     var fechaArchivo=fmtFechaDDMMYYYY().split('/').join('-');
@@ -5781,11 +5809,16 @@ function exportarDetalleResExcel(){
     toast('Error al generar el Excel',1);
   }
 }
+function abrirDetalleEquipo(){
+  var sm=g('res-mes'),sa=g('res-anio'),h=new Date();
+  mostrarGastosDetalle(sm&&sm.value!==''?+sm.value:h.getMonth(),sa&&sa.value!==''?+sa.value:h.getFullYear(),'equipo');
+}
 function mostrarGastosDetalle(mesGas,anioGas,soloOperativos){
   var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var gastosRows=cont.filter(function(c){
     if(!c.egr||c.egr<=0)return false;
-    if(soloOperativos&&c.categoria==='Compra de mercancia')return false;
+    if(soloOperativos==='equipo'){if(tipoGasto(c.categoria)!=='equipo')return false;}
+    else if(soloOperativos&&!esGastoOperativo(c))return false;
     var p=(normFechaGlobal(c.fecha)||c.fecha||'').split('/');
     return p.length===3&&(+p[1]-1)===mesGas&&+p[2]===anioGas;
   });
@@ -5794,7 +5827,7 @@ function mostrarGastosDetalle(mesGas,anioGas,soloOperativos){
   var tb2=g('res-detalle-tb');
   var thRowGas=g('res-detalle-thead-row');
   if(thRowGas)thRowGas.innerHTML='<th>Fecha</th><th>Descripcion</th><th>Categoria</th><th style="text-align:right">Valor</th>';
-  if(titulo2)titulo2.textContent=(soloOperativos?'Gastos operativos (sin compra de mercancia) de ':'Gastos de ')+MESES[mesGas]+' '+anioGas+' ('+gastosRows.length+')';
+  if(titulo2)titulo2.textContent=(soloOperativos==='equipo'?'Herramientas y equipo de ':soloOperativos?'Gastos operativos (del dia a dia) de ':'Gastos de ')+MESES[mesGas]+' '+anioGas+' ('+gastosRows.length+')';
   var totalGas=gastosRows.reduce(function(s,c){return s+(c.egr||0);},0);
   if(tb2){
     if(!gastosRows.length){
@@ -6216,7 +6249,7 @@ function calcularGananciaNetaMes(mes,anio){
   var ventasM=ven.filter(function(v){return enEsteMes(v.fecha);});
   var ganTotalM=ventasM.reduce(function(s,v){return s+gananciaDeVenta(v);},0);
   var gastosM=cont.filter(function(c){
-    return c.egr>0&&c.categoria!=='Compra de mercancia'&&enEsteMes(c.fecha);
+    return restaDeGananciaNeta(c)&&enEsteMes(c.fecha);
   }).reduce(function(s,c){return s+(c.egr||0);},0);
   return ganTotalM-gastosM;
 }
@@ -6357,7 +6390,24 @@ function renderCrecimientoNegocio(hoy){
 
 // ── TARJETA "¿COMO VAMOS?" (salud del negocio: rentabilidad vs caja vs por cobrar) ──
 // Categorias de egreso que son INVERSION (mercancia/equipo) y no gasto del dia a dia
-var CATS_INVERSION=['Compra de mercancia','Otras compras'];
+// ── UNA SOLA REGLA para clasificar los gastos (la usan TODAS las partes del Resumen) ──
+// mercancia : su costo ya se resta en cada venta (costo del articulo)
+// prestamo  : plata prestada o adelantada a socios, debe volver (no es gasto del negocio)
+// operativo : todo lo demas (sueldos, acarreos, arriendo, servicios, herramientas, otras compras...): ESTO si se resta de la ganancia
+var CAT_MERCANCIA='Compra de mercancia';
+var CATS_EQUIPO=[]; // herramientas, equipo y otras compras se cuentan como GASTO normal del mes
+var CATS_PRESTAMO=['Prestamos o adelantos a socios'];
+var CATS_INVERSION=[CAT_MERCANCIA].concat(CATS_EQUIPO);
+function tipoGasto(cat){
+  if(cat===CAT_MERCANCIA)return 'mercancia';
+  if(CATS_EQUIPO.indexOf(cat)>=0)return 'equipo';
+  if(CATS_PRESTAMO.indexOf(cat)>=0)return 'prestamo';
+  return 'operativo';
+}
+function esGastoOperativo(c){return !!c&&c.egr>0&&tipoGasto(c.categoria)==='operativo';}
+// Lo que se resta para llegar a la GANANCIA NETA: gastos del dia a dia + inversion en herramientas/equipo
+// (la mercancia ya esta en el costo de cada venta; los prestamos a socios deben volver)
+function restaDeGananciaNeta(c){var t=c&&c.egr>0?tipoGasto(c.categoria):'';return t==='operativo'||t==='equipo';}
 function porCobrarActual(){
   var cc=0,nCC=0;
   ven.filter(function(v){return esCredicontado(v)&&v.cuotas>0;}).forEach(function(v){
@@ -6382,11 +6432,14 @@ function datosMesSalud(mes,anio){
   var bruta=ventasM.reduce(function(s,v){return s+gananciaDeVenta(v);},0);
   var movs=cont.filter(function(c){return enMes(c.fecha);});
   var ingresos=movs.reduce(function(s,c){return s+(c.ing||0);},0);
-  var inversion=movs.filter(function(c){return c.egr>0&&CATS_INVERSION.indexOf(c.categoria)>=0;}).reduce(function(s,c){return s+(c.egr||0);},0);
-  var operativos=movs.filter(function(c){return c.egr>0&&CATS_INVERSION.indexOf(c.categoria)<0;}).reduce(function(s,c){return s+(c.egr||0);},0);
+  function sumaTipo(t){return movs.filter(function(c){return c.egr>0&&tipoGasto(c.categoria)===t;}).reduce(function(s,c){return s+(c.egr||0);},0);}
+  var mercancia=sumaTipo('mercancia'),equipo=sumaTipo('equipo'),prestamos=sumaTipo('prestamo');
+  var operativos=sumaTipo('operativo');
+  var inversion=mercancia+equipo;
   return {ventas:ventasM.length,vendido:vendido,bruta:bruta,margen:vendido>0?bruta/vendido*100:0,
-    ingresos:ingresos,operativos:operativos,inversion:inversion,caja:ingresos-operativos-inversion,
-    neta:bruta-operativos,hayMovs:ventasM.length>0||movs.length>0};
+    ingresos:ingresos,operativos:operativos,inversion:inversion,mercancia:mercancia,equipo:equipo,prestamos:prestamos,
+    caja:ingresos-operativos-inversion-prestamos,operativa:bruta-operativos,
+    neta:bruta-operativos-equipo,hayMovs:ventasM.length>0||movs.length>0};
 }
 var saludDetalleAbierto=false;
 function toggleSaludDetalle(){
@@ -6414,6 +6467,7 @@ function renderSaludNegocio(mes,anio){
   // Estado general
   var color,estado;
   if(!d.hayMovs){color=GRIS;estado='Sin datos';}
+  else if(d.neta<=0&&d.operativa>0&&d.equipo>0){color=AMAR;estado='En negativo por la inversion en herramientas';}
   else if(d.neta<=0){color=ROJO;estado='Mal';}
   else if(d.caja<0){color=AMAR;estado='Bien, pero con cuidado';}
   else{color=VERDE;estado='Bien';}
@@ -6433,9 +6487,9 @@ function renderSaludNegocio(mes,anio){
     q1=pregunta('¿Ganamos plata?',null,'Aun no','Sin ventas este mes');
     q2=pregunta('¿Sobro plata en caja?',null,'Aun no','Sin movimientos');
   }else{
-    q1=d.neta>0?pregunta('¿Ganamos plata?',true,'Si, '+fmt(d.neta),'Ya restando los gastos'):pregunta('¿Ganamos plata?',false,d.neta<0?'No, se perdieron '+fmt(-d.neta):'No, quedo en $0','Los gastos fueron mas que la ganancia');
+    q1=d.neta>0?pregunta('¿Ganamos plata?',true,'Si, '+fmt(d.neta),'Ya restando los gastos'):pregunta('¿Ganamos plata?',false,d.neta<0?'No, se perdieron '+fmt(-d.neta):'No, quedo en $0',(d.operativa>0&&d.equipo>0)?'Por la inversion en herramientas y equipo':'Los gastos fueron mas que la ganancia');
     q2=d.caja>=0?pregunta('¿Sobro plata en caja?',true,'Si, '+fmt(d.caja),'Despues de pagar todo'):
-      pregunta('¿Sobro plata en caja?','ojo','No, faltaron '+fmt(-d.caja),d.inversion>0&&d.caja+d.inversion>0?'Por compras de mercancia o equipo':'Hay mucha plata por cobrar');
+      pregunta('¿Sobro plata en caja?','ojo','No, faltaron '+fmt(-d.caja),(d.inversion+d.prestamos)>0&&d.caja+d.inversion+d.prestamos>0?'Por compras de mercancia'+(d.prestamos>0?' y prestamos':''):'Hay mucha plata por cobrar');
   }
   if(!d.hayMovs)q3=pregunta('¿Mejor que '+nomAnt+'?',null,'Aun no','Sin ventas este mes');
   else if(d.neta<=0&&ant.hayMovs&&ant.neta>0)q3=pregunta('¿Mejor que '+nomAnt+'?',enCurso?null:false,'No',(enCurso?'Por ahora: ':'')+'en '+nomAnt+' se gano '+fmt(ant.neta));
@@ -6464,36 +6518,40 @@ function renderSaludNegocio(mes,anio){
       frases.push('Se vendieron '+fmt(d.vendido)+' y de cada $100.000 vendidos quedaron unos '+fmt(Math.round(d.margen)*1000)+' de ganancia.');
     }
     var costoVendido=d.vendido-d.bruta;
-    if(d.inversion>0&&costoVendido>0){
-      var r=d.inversion/costoVendido;
-      if(r>1.15)frases.push('Compraron mas mercancia ('+fmt(d.inversion)+') de la que se vendio (costo '+fmt(costoVendido)+'): el inventario crecio.'+(d.caja<0?' Por eso la caja quedo en rojo, pero esa plata esta en la bodega.':''));
-      else if(r>=0.85)frases.push('La compra de mercancia ('+fmt(d.inversion)+') fue casi igual a lo que se vendio: repusieron justo lo necesario.');
-      else frases.push('Compraron menos mercancia ('+fmt(d.inversion)+') de la que se vendio (costo '+fmt(costoVendido)+'). Ojo con quedarse sin productos para vender.');
-    }else if(d.inversion>0){
-      frases.push('Se invirtieron '+fmt(d.inversion)+' en mercancia o equipo.');
+    if(d.mercancia>0&&costoVendido>0){
+      var r=d.mercancia/costoVendido;
+      if(r>1.15)frases.push('Compraron mas mercancia ('+fmt(d.mercancia)+') de la que se vendio (costo '+fmt(costoVendido)+'): el inventario crecio.'+(d.caja<0?' Por eso la caja quedo en rojo, pero esa plata esta en la bodega.':''));
+      else if(r>=0.85)frases.push('La compra de mercancia ('+fmt(d.mercancia)+') fue casi igual a lo que se vendio: repusieron justo lo necesario.');
+      else frases.push('Compraron menos mercancia ('+fmt(d.mercancia)+') de la que se vendio (costo '+fmt(costoVendido)+'). Ojo con quedarse sin productos para vender.');
+    }else if(d.mercancia>0){
+      frases.push('Se compraron '+fmt(d.mercancia)+' en mercancia.');
     }
+    if(d.equipo>0)frases.push('Las ventas menos los gastos del dia a dia dejaron '+plata(d.operativa)+', y se invirtieron '+fmt(d.equipo)+' en herramientas y equipo: esa inversion ya esta restada de la ganancia neta.');
+    if(d.prestamos>0)frases.push('Se prestaron o adelantaron '+fmt(d.prestamos)+' a socios. Es plata que debe volver, por eso no se resta de la ganancia.');
   }
   // Avisos
   var avisos=[];
-  if(d.hayMovs&&d.neta<=0&&d.bruta>0)avisos.push('Los gastos del dia a dia ('+fmt(d.operativos)+') fueron mas que lo que dejaron las ventas ('+fmt(d.bruta)+'). Toca revisar gastos o vender mas.');
+  if(d.hayMovs&&d.neta<=0&&d.operativa>0&&d.equipo>0)avisos.push('Las ventas si cubrieron los gastos del dia a dia (quedaron '+fmt(d.operativa)+'), pero la inversion en herramientas y equipo ('+fmt(d.equipo)+') dejo el mes en '+plata(d.neta)+'.');
+  if(d.hayMovs&&d.operativa<=0&&d.bruta>0)avisos.push('Los gastos del dia a dia ('+fmt(d.operativos)+') fueron mas que lo que dejaron las ventas ('+fmt(d.bruta)+'). Toca revisar gastos o vender mas.');
   var contado=ven.filter(function(v){return enMes(v.fecha)&&v.pago==='EFECTIVO';}).reduce(function(s,v){return s+(v.total||0);},0);
   if(d.vendido>0&&(d.vendido-contado)/d.vendido>=0.6&&cob.total>0)avisos.push('El '+Math.round((d.vendido-contado)/d.vendido*100)+'% de lo vendido fue a credito. Hoy te deben '+fmt(cob.total)+': cobrar a tiempo es lo mas importante.');
   var gastoRaro=cont.filter(function(c){return enMes(c.fecha)&&c.egr>=500000&&CATS_INVERSION.indexOf(c.categoria)<0&&['Arriendo','Salarios o Bonificacion'].indexOf(c.categoria)<0;}).sort(function(a,b){return b.egr-a.egr;})[0];
-  if(gastoRaro)avisos.push('Hay un gasto grande de '+fmt(gastoRaro.egr)+' ("'+(gastoRaro.desc||'')+'") contado como gasto del dia a dia. Si fue compra de equipo o mercancia, en Contable cambiale la categoria a "Otras compras".');
+  if(gastoRaro)avisos.push('Hay un gasto grande de '+fmt(gastoRaro.egr)+' ("'+(gastoRaro.desc||'')+'") contado como gasto del dia a dia. Si fue compra de mercancia para vender, en Contable cambiale la categoria a "Compra de mercancia"; si fue un prestamo a un socio, a "Prestamos o adelantos a socios".');
 
   // Detalle (la tarjeta de numeros de antes)
   var blk='flex:1;min-width:190px;background:#faf7f2;border:1px solid #d3c1a8;border-radius:10px;padding:14px;cursor:pointer';
   var lbl='font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px';
   var sub='font-size:11px;color:#777;margin-top:2px';
   var varTxt=varNeta===null?'<span style="color:#aaa">Sin datos de '+nomAnt+'</span>':
-    '<span style="color:'+(varNeta>=0?'#1e8449':'#c0392b')+';font-weight:600">Ganancia real '+(varNeta>=0?'&#9650; ':'&#9660; ')+Math.abs(varNeta).toFixed(0)+'% vs '+nomAnt+'</span>';
+    '<span style="color:'+(varNeta>=0?'#1e8449':'#c0392b')+';font-weight:600">Ganancia real '+(varNeta>=0?'&#9650; '+fmt(d.neta-ant.neta)+' mas':'&#9660; '+fmt(ant.neta-d.neta)+' menos')+' que en '+nomAnt+'</span>';
   var detalle=
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'+
       '<div style="'+blk+'" onclick="abrirDetalleRes(\'todas\')" title="Ver ventas del mes">'+
         '<div style="'+lbl+'">Rentabilidad</div>'+
         '<div style="font-size:20px;font-weight:700;color:'+(d.bruta>=0?'#1e8449':'#c0392b')+'">'+fmt(d.bruta)+'</div>'+
         '<div style="'+sub+'">Ganancia de las ventas · margen '+d.margen.toFixed(0)+'%</div>'+
-        '<div style="'+sub+'">Menos gastos del dia a dia: <b style="color:'+(d.neta>=0?'#1e8449':'#c0392b')+'">'+plata(d.neta)+'</b></div>'+
+        '<div style="'+sub+'">Menos gastos del dia a dia: <b style="color:'+(d.operativa>=0?'#1e8449':'#c0392b')+'">'+plata(d.operativa)+'</b></div>'+
+        (d.equipo>0?'<div style="'+sub+'">Menos herramientas y equipo: <b style="color:'+(d.neta>=0?'#1e8449':'#c0392b')+'">'+plata(d.neta)+'</b></div>':'')+
         '<div style="font-size:11px;margin-top:6px">'+varTxt+'</div>'+
       '</div>'+
       '<div style="'+blk+'" onclick="goTab(\'contable\')" title="Ir al libro contable">'+
@@ -6501,7 +6559,9 @@ function renderSaludNegocio(mes,anio){
         '<div style="font-size:20px;font-weight:700;color:'+(d.caja>=0?'#1e8449':'#c0392b')+'">'+plata(d.caja)+'</div>'+
         '<div style="'+sub+'">Entro: '+fmt(d.ingresos)+'</div>'+
         '<div style="'+sub+'">Gastos del dia a dia: '+fmt(d.operativos)+'</div>'+
-        '<div style="'+sub+'">Inversion (mercancia/equipo): '+fmt(d.inversion)+'</div>'+
+        '<div style="'+sub+'">Mercancia: '+fmt(d.mercancia)+'</div>'+
+        (d.equipo>0?'<div style="'+sub+'">Herramientas y equipo: '+fmt(d.equipo)+'</div>':'')+
+        (d.prestamos>0?'<div style="'+sub+'">Prestamos a socios: '+fmt(d.prestamos)+'</div>':'')+
         '<div style="font-size:11px;color:#252627;margin-top:6px;font-weight:600">Saldo total en caja: '+plata(saldoHist)+'</div>'+
       '</div>'+
       '<div style="'+blk+'" onclick="goTab(\'carteraglobal\')" title="Ir a Cartera global">'+
@@ -6613,7 +6673,9 @@ function renderRes(){
   });
   var gas=gastosMesRows.reduce(function(s,c){return s+(c.egr||0);},0);
   // Gastos operativos = gastos del mes SIN contar compra de mercancia (esa ya esta descontada en la ganancia bruta via el costo del articulo)
-  var gastosOperativos=gastosMesRows.filter(function(c){return c.categoria!=='Compra de mercancia';}).reduce(function(s,c){return s+(c.egr||0);},0);
+  var gastosOperativos=gastosMesRows.filter(esGastoOperativo).reduce(function(s,c){return s+(c.egr||0);},0);
+  var inversionEquipo=gastosMesRows.filter(function(c){return tipoGasto(c.categoria)==='equipo';}).reduce(function(s,c){return s+(c.egr||0);},0);
+  var prestamosSocios=gastosMesRows.filter(function(c){return tipoGasto(c.categoria)==='prestamo';}).reduce(function(s,c){return s+(c.egr||0);},0);
 
   // Ganancias por tipo de pago
   function ganancia(v){
@@ -6647,7 +6709,8 @@ function renderRes(){
   });
   var ganSca=ganSc+ganAd;
   var ganTot=ganEf+ganCc+ganSca;
-  var ganNeta=ganTot-gastosOperativos;
+  var ganOperativa=ganTot-gastosOperativos;
+  var ganNeta=ganOperativa-inversionEquipo;
 
 
   // Actualizar tarjetas
@@ -6671,6 +6734,9 @@ function renderRes(){
   if(g('rg-ad'))g('rg-ad').textContent=fmt(Math.max(0,ganAd));
   if(g('rg'))g('rg').textContent=fmt(Math.max(0,ganTot));
   if(g('rg-op'))g('rg-op').textContent=fmt(gastosOperativos);
+  if(g('rg-neta-desglose')){
+    g('rg-neta-desglose').innerHTML=prestamosSocios>0?'<span style="color:#2980b9">Prestamos a socios por recuperar: '+fmt(prestamosSocios)+' (no se restan)</span>':'';
+  }
   // Porcentaje de margen de cada grupo (ganancia / vendido en ese grupo)
   function pctTxt(gan,base){return base>0?'('+((gan/base)*100).toFixed(0)+'% de margen)':'';}
   if(g('rg-ef-pct'))g('rg-ef-pct').textContent=pctTxt(ganEf,ef);
@@ -6699,10 +6765,11 @@ function renderRes(){
       compEl.textContent='El mes anterior no tuvo ganancia neta para comparar';
       compEl.style.color='#888';
     }else{
-      var diffPct=((ganNeta-ganNetaAnterior)/Math.abs(ganNetaAnterior))*100;
-      var subioOBajo=diffPct>=0?'▲ '+diffPct.toFixed(0)+'% mas que el mes anterior':'▼ '+Math.abs(diffPct).toFixed(0)+'% menos que el mes anterior';
-      compEl.textContent=subioOBajo+' (mes anterior: '+fmt(ganNetaAnterior)+')';
-      compEl.style.color=diffPct>=0?'#1e8449':'#c0392b';
+      var NOMM=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      var diffNeta=ganNeta-ganNetaAnterior;
+      var subioOBajo=diffNeta>=0?'▲ '+fmt(diffNeta)+' mas que en '+NOMM[mesAnteriorNum]:'▼ '+fmt(-diffNeta)+' menos que en '+NOMM[mesAnteriorNum];
+      compEl.textContent=subioOBajo+' (que gano '+fmt(ganNetaAnterior)+')';
+      compEl.style.color=diffNeta>=0?'#1e8449':'#c0392b';
     }
   }
 
@@ -6762,8 +6829,9 @@ function renderRes(){
         '<td style="text-align:right;color:#3498db">'+fmt(d.sca)+'</td>'+
         '<td style="text-align:right;font-weight:700;color:#1e8449">'+fmt(d.tot)+'</td>'+
         '<td style="text-align:right">'+(gastosMes>0?'<span style="cursor:pointer;color:#e74c3c;font-weight:700;text-decoration:underline" onclick="mostrarGastosDetalle('+d.mes+','+d.anio+')" title="Ver gastos de este mes">'+fmt(gastosMes)+'</span>':'<span style="color:#ccc">$0</span>')+'</td>'+
+        (function(){var gr=calcularGananciaNetaMes(d.mes,d.anio);return '<td style="text-align:right;font-weight:700;color:'+(gr>=0?'#1e8449':'#c0392b')+'">'+fmt(gr)+'</td>';})()+
       '</tr>';
-    }).join(''):'<tr><td colspan="7" class="empty">Sin historial de meses anteriores</td></tr>';
+    }).join(''):'<tr><td colspan="8" class="empty">Sin historial de meses anteriores</td></tr>';
   }
 }
 
@@ -7084,7 +7152,7 @@ function exportarExcelContable(){
     ws['!cols']=[{wch:12},{wch:45},{wch:22},{wch:16},{wch:16},{wch:18},{wch:16},{wch:8},{wch:12}];
     // Formato de moneda colombiana (con separador de miles) para Ingreso, Egreso y Total acumulado
     if(rows.length){
-      var formatoCOP='"$" #,##0';
+      var formatoCOP=FORMATO_COP;
       var colsMoneda=[3,4,5]; // D=Ingreso, E=Egreso, F=Total acumulado
       for(var rIdx=1;rIdx<=rows.length;rIdx++){
         colsMoneda.forEach(function(cIdx){
@@ -8150,7 +8218,7 @@ function exportarClientesExcel(){
   ws['!cols']=[{wch:16},{wch:16},{wch:13},{wch:13},{wch:16},{wch:9},{wch:15},{wch:13},{wch:13},{wch:12}];
   // Formato pesos colombianos en Total comprado y Debe
   var rng=XLSX.utils.decode_range(ws['!ref']);
-  for(var r=1;r<=rng.e.r;r++){['G','H'].forEach(function(col){var cell=ws[col+(r+1)];if(cell&&typeof cell.v==='number')cell.z='"$"#,##0';});}
+  for(var r=1;r<=rng.e.r;r++){['G','H'].forEach(function(col){var cell=ws[col+(r+1)];if(cell&&typeof cell.v==='number')cell.z=FORMATO_COP;});}
   XLSX.utils.book_append_sheet(wb,ws,'Clientes');
   XLSX.writeFile(wb,'Maximuebles_Clientes_'+fmtFechaDDMMYYYY().replace(/\//g,'-')+'.xlsx');
   toast('Excel de clientes descargado');
