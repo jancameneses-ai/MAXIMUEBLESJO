@@ -61,43 +61,14 @@
     });
   };
 
-  // Deteccion en tiempo real de la conexion (Firebase avisa apenas se pierde o recupera la señal)
-  var _ultimoConectado = null;
-  onValue(ref(db, '.info/connected'), function(snap){
-    var conectado = snap.val()===true;
-    _ultimoConectado = conectado;
-    if(conectado){
-      medirIntensidadSenal();
-    }else{
-      window.dispatchEvent(new CustomEvent('conexionCambio', { detail: { conectado:false, nivel:0 } }));
-    }
-  });
-
-  // Mide que tan rapido responde el servidor (proxy de la intensidad de la señal)
-  // IMPORTANTE: se escribe en una ruta separada ("_ping_senal"), NO dentro de "maxi",
-  // para que esta medicion NUNCA dispare el listener de datos principales ni cause
-  // que se vuelvan a procesar/sobreescribir los datos reales de la app cada pocos segundos.
-  var _midiendo=false;
-  function medirIntensidadSenal(){
-    if(!_ultimoConectado)return;
-    // Mientras la app esta subiendo datos (un guardado o una copia), la respuesta se demora por eso
-    // y no por la senal: no se mide, para no mostrar "Debil" sin razon. Tampoco se apilan mediciones.
-    if(window._subiendoDatos||_midiendo)return;
-    _midiendo=true;
-    var inicio = Date.now();
-    set(ref(db, '_ping_senal'), inicio).then(function(){
-      _midiendo=false;
-      if(window._subiendoDatos)return;
-      var rtt = Date.now() - inicio;
-      var nivel = rtt < 400 ? 3 : (rtt < 1200 ? 2 : 1);
-      window.dispatchEvent(new CustomEvent('conexionCambio', { detail: { conectado:true, nivel:nivel, rtt:rtt } }));
-    }).catch(function(){
-      _midiendo=false;
-      window.dispatchEvent(new CustomEvent('conexionCambio', { detail: { conectado:false, nivel:0 } }));
-    });
-  }
-  // Volver a medir cada 12 segundos mientras la app este abierta
-  setInterval(medirIntensidadSenal, 5000);
+  // Conexion con Firebase: se exponen dos piezas simples y el medidor de señal vive en el script principal
+  //  - window._fbOnConectado(cb): avisa true/false cuando Firebase se conecta o se desconecta
+  //  - window._fbPing(): escribe en "_ping_senal" (ruta aparte, NO dentro de "maxi") y devuelve una promesa
+  window._fbOnConectado = function(cb){
+    onValue(ref(db, '.info/connected'), function(snap){ cb(snap.val()===true); });
+  };
+  window._fbPing = function(){ return set(ref(db, '_ping_senal'), Date.now()); };
+  window.dispatchEvent(new Event('fbConexionLista'));
 
   // Autenticacion anonima: necesaria para que las reglas de seguridad puedan exigir
   // "auth != null" en vez de dejar la base de datos abierta a cualquiera en internet.
@@ -2256,9 +2227,9 @@ function save(){
       return;
     }
     b.textContent='Guardando...';b.style.background='#f39c12';
-    window._guardandoLocal=true;window._subiendoDatos=(window._subiendoDatos||0)+1;
+    window._guardandoLocal=true;window._subiendoDesde=Date.now();
     window.fbSet({inv:inv,ven:ven,users:users,cont:cont,entradas:entradas,actividad:actividad,comisionesFinanciera:comisionesFinanciera,clientes:clientes},function(err){
-      window._subiendoDatos=Math.max(0,(window._subiendoDatos||1)-1);
+      window._subiendoDesde=0;
       if(err){
         console.error('Firebase save error:',err);
         b.textContent='Solo local';b.style.background='#e67e22';
@@ -7498,9 +7469,9 @@ function guardarRespaldo(data,tipo,forzar,alTerminar){
       console.warn(window._alertaRespaldo);fin(false,window._alertaRespaldo);return;
     }
     var clave=hoy+'_'+_horaClave()+(tipo==='manual'?('0'+new Date().getSeconds()).slice(-2):''); // las manuales llevan segundos para no pisar otra del mismo minuto
-    window._subiendoDatos=(window._subiendoDatos||0)+1;
+    window._subiendoDesde=Date.now();
     window.fbSetPath('maxi_respaldos/'+clave,data,function(e2){
-      window._subiendoDatos=Math.max(0,(window._subiendoDatos||1)-1);
+      window._subiendoDesde=0;
       if(e2){fin(false,'No se pudo guardar la copia: '+(e2.message||e2));return;}
       idx[clave]={ts:Date.now(),conteos:cnt,tipo:tipo,quien:currentUser?(currentUser.nombre||currentUser.uname):''};
       // borrar copias de mas de 15 dias
@@ -9149,6 +9120,51 @@ function toast(msg,err){
   t._t=setTimeout(function(){t.style.opacity='0';},2800);
 }
 
+
+// ══════════ MEDIDOR DE SEÑAL (conexion con Firebase) ══════════
+// Reglas:
+//  - "Sin señal" SOLO cuando Firebase dice que se desconecto (y por mas de 3,5 s, ver actualizarIndicadorConexion).
+//  - Apenas Firebase dice "conectado", se muestra conectado de inmediato (nunca se queda pegado en "Sin señal").
+//  - La rapidez de respuesta solo cambia las barras (Buena / Regular / Debil); una medicion lenta o fallida
+//    NUNCA marca "Sin señal".
+//  - Mientras la app sube un guardado o una copia (hasta 20 s), no se mide: la demora seria por eso, no por la señal.
+var _senal={conectado:null,nivel:3,midiendoDesde:0};
+function _emitirSenal(){window.dispatchEvent(new CustomEvent('conexionCambio',{detail:{conectado:_senal.conectado===true,nivel:_senal.nivel}}));}
+function medirSenal(){
+  if(_senal.conectado!==true||typeof window._fbPing!=='function')return;
+  var ahora=Date.now();
+  if(window._subiendoDesde&&ahora-window._subiendoDesde<20000)return;
+  if(_senal.midiendoDesde){
+    if(ahora-_senal.midiendoDesde<10000)return;           // aun esperando la medicion anterior
+    _senal.nivel=1;_senal.midiendoDesde=0;_emitirSenal();   // lleva 10 s sin respuesta: "Debil", pero conectado
+  }
+  var inicio=Date.now();_senal.midiendoDesde=inicio;
+  window._fbPing().then(function(){
+    if(_senal.midiendoDesde!==inicio)return;
+    _senal.midiendoDesde=0;
+    if(window._subiendoDesde&&Date.now()-window._subiendoDesde<20000)return;
+    var rtt=Date.now()-inicio;
+    _senal.nivel=rtt<600?3:(rtt<2000?2:1);
+    if(_senal.conectado===true)_emitirSenal();
+  }).catch(function(){
+    if(_senal.midiendoDesde!==inicio)return;
+    _senal.midiendoDesde=0;_senal.nivel=1;
+    if(_senal.conectado===true)_emitirSenal();
+  });
+}
+function iniciarMedidorSenal(){
+  if(window._medidorIniciado||typeof window._fbOnConectado!=='function')return;
+  window._medidorIniciado=true;
+  window._fbOnConectado(function(con){
+    _senal.conectado=con;
+    if(con){_senal.midiendoDesde=0;_emitirSenal();medirSenal();}
+    else _emitirSenal();
+  });
+  setInterval(medirSenal,8000);
+}
+window.addEventListener('fbConexionLista',iniciarMedidorSenal);
+if(typeof window._fbOnConectado==='function')iniciarMedidorSenal();
+
 // ── Indicador de conexion (barras de señal, como el celular) ──
 var _conexionEstadoPrevio=null;
 function pintarBarras(prefijo,nivel,conectado){
@@ -9205,12 +9221,26 @@ window.addEventListener('conexionCambio',function(e){
 });
 // Respaldo: el navegador tambien avisa si se cae el internet por completo (sin wifi/datos)
 window.addEventListener('offline',function(){
-  // Esto es una señal confiable e instantanea del sistema operativo: bloquear YA, sin esperar nada
-  actualizarIndicadorConexion(false,0);
+  // Windows a veces avisa "sin red" por un instante aunque el internet funcione (escritorio remoto,
+  // wifi que parpadea, VPN). Antes de bloquear, se le pregunta a Firebase: si responde, se ignora el aviso.
+  var revisar=function(){
+    if(_senal.conectado!==true||typeof window._fbPing!=='function'){actualizarIndicadorConexion(false,0);return;}
+    var resuelto=false;
+    var t=setTimeout(function(){if(resuelto)return;resuelto=true;if(!navigator.onLine)actualizarIndicadorConexion(false,0);},5000);
+    window._fbPing().then(function(){
+      if(resuelto)return;resuelto=true;clearTimeout(t);
+      _emitirSenal(); // Firebase si responde: hay conexion, no se bloquea nada
+    }).catch(function(){
+      if(resuelto)return;resuelto=true;clearTimeout(t);
+      if(!navigator.onLine)actualizarIndicadorConexion(false,0);
+    });
+  };
+  setTimeout(revisar,1500);
 });
 window.addEventListener('online',function(){
   // Cuando vuelve el internet del sistema, Firebase confirmara por su cuenta el reconecte via 'conexionCambio'
   toast('Se recupero el internet, verificando conexion...');
+  setTimeout(function(){if(_senal.conectado===true){_emitirSenal();medirSenal();}},1500);
 });
 // Se puede usar en cualquier funcion que registre un movimiento, para frenarlo si no hay conexion real
 function sinConexionActiva(){
