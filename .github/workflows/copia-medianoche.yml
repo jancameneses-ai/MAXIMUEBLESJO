@@ -1,0 +1,64 @@
+# Copia de seguridad automatica de Maximuebles JO
+# Se ejecuta todos los dias a las 12:00 de la noche (hora de Colombia).
+# Guarda una copia completa de los datos en Firebase (maxi_respaldos) y conserva los ultimos 15 dias.
+# Si los datos se ven danados (desaparecio una buena parte de algo), NO guarda la copia y
+# la ejecucion falla: GitHub te avisa por correo para que revises la app.
+name: Copia de seguridad - 12 de la noche
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 05:00 UTC = 12:00 a. m. en Colombia
+  workflow_dispatch:       # boton "Run workflow" para hacerla a mano
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Hacer copia de seguridad
+        run: |
+          node - <<'FIN_SCRIPT'
+          // Copia de seguridad de Maximuebles JO (la ejecuta GitHub todos los dias a las 12 de la noche, hora Colombia)
+          const API_KEY = process.env.FB_API_KEY || 'AIzaSyARotxjV4m7EgtaBKeuguI6FhzHq0f25DQ';
+          const DB = process.env.FB_DB_URL || 'https://maximuebles-d7475-default-rtdb.firebaseio.com';
+          const AUTH = process.env.FB_AUTH_URL || 'https://identitytoolkit.googleapis.com';
+          const DIAS = 15;
+          const len = x => Array.isArray(x) ? x.length : (x && typeof x === 'object' ? Object.keys(x).length : 0);
+          const conteos = d => ({ cont: len(d.cont), ven: len(d.ven), inv: len(d.inv), entradas: len(d.entradas), clientes: len(d.clientes) });
+          const NOMBRES = { cont: 'movimientos contables', ven: 'ventas', inv: 'articulos', entradas: 'entradas de inventario', clientes: 'clientes' };
+          function caida(a, n) { if (!a) return ''; for (const k in NOMBRES) { const x = a[k] || 0, y = n[k] || 0; if (x - y > 5 && y < x * 0.7) return `desaparecieron ${x - y} ${NOMBRES[k]} de ${x}`; } return ''; }
+          async function req(metodo, url, cuerpo) {
+            const r = await fetch(url, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) });
+            const t = await r.text();
+            if (!r.ok) throw new Error(`${metodo} ${url.split('?')[0]} -> ${r.status} ${t.slice(0, 200)}`);
+            return t ? JSON.parse(t) : null;
+          }
+          (async () => {
+            const bog = new Date(Date.now() - 5 * 3600 * 1000);               // hora de Colombia (UTC-5)
+            const hoy = bog.toISOString().slice(0, 10);
+            const clave = hoy + '_' + bog.toISOString().slice(11, 13) + bog.toISOString().slice(14, 16);
+            const login = await req('POST', `${AUTH}/v1/accounts:signUp?key=${API_KEY}`, { returnSecureToken: true });
+            const auth = '?auth=' + login.idToken;
+            const data = await req('GET', `${DB}/maxi.json${auth}`);
+            if (!data) throw new Error('La base de datos esta vacia: no se hizo copia');
+            const cnt = conteos(data);
+            console.log('Datos actuales:', JSON.stringify(cnt));
+            const idx = (await req('GET', `${DB}/maxi_respaldos_idx.json${auth}`)) || {};
+            const claves = Object.keys(idx).sort();
+            const ultima = claves.length ? idx[claves[claves.length - 1]] : null;
+            const motivo = ultima ? caida(ultima.conteos, cnt) : '';
+            if (motivo) {
+              // No se guarda una copia que parece danada. El error hace que GitHub te avise por correo.
+              throw new Error(`ALERTA: comparado con la copia ${claves[claves.length - 1]}, ${motivo}. No se hizo la copia. Revisa la app.`);
+            }
+            await req('PUT', `${DB}/maxi_respaldos/${clave}.json${auth}`, data);
+            idx[clave] = { ts: Date.now(), conteos: cnt, tipo: 'medianoche', quien: 'GitHub' };
+            const lim = new Date(bog); lim.setUTCDate(lim.getUTCDate() - DIAS);
+            const limK = lim.toISOString().slice(0, 10);
+            for (const k of Object.keys(idx)) {
+              if (k.split('_')[0] < limK) { delete idx[k]; await req('DELETE', `${DB}/maxi_respaldos/${k}.json${auth}`); console.log('Borrada copia vieja', k); }
+            }
+            await req('PUT', `${DB}/maxi_respaldos_idx.json${auth}`, idx);
+            console.log('Copia guardada:', clave);
+          })().catch(e => { console.error(e.message); process.exit(1); });
+          FIN_SCRIPT
